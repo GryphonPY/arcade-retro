@@ -7,7 +7,9 @@ import DesertRunner from '@/components/games/desert-runner'
 import GhostMaze from '@/components/games/ghost-maze'
 import TrafficRacer from '@/components/games/traffic-racer'
 import BrickBreaker from '@/components/games/brick-breaker'
+import HitAndRun from '@/components/games/hit-and-run'
 import { loadBest } from '@/components/games/game-utils'
+import { sfx, loadMutePref, setMuted } from '@/components/games/sfx'
 
 interface GameMeta {
   id: string
@@ -95,6 +97,18 @@ const GAMES: GameMeta[] = [
     viewBg: 'linear-gradient(180deg,#FBF3E4 0%,#F5E7D8 100%)',
     textColor: '#B47A8C',
   },
+  {
+    id: 'hit-and-run',
+    name: 'Hit & Run',
+    emoji: '🚕',
+    tag: 'Pixel city',
+    desc: 'Embiste taxis en la ciudad de píxeles y escapa con turbo de la policía.',
+    controls: 'Mover · ↑ turbo · ↓ freno',
+    accent: '#FFC531',
+    cardBg: 'linear-gradient(150deg,#151528 0%,#0E0E1E 55%,#33230E 100%)',
+    viewBg: 'radial-gradient(800px 460px at 50% 0%, rgba(255,197,49,0.10), transparent), #0E0E1E',
+    textColor: '#FFE9A0',
+  },
 ]
 
 function ControlChip({ children }: { children: React.ReactNode }) {
@@ -105,9 +119,24 @@ function ControlChip({ children }: { children: React.ReactNode }) {
   )
 }
 
+function MuteButton({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={muted ? 'Activar sonido' : 'Silenciar sonido'}
+      title={muted ? 'Activar sonido' : 'Silenciar sonido'}
+      className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
+  )
+}
+
 export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [bests, setBests] = useState<Record<string, number>>({})
+  const [muted, setMutedState] = useState(false)
 
   const refreshBests = useCallback(() => {
     const map: Record<string, number> = {}
@@ -119,6 +148,11 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
     refreshBests()
   }, [refreshBests, activeId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
+    setMutedState(loadMutePref())
+  }, [])
 
   // ESC vuelve a la sala arcade
   useEffect(() => {
@@ -158,9 +192,20 @@ export default function Home() {
           ARCADE RETRO
         </h1>
         <p className="mt-4 text-sm text-white/55 max-w-md mx-auto">
-          Seis juegos sencillos con estilos totalmente distintos. Todo se juega con
+          Siete juegos sencillos con estilos totalmente distintos. Todo se juega con
           las <b className="text-white/80">flechas</b> o <b className="text-white/80">WASD</b>.
         </p>
+        <div className="mt-4 flex justify-center">
+          <MuteButton
+            muted={muted}
+            onToggle={() => {
+              const v = !muted
+              setMuted(v)
+              setMutedState(v)
+              if (!v) sfx.coin()
+            }}
+          />
+        </div>
       </header>
 
       <main className="relative z-10 flex-1 w-full max-w-5xl mx-auto px-4 pb-16">
@@ -172,6 +217,7 @@ export default function Home() {
                 type="button"
                 onClick={(e) => {
                   e.currentTarget.blur()
+                  sfx.coin()
                   setActiveId(g.id)
                 }}
                 className="group relative text-left rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2"
@@ -232,13 +278,24 @@ export default function Home() {
             aria-label={`Juego activo: ${activeGame.name}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <button
-                type="button"
-                onClick={() => setActiveId(null)}
-                className="rounded-lg border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-bold text-white/85 hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-              >
-                ← Volver a la sala
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveId(null)}
+                  className="rounded-lg border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-bold text-white/85 hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                >
+                  ← Volver a la sala
+                </button>
+                <MuteButton
+                  muted={muted}
+                  onToggle={() => {
+                    const v = !muted
+                    setMuted(v)
+                    setMutedState(v)
+                    if (!v) sfx.coin()
+                  }}
+                />
+              </div>
               <h2
                 className="text-sm sm:text-base font-extrabold tracking-wide"
                 style={{ color: activeGame.textColor, textShadow: `0 0 18px ${activeGame.accent}55` }}
@@ -257,6 +314,7 @@ export default function Home() {
               {activeGame.id === 'ghost-maze' && <GhostMaze />}
               {activeGame.id === 'traffic-racer' && <TrafficRacer />}
               {activeGame.id === 'brick-breaker' && <BrickBreaker />}
+              {activeGame.id === 'hit-and-run' && <HitAndRun />}
             </div>
           </section>
         )}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys, type Dir } from './use-keys'
 import { loadBest, saveBest, rr } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { sfx } from './sfx'
 
 const COLS = 22
 const ROWS = 22
@@ -127,6 +128,7 @@ export default function SnakeNeon() {
         setRunning(false)
         if (saveBest('snake-neon', scoreRef.current)) setNewBest(true)
         setBest((b) => Math.max(b, scoreRef.current))
+        sfx.gameOver()
         return
       }
       s.snake.unshift(nh)
@@ -135,6 +137,7 @@ export default function SnakeNeon() {
         s.stepMs = Math.max(62, s.stepMs - 2.4)
         scoreRef.current += 10
         setScore(scoreRef.current)
+        sfx.eat()
       } else {
         s.snake.pop()
       }
@@ -228,6 +231,7 @@ export default function SnakeNeon() {
         if (jp.has('up') || jp.has('down') || jp.has('left') || jp.has('right')) {
           s.started = true
           setRunning(true)
+          sfx.start()
         }
       } else {
         // encolar giros

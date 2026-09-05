@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, aabb, rr } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { sfx } from './sfx'
 
 const W = 480
 const H = 400
@@ -103,7 +104,6 @@ export default function BrickBreaker() {
   const overRef = useRef(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
     setBest(loadBest('brick-breaker'))
   }, [])
 
@@ -139,6 +139,7 @@ export default function BrickBreaker() {
       setRunning(false)
       if (saveBest('brick-breaker', stateRef.current.score)) setNewBest(true)
       setBest((b) => Math.max(b, stateRef.current.score))
+      sfx.gameOver()
     }
 
     const update = (dt: number) => {
@@ -168,6 +169,7 @@ export default function BrickBreaker() {
           s.started = true
           setRunning(true)
           launch(s)
+          sfx.start()
         }
         return
       }
@@ -206,6 +208,7 @@ export default function BrickBreaker() {
         if (s.ball.y < 10) {
           s.ball.y = 10
           s.ball.vy = Math.abs(s.ball.vy)
+          sfx.pellet()
         }
 
         // paleta
@@ -219,6 +222,7 @@ export default function BrickBreaker() {
           s.ball.vx = Math.sin(angle) * sp
           s.ball.vy = -Math.abs(Math.cos(angle) * sp)
           if (Math.abs(s.ball.vy) < sp * 0.35) s.ball.vy = -sp * 0.35
+          sfx.bounce()
         }
 
         // ladrillos
@@ -235,6 +239,7 @@ export default function BrickBreaker() {
             if (fromSide) s.ball.vx *= -1
             else s.ball.vy *= -1
             s.shakeT = 0.08
+            sfx.brick(b.row)
             break
           }
         }
@@ -243,6 +248,7 @@ export default function BrickBreaker() {
         if (s.ball.y > H + 12) {
           s.lives -= 1
           setLives(s.lives)
+          sfx.hurt()
           if (s.lives <= 0) {
             gameOver()
             return
@@ -261,6 +267,7 @@ export default function BrickBreaker() {
         s.score += 150
         setScore(s.score)
         s.winT = 1.5
+        sfx.levelUp()
       }
     }
 

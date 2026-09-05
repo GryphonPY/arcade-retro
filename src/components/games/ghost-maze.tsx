@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys, type Dir } from './use-keys'
 import { loadBest, saveBest } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { sfx } from './sfx'
 
 const MAZE = [
   '###################',
@@ -187,6 +188,7 @@ export default function GhostMaze() {
       setRunning(false)
       if (saveBest('ghost-maze', stateRef.current.score)) setNewBest(true)
       setBest((b) => Math.max(b, stateRef.current.score))
+      sfx.gameOver()
     }
 
     const resetPositions = (s: MazeState) => {
@@ -261,6 +263,7 @@ export default function GhostMaze() {
         if (s.player.want) {
           s.started = true
           setRunning(true)
+          sfx.start()
         }
         return
       }
@@ -313,16 +316,19 @@ export default function GhostMaze() {
           s.pelletCount--
           s.score += 10
           setScore(s.score)
+          sfx.pellet()
         } else if (s.power[p.tile.r][p.tile.c]) {
           s.power[p.tile.r][p.tile.c] = false
           s.pelletCount--
           s.score += 50
           setScore(s.score)
+          sfx.power()
         }
         if (s.pelletCount <= 0) {
           s.score += 200
           setScore(s.score)
           s.levelFlash = 1.4
+          sfx.levelUp()
           return
         }
         // decidir siguiente tramo
@@ -385,6 +391,7 @@ export default function GhostMaze() {
         if (Math.hypot(g.px - p.px, g.py - p.py) < T * 0.58) {
           s.lives -= 1
           setLives(s.lives)
+          sfx.hurt()
           if (s.lives <= 0) {
             gameOver()
             return

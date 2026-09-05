@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, aabb, rr } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { sfx } from './sfx'
 
 const W = 520
 const H = 300
@@ -150,6 +151,7 @@ export default function DesertRunner() {
       setRunning(false)
       if (saveBest('desert-runner', scoreRef.current)) setNewBest(true)
       setBest((b) => Math.max(b, scoreRef.current))
+      sfx.crash()
     }
 
     const update = (dt: number) => {
@@ -174,6 +176,7 @@ export default function DesertRunner() {
         if (jp.has('up') || jp.has('action')) {
           s.started = true
           setRunning(true)
+          sfx.start()
         }
         return
       }
@@ -193,6 +196,7 @@ export default function DesertRunner() {
         s.vy = -700
         s.onGround = false
         addDust(120, GROUND_Y, 6)
+        sfx.jump()
       }
       if (!s.onGround) {
         s.vy += 2150 * dt
@@ -202,6 +206,7 @@ export default function DesertRunner() {
           s.vy = 0
           s.onGround = true
           addDust(120, GROUND_Y, 8)
+          sfx.land()
         }
       }
       s.legT += dt * (s.onGround ? s.speed * 0.06 : 4)

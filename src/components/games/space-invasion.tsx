@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, drawMatrix, aabb } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { sfx } from './sfx'
 
 const W = 480
 const H = 520
@@ -220,6 +221,7 @@ export default function SpaceInvasion() {
       setRunning(false)
       if (saveBest('space-invasion', scoreRef.current)) setNewBest(true)
       setBest((b) => Math.max(b, scoreRef.current))
+      sfx.gameOver()
     }
 
     const update = (dt: number) => {
@@ -253,12 +255,12 @@ export default function SpaceInvasion() {
 
       if (overRef.current || !s.started) {
         if (overRef.current && jp.has('action')) restart()
-        if (
-          !s.started &&
+        if (!s.started &&
           (jp.has('up') || jp.has('down') || jp.has('left') || jp.has('right') || jp.has('action'))
         ) {
           s.started = true
           setRunning(true)
+          sfx.start()
         }
         return
       }
@@ -279,6 +281,7 @@ export default function SpaceInvasion() {
       if (pressed.has('action') && s.cooldown <= 0) {
         s.cooldown = 0.26
         s.bullets.push({ x: s.shipX, y: s.shipY - 16, vy: -540 })
+        sfx.shoot()
       }
 
       // formación invasores
@@ -303,6 +306,7 @@ export default function SpaceInvasion() {
         setWave(s.wave)
         scoreRef.current += 100
         setScore(scoreRef.current)
+        sfx.levelUp()
         s.alive = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => true))
         s.formY = FORM_TOP
         s.dirSign = 1
@@ -369,6 +373,7 @@ export default function SpaceInvasion() {
             setLives(s.lives)
             s.invuln = 1.6
             s.hitFlash = 0.25
+            sfx.explode()
             if (s.lives <= 0) gameOver()
             return false
           }
@@ -385,6 +390,7 @@ export default function SpaceInvasion() {
               burst(ix + INV_W / 2, iy + INV_H / 2, rowColor(r))
               scoreRef.current += rowPoints(r)
               setScore(scoreRef.current)
+              sfx.pop()
               return false
             }
           }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, aabb, rr } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { sfx } from './sfx'
 
 const W = 380
 const H = 520
@@ -184,6 +185,8 @@ export default function TrafficRacer() {
       setRunning(false)
       if (saveBest('traffic-racer', scoreRef.current)) setNewBest(true)
       setBest((b) => Math.max(b, scoreRef.current))
+      sfx.crash()
+      sfx.gameOver()
     }
 
     const update = (dt: number) => {
@@ -203,6 +206,7 @@ export default function TrafficRacer() {
         if (pressed.has('left') || pressed.has('right') || jp.has('up') || jp.has('action')) {
           s.started = true
           setRunning(true)
+          sfx.start()
         }
         return
       }
