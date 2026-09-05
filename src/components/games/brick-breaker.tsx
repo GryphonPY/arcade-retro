@@ -104,6 +104,7 @@ export default function BrickBreaker() {
   const overRef = useRef(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
     setBest(loadBest('brick-breaker'))
   }, [])
 

@@ -8,8 +8,10 @@ import GhostMaze from '@/components/games/ghost-maze'
 import TrafficRacer from '@/components/games/traffic-racer'
 import BrickBreaker from '@/components/games/brick-breaker'
 import HitAndRun from '@/components/games/hit-and-run'
+import GunAndRun from '@/components/games/gun-and-run'
 import { loadBest } from '@/components/games/game-utils'
 import { sfx, loadMutePref, setMuted } from '@/components/games/sfx'
+import { loadMusicPref, setMusicEnabled, primeMusic, startMusic } from '@/components/games/music'
 
 interface GameMeta {
   id: string
@@ -109,6 +111,18 @@ const GAMES: GameMeta[] = [
     viewBg: 'radial-gradient(800px 460px at 50% 0%, rgba(255,197,49,0.10), transparent), #0E0E1E',
     textColor: '#FFE9A0',
   },
+  {
+    id: 'gun-and-run',
+    name: 'Gun & Run',
+    emoji: '🪖',
+    tag: 'Run & gun',
+    desc: 'Corre, salta y dispara por la selva al atardecer: soldados, drones y torretas.',
+    controls: 'Mover · ↑ salto · ESPACIO disparo',
+    accent: '#FF8A3D',
+    cardBg: 'linear-gradient(150deg,#2A1B10 0%,#140D08 55%,#3D2210 100%)',
+    viewBg: 'radial-gradient(800px 460px at 50% 0%, rgba(255,138,61,0.14), transparent), #17100A',
+    textColor: '#FFC9A0',
+  },
 ]
 
 function ControlChip({ children }: { children: React.ReactNode }) {
@@ -133,10 +147,25 @@ function MuteButton({ muted, onToggle }: { muted: boolean; onToggle: () => void 
   )
 }
 
+function MusicButton({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={on ? 'Desactivar música' : 'Activar música'}
+      title={on ? 'Desactivar música' : 'Activar música'}
+      className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+    >
+      <span className={on ? '' : 'line-through decoration-red-400/90 decoration-2'}>🎵</span>
+    </button>
+  )
+}
+
 export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [bests, setBests] = useState<Record<string, number>>({})
   const [muted, setMutedState] = useState(false)
+  const [musicOn, setMusicOn] = useState(true)
 
   const refreshBests = useCallback(() => {
     const map: Record<string, number> = {}
@@ -152,7 +181,18 @@ export default function Home() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
     setMutedState(loadMutePref())
+    setMusicOn(loadMusicPref())
   }, [])
+
+  // Arranca el AudioContext de la música en el primer gesto del usuario
+  useEffect(() => {
+    primeMusic()
+  }, [])
+
+  // La melodía acompaña al juego activo (tema propio en la sala arcade)
+  useEffect(() => {
+    startMusic(activeId ?? 'hub')
+  }, [activeId])
 
   // ESC vuelve a la sala arcade
   useEffect(() => {
@@ -192,10 +232,10 @@ export default function Home() {
           ARCADE RETRO
         </h1>
         <p className="mt-4 text-sm text-white/55 max-w-md mx-auto">
-          Siete juegos sencillos con estilos totalmente distintos. Todo se juega con
-          las <b className="text-white/80">flechas</b> o <b className="text-white/80">WASD</b>.
+          Siete juegos se quedaron cortos: ahora son ocho, con música chiptune en cada uno.
+          Todo se juega con las <b className="text-white/80">flechas</b> o <b className="text-white/80">WASD</b>.
         </p>
-        <div className="mt-4 flex justify-center">
+        <div className="mt-4 flex justify-center gap-2">
           <MuteButton
             muted={muted}
             onToggle={() => {
@@ -203,6 +243,14 @@ export default function Home() {
               setMuted(v)
               setMutedState(v)
               if (!v) sfx.coin()
+            }}
+          />
+          <MusicButton
+            on={musicOn}
+            onToggle={() => {
+              const v = !musicOn
+              setMusicEnabled(v)
+              setMusicOn(v)
             }}
           />
         </div>
@@ -295,6 +343,14 @@ export default function Home() {
                     if (!v) sfx.coin()
                   }}
                 />
+                <MusicButton
+                  on={musicOn}
+                  onToggle={() => {
+                    const v = !musicOn
+                    setMusicEnabled(v)
+                    setMusicOn(v)
+                  }}
+                />
               </div>
               <h2
                 className="text-sm sm:text-base font-extrabold tracking-wide"
@@ -315,6 +371,7 @@ export default function Home() {
               {activeGame.id === 'traffic-racer' && <TrafficRacer />}
               {activeGame.id === 'brick-breaker' && <BrickBreaker />}
               {activeGame.id === 'hit-and-run' && <HitAndRun />}
+              {activeGame.id === 'gun-and-run' && <GunAndRun />}
             </div>
           </section>
         )}

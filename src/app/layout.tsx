@@ -21,10 +21,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arcade Retro — 6 mini-juegos con teclado",
+  title: "Arcade Retro — 8 mini-juegos con teclado y música chiptune",
   description:
-    "Sala de arcade con 6 mini-juegos clásicos para jugar con las flechas o WASD: Snake neón, invasión espacial, corredor del desierto, laberinto fantasma, carrera de tráfico y rompe ladrillos.",
-  keywords: ["arcade", "juegos", "mini-juegos", "snake", "retro", "wasd", "flechas"],
+    "Sala de arcade con 8 mini-juegos clásicos para jugar con las flechas o WASD, cada uno con su música chiptune: Snake neón, invasión espacial, corredor del desierto, laberinto fantasma, carrera de tráfico, rompe ladrillos, Hit & Run y Gun & Run.",
+  keywords: ["arcade", "juegos", "mini-juegos", "snake", "retro", "wasd", "flechas", "chiptune"],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

@@ -41,3 +41,22 @@ Stage Summary:
 - Ruta única "/" con hub + vista de juego por estado (SPA). 6 juegos en src/components/games/.
 - Todos los juegos: canvas 2D con DPR scaling, bucle RAF con dt acotado, controles flechas+WASD (+Espacio/Enter acción), récords en localStorage, overlays de inicio/fin, cruceta táctil en móvil.
 - Lint limpio, servidor sin errores, interactividad verificada en navegador.
+
+---
+Task ID: 3
+Agent: Super Z (main)
+Task: Nuevo juego Gun & Run (run-and-gun pixel-art) + música chiptune de fondo por juego ("musiquitas").
+
+Work Log:
+- Creado src/components/games/music.ts: secuenciador chiptune WebAudio (bajo + melodía + percusión kick/snare/hat, rejilla de corcheas con soporte de nota sostenida '.'). 9 pistas compuestas: hub (chill C-Am-F-G), snake-neon (synthwave Am-F-C-G), space-invasion (driver Em), desert-runner (country bounce), ghost-maze (saltarín F-Dm-Bb-C), traffic-racer (dark wave Dm), brick-breaker (pastel G-Em-C-D), hit-and-run (funk Em), gun-and-run (acción heroica Am). Scheduler con lookahead (setInterval 40ms), pausa al silenciar (respeta arcade-muted de sfx.ts y su propia preferencia arcade-music), primeMusic() engancha el primer pointerdown/keydown para el autoplay policy.
+- Creado src/components/games/gun-and-run.tsx (8º juego): run & gun de acción lateral pixel-art, selva al atardecer (sol retro con bandas, montañas/jungla parallax, cajas/rocas deterministas). Soldado con matrices pixel (torso 11x8 + piernas animadas 2 frames/salto/idle, flip horizontal), correr/saltar/disparar (ESPACIO con autocadencia), 3 enemigos: soldados (+100, disparan), drones que bombardean y sueltan power-ups (+150), torretas con cañón orientado al jugador (+250, hp 3). Power-ups: V = triple disparo 9s, botiquín = +1 vida. Plataformas atravesables desde arriba, cámara solo-avanza, zonas cada 300 m con cartela, partículas con gravedad, casquillos, screen shake, 3-4 vidas con invulnerabilidad parpadeante. Guarda récord en localStorage (gun-and-run).
+- Corregidos durante el desarrollo: hp tipado en Soldier/Drone y filtros anti doble-puntuación con triple disparo; choque de dron ya no otorga puntos.
+- page.tsx: 8ª tarjeta Gun & Run (paleta selva/atardecer), botón 🎵 MusicButton (tachado en rojo si off) junto al 🔊 en hub y vista de juego, efectos startMusic(activeId ?? 'hub') + primeMusic(), subtítulo "Siete juegos se quedaron cortos: ahora son ocho, con música chiptune en cada uno".
+- layout.tsx: metadata actualizada a "8 mini-juegos con teclado y música chiptune".
+- brick-breaker.tsx: restaurado disable comment de react-hooks/set-state-in-effect (se había perdido).
+- Lint 0 problemas, tsc limpio en src/. Verificación agent-browser: 8 tarjetas, Gun & Run jugable (inicio, daño con corazones, game over "CAÍSTE EN COMBATE", reinicio con ENTER), toggle música persiste en localStorage ('0'/'1'), Snake sin regresiones, sin errores de consola ni en dev.log.
+
+Stage Summary:
+- 8 juegos operativos, cada uno con melodía chiptune propia + tema del hub; SFX y música conmuteables por separado (🔊 / 🎵) y persistentes.
+- gun-and-run.tsx añade run & gun completo sobre canvas 640x360 pixel-art.
+- Sin errores de runtime; lint y tsc limpios.
