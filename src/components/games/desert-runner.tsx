@@ -486,7 +486,7 @@ export default function DesertRunner() {
       <div className="relative rounded-3xl border-4 border-[#D98F3E] shadow-[0_14px_40px_rgba(217,143,62,0.35)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block"
+          className="block touch-none select-none"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Corredor del Desierto"
         />
@@ -521,11 +521,11 @@ export default function DesertRunner() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Los cactus y rocas se saltan; los buitres se esquivan agachándose. La velocidad no perdona.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Saltar" />
     </div>
   )
 }

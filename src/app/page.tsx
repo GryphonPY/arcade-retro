@@ -377,7 +377,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="relative z-10 mt-auto border-t border-white/5 py-5 px-4 text-center">
+      <footer className="relative mt-auto border-t border-white/5 py-5 px-4 text-center">
         <p className="text-[11px] text-white/35">
           🕹️ Arcade Retro · tus récords se guardan en este navegador · juega con moderación
         </p>

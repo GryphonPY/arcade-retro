@@ -394,7 +394,7 @@ export default function BrickBreaker() {
       <div className="relative rounded-3xl border-2 border-[#EBDDC8] shadow-[0_14px_40px_rgba(240,180,170,0.35)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block"
+          className="block touch-none select-none"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Rompe Ladrillos"
         />
@@ -431,11 +431,11 @@ export default function BrickBreaker() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Golpea la bola con los bordes de la paleta para ángulos agresivos. Limpiar el muro suma 150.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Lanzar" />
     </div>
   )
 }

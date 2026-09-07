@@ -272,7 +272,7 @@ export default function SnakeNeon() {
       <div className="relative rounded-2xl p-[3px] bg-gradient-to-br from-[#22f7c5] via-[#b026ff] to-[#ff2fd6] shadow-[0_0_36px_rgba(176,38,255,0.35)]">
         <canvas
           ref={canvasRef}
-          className="block rounded-[13px] bg-[#070213]"
+          className="block touch-none select-none rounded-[13px] bg-[#070213]"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: '1 / 1' }}
           aria-label="Juego Snake Neón"
         />
@@ -319,11 +319,11 @@ export default function SnakeNeon() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Come los orbes rosas. Cada bocado te acelera. Los muros son mortales.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
     </div>
   )
 }

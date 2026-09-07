@@ -490,7 +490,7 @@ export default function SpaceInvasion() {
       <div className="relative rounded-lg border-2 border-[#2a2a55] shadow-[0_0_40px_rgba(95,232,222,0.18)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block bg-[#050510]"
+          className="block touch-none select-none bg-[#050510]"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Invasión Espacial"
         />
@@ -540,7 +540,7 @@ export default function SpaceInvasion() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Vida extra: esquiva los disparos rojos. Limpiar una oleada suma 100 puntos.
       </p>
 

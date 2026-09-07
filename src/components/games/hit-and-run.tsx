@@ -525,7 +525,7 @@ export default function HitAndRun() {
       <div className="relative rounded-xl border-2 border-[#2E2E42] shadow-[0_0_40px_rgba(255,197,49,0.15)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block bg-[#0B0B16]"
+          className="block touch-none select-none bg-[#0B0B16]"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
           aria-label="Juego Hit and Run"
         />
@@ -579,11 +579,11 @@ export default function HitAndRun() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Taxi embestido +150 · patrulla escapada +100 · sin chocar 9 s baja tu nivel de búsqueda.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
     </div>
   )
 }

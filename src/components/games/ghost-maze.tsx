@@ -560,7 +560,7 @@ export default function GhostMaze() {
       <div className="relative rounded-xl border-2 border-[#232B7E] shadow-[0_0_36px_rgba(77,99,255,0.25)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block bg-[#04040E]"
+          className="block touch-none select-none bg-[#04040E]"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Laberinto Fantasma"
         />
@@ -612,11 +612,11 @@ export default function GhostMaze() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Las bolitas grandes (doradas) valen 50. Cada nivel, los fantasmas persiguen más rápido.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
     </div>
   )
 }

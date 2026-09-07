@@ -999,7 +999,7 @@ export default function GunAndRun() {
       <div className="relative rounded-xl border-2 border-[#3A2A18] shadow-[0_0_40px_rgba(255,138,61,0.2)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block bg-[#1B0F2E]"
+          className="block touch-none select-none bg-[#1B0F2E]"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
           aria-label="Juego Gun and Run"
         />
@@ -1054,11 +1054,11 @@ export default function GunAndRun() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         Soldado +100 · dron +150 · torreta +250 · la V activa el triple disparo · botiquín +1 vida.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Disparar" />
     </div>
   )
 }

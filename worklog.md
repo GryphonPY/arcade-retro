@@ -60,3 +60,22 @@ Stage Summary:
 - 8 juegos operativos, cada uno con melodía chiptune propia + tema del hub; SFX y música conmuteables por separado (🔊 / 🎵) y persistentes.
 - gun-and-run.tsx añade run & gun completo sobre canvas 640x360 pixel-art.
 - Sin errores de runtime; lint y tsc limpios.
+
+---
+Task ID: 4
+Agent: Super Z (main)
+Task: Compatibilidad móvil completa de los 8 juegos (cruceta táctil, viewport, z-index del pad).
+
+Work Log:
+- Reescrito touch-pad.tsx: soporte multi-touch real (cada botón con pointer events propios), deslizar el dedo entre direcciones (releasePointerCapture en pointerdown + onPointerEnter con buttons>0 pulsa el botón de destino), pointerleave/up/cancel liberan, safe-area con env() para notch (bottom calc), botón de acción configurable (actionLabel/actionGlyph), tamaño 168-176px, tap-highlight desactivado.
+- Añadido ?touch=1 como parámetro URL para forzar la cruceta (pruebas en escritorio y demo).
+- Activado showAction en los 8 juegos con etiquetas contextuales: Gun & Run "Disparar", Rompe Ladrillos "Lanzar", Corredor "Saltar", resto "Acción" (antes solo space-invasion lo tenía: en móvil no se podía disparar/lanzar).
+- Canvas de los 8 juegos con touch-none select-none (evita scroll/zoom accidental al jugar).
+- Párrafos de puntos bajo el canvas ocultos en móvil (hidden sm:block).
+- layout.tsx: export const viewport (device-width, initialScale 1, userScalable false, viewportFit cover).
+- Bug corregido en page.tsx: el footer (z-10 tras main en el DOM) tapaba la cruceta fija (atrapada en el contexto de apilamiento de main z-10) y bloqueaba toques en ▼ y en el botón de acción; quitado z-10 del footer.
+- Verificado con agent-browser + emulación iPhone 14 (390x844): meta viewport aplicado, cruceta visible en vista de juego, Gun & Run arranca y dispara con toques, Rompe Ladrillos lanza la bola y suma 10 pts, Snake gira/mueve con la cruceta, sin errores de consola. Lint limpio, servidor 200.
+
+Stage Summary:
+- Los 8 juegos jugables end-to-end en móvil: cruceta fija + botón de acción contextual, sin zoom accidental, safe-area, pad por encima del contenido.
+- Parámetro ?touch=1 para ver/probar la cruceta en escritorio.

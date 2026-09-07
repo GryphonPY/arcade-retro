@@ -401,7 +401,7 @@ export default function TrafficRacer() {
       <div className="relative rounded-2xl border-2 border-[#4A4E58] shadow-[0_14px_40px_rgba(0,0,0,0.5)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block bg-[#1D1A26]"
+          className="block touch-none select-none bg-[#1D1A26]"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Carrera de Tráfico"
         />
@@ -442,11 +442,11 @@ export default function TrafficRacer() {
         )}
       </div>
 
-      <p className="text-white/40 text-xs text-center">
+      <p className="hidden sm:block text-white/40 text-xs text-center">
         El acelerón suma metros más rápido… si tienes reflejos. Los frenazos también salvan.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
     </div>
   )
 }
