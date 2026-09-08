@@ -270,7 +270,7 @@ export default function GunAndRun() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
+  const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest('gun-and-run') : 0))
   const [over, setOver] = useState(false)
   const [running, setRunning] = useState(false)
   const [lives, setLives] = useState(3)
@@ -280,11 +280,6 @@ export default function GunAndRun() {
   const stateRef = useRef<GState>(initial())
   const scoreRef = useRef(0)
   const overRef = useRef(false)
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
-    setBest(loadBest('gun-and-run'))
-  }, [])
 
   const restart = useCallback(() => {
     stateRef.current = initial()
@@ -1008,9 +1003,10 @@ export default function GunAndRun() {
   }, [justPressedRef, pressedRef, restart])
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
+      {/* Marcador */}
       <div
-        className="flex items-center justify-between w-full max-w-[640px] px-1"
+        className="flex items-center justify-between w-full max-w-[480px] px-2 shrink-0 py-0.5"
         style={{ fontFamily: 'var(--font-pixel)' }}
       >
         <span className="text-[9px] text-[#FFD23D]">PTS {score}</span>
@@ -1022,67 +1018,64 @@ export default function GunAndRun() {
         <span className="text-[9px] text-white/60">HI {Math.max(best, score)}</span>
       </div>
 
-      <div className="relative rounded-xl border-2 border-[#3A2A18] shadow-[0_0_40px_rgba(255,138,61,0.2)] overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="block touch-none select-none bg-[#1B0F2E]"
-          style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
-          aria-label="Juego Gun and Run"
-        />
+      {/* Pantalla del Canvas adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-xl border-2 border-[#3A2A18] shadow-[0_0_40px_rgba(255,138,61,0.2)] overflow-hidden max-h-full max-w-full aspect-[480/270] flex items-center justify-center bg-[#1B0F2E]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none bg-[#1B0F2E]"
+            style={{ aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
+            aria-label="Juego Gun and Run"
+          />
 
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#1B0F2E]/85 text-center px-8">
-            <p
-              className="text-[#FFD23D] text-base drop-shadow-[0_0_12px_rgba(255,138,61,0.9)]"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              GUN &amp; RUN
-            </p>
-            <p className="text-white/75 text-xs leading-relaxed">
-              Corre por la selva al atardecer y <b className="text-[#FFD23D]">dispara</b> a soldados,
-              drones y torretas. Recoge la <b className="text-[#FFD23D]">V</b> para el triple
-              disparo y los <b className="text-white">botiquines</b> para curarte.
-            </p>
-            <p className="text-white/50 text-[11px]">
-              ← → correr · ↑ saltar · ESPACIO / ENTER disparar
-            </p>
-            <p className="text-white/35 text-[10px]">Pulsa una tecla para entrar en combate</p>
-          </div>
-        )}
-
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#1B0F2E]/90 text-center px-8">
-            <p
-              className="text-[#FF5D5D] text-sm drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              CAÍSTE EN COMBATE
-            </p>
-            {newBest && (
-              <p className="text-[#FFD23D] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
-                ¡NUEVO RÉCORD!
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#1B0F2E]/85 text-center px-4">
+              <p
+                className="text-[#FFD23D] text-sm sm:text-base drop-shadow-[0_0_12px_rgba(255,138,61,0.9)]"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                GUN &amp; RUN
               </p>
-            )}
-            <p className="text-white/80 text-xs">Puntuación: {score}</p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                restart()
-              }}
-              className="text-[10px] px-4 py-2 rounded bg-[#FFD23D]/15 border border-[#FFD23D]/60 text-[#FFD23D] hover:bg-[#FFD23D]/30 transition-colors"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              REINTENTAR
-            </button>
-            <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
-          </div>
-        )}
-      </div>
+              <p className="text-white/75 text-xs leading-relaxed">
+                Selva arcade: dispara a soldados, drones y torretas.
+              </p>
+              <p className="text-white/50 text-[11px]">
+                <b>← →</b> correr · <b>A</b> disparar · <b>B / ↑</b> salto
+              </p>
+              <p className="text-white/35 text-[10px]">Pulsa cualquier botón para empezar</p>
+            </div>
+          )}
 
-      <p className="hidden sm:block text-white/40 text-xs text-center">
-        Soldado +100 · dron +150 · torreta +250 · la V activa el triple disparo · botiquín +1 vida.
-      </p>
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#1B0F2E]/90 text-center px-4">
+              <p
+                className="text-[#FF5D5D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                CAÍSTE EN COMBATE
+              </p>
+              {newBest && (
+                <p className="text-[#FFD23D] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
+                  ¡NUEVO RÉCORD!
+                </p>
+              )}
+              <p className="text-white/80 text-xs">Puntuación: {score} · Zona {zone}</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  restart()
+                }}
+                className="text-[10px] px-4 py-2 rounded bg-[#FFD23D]/15 border border-[#FFD23D]/60 text-[#FFD23D] hover:bg-[#FFD23D]/30 transition-colors"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                REINTENTAR
+              </button>
+              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       <TouchPad
         onPress={virtualPress}

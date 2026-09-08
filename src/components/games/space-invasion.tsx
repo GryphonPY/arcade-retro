@@ -182,7 +182,7 @@ export default function SpaceInvasion() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
+  const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest('space-invasion') : 0))
   const [over, setOver] = useState(false)
   const [running, setRunning] = useState(false)
   const [lives, setLives] = useState(3)
@@ -192,11 +192,6 @@ export default function SpaceInvasion() {
   const stateRef = useRef<SpaceState>(initial())
   const scoreRef = useRef(0)
   const overRef = useRef(false)
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
-    setBest(loadBest('space-invasion'))
-  }, [])
 
   const restart = useCallback(() => {
     stateRef.current = initial()
@@ -573,80 +568,85 @@ export default function SpaceInvasion() {
   }, [justPressedRef, pressedRef, restart])
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
+      {/* Marcador */}
       <div
-        className="flex items-center justify-between w-full max-w-[480px] px-1"
+        className="flex items-center justify-between w-full max-w-[480px] px-2 shrink-0 py-0.5"
         style={{ fontFamily: 'var(--font-pixel)' }}
       >
         <span className="text-[9px] text-[#7cff6b] drop-shadow-[0_0_6px_rgba(124,255,107,0.8)]">
           PTS {score}
         </span>
-        <span className="text-[9px] text-[#ff71ce] drop-shadow-[0_0_6px_rgba(255,113,206,0.8)]">
-          OLEADA {wave}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-[#ff71ce] drop-shadow-[0_0_6px_rgba(255,113,206,0.8)]">
+            OLEADA {wave}
+          </span>
+          <span className="text-[9px] text-[#5fe8de]" title="Vidas">
+            {'▲'.repeat(Math.max(0, lives))}
+          </span>
+        </div>
         <span className="text-[9px] text-[#ffe23d] drop-shadow-[0_0_6px_rgba(255,226,61,0.8)]">
           HI {Math.max(best, score)}
         </span>
       </div>
 
-      <div className="relative rounded-lg border-2 border-[#2a2a55] shadow-[0_0_40px_rgba(95,232,222,0.18)] overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="block touch-none select-none bg-[#050510]"
-          style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
-          aria-label="Juego Invasión Espacial"
-        />
+      {/* Pantalla del Canvas adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-xl border-2 border-[#2a2a55] shadow-[0_0_40px_rgba(95,232,222,0.18)] overflow-hidden max-h-full max-w-full aspect-[480/400] flex items-center justify-center bg-[#050510]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none bg-[#050510]"
+            style={{ aspectRatio: `${W} / ${H}` }}
+            aria-label="Juego Invasión Espacial"
+          />
 
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#050510]/85 text-center px-6">
-            <p
-              className="text-[#5fe8de] text-sm drop-shadow-[0_0_10px_rgba(95,232,222,0.9)]"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              INVASIÓN ESPACIAL
-            </p>
-            <p className="text-white/70 text-xs">
-              Muévete con ↑ ↓ ← → / WASD y dispara con ESPACIO
-            </p>
-            <p className="text-white/40 text-[11px]">Pulsa cualquier dirección para despegar</p>
-          </div>
-        )}
-
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#050510]/90 text-center px-6">
-            <p
-              className="text-[#ff5d5d] text-sm drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              FIN DE LA MISIÓN
-            </p>
-            {newBest && (
-              <p className="text-[#ffe23d] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
-                ¡NUEVO RÉCORD!
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#050510]/85 text-center px-4">
+              <p
+                className="text-[#5fe8de] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(95,232,222,0.9)]"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                INVASIÓN ESPACIAL
               </p>
-            )}
-            <p className="text-white/80 text-xs">Puntuación: {score}</p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                restart()
-              }}
-              className="text-[10px] px-4 py-2 rounded bg-[#5fe8de]/15 border border-[#5fe8de]/60 text-[#5fe8de] hover:bg-[#5fe8de]/30 transition-colors"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              REINTENTAR
-            </button>
-            <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
-          </div>
-        )}
+              <p className="text-white/70 text-xs">
+                Muévete con <b>↑ ↓ ← → / WASD</b> y dispara con <b>A / ESPACIO</b>
+              </p>
+              <p className="text-white/40 text-[11px]">Pulsa cualquier dirección o A para despegar</p>
+            </div>
+          )}
+
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#050510]/90 text-center px-4">
+              <p
+                className="text-[#ff5d5d] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                FIN DE LA MISIÓN
+              </p>
+              {newBest && (
+                <p className="text-[#ffe23d] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
+                  ¡NUEVO RÉCORD!
+                </p>
+              )}
+              <p className="text-white/80 text-xs">Puntuación: {score} · Oleada: {wave}</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  restart()
+                }}
+                className="text-[10px] px-4 py-2 rounded bg-[#5fe8de]/15 border border-[#5fe8de]/60 text-[#5fe8de] hover:bg-[#5fe8de]/30 transition-colors"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                REINTENTAR
+              </button>
+              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <p className="hidden sm:block text-white/50 text-xs text-center">
-        ¡Dispara al OVNI nodriza rojo para puntos extra! Los últimos marcianos corren más rápido · P = Pausa
-      </p>
-
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Fuego" actionGlyph="A" />
     </div>
   )
 }

@@ -78,17 +78,17 @@ function SanwaButton({
   colorScheme?: 'red' | 'blue' | 'yellow'
 }) {
   const colorStyles = {
-    red: 'border-red-500/80 bg-gradient-to-b from-red-500 to-red-700 text-white shadow-[0_6px_0_#7f1d1d,0_8px_16px_rgba(239,68,68,0.4)] active:shadow-[0_2px_0_#7f1d1d] active:translate-y-1',
-    blue: 'border-cyan-400/80 bg-gradient-to-b from-cyan-500 to-blue-600 text-white shadow-[0_6px_0_#1e3a8a,0_8px_16px_rgba(6,182,212,0.4)] active:shadow-[0_2px_0_#1e3a8a] active:translate-y-1',
-    yellow: 'border-amber-400/80 bg-gradient-to-b from-amber-400 to-amber-600 text-zinc-950 shadow-[0_6px_0_#78350f,0_8px_16px_rgba(245,158,11,0.4)] active:shadow-[0_2px_0_#78350f] active:translate-y-1',
+    red: 'border-red-500/80 bg-gradient-to-b from-red-500 to-red-700 text-white shadow-[0_4px_0_#7f1d1d,0_6px_12px_rgba(239,68,68,0.4)] active:shadow-[0_1px_0_#7f1d1d] active:translate-y-0.5',
+    blue: 'border-cyan-400/80 bg-gradient-to-b from-cyan-500 to-blue-600 text-white shadow-[0_4px_0_#1e3a8a,0_6px_12px_rgba(6,182,212,0.4)] active:shadow-[0_1px_0_#1e3a8a] active:translate-y-0.5',
+    yellow: 'border-amber-400/80 bg-gradient-to-b from-amber-400 to-amber-600 text-zinc-950 shadow-[0_4px_0_#78350f,0_6px_12px_rgba(245,158,11,0.4)] active:shadow-[0_1px_0_#78350f] active:translate-y-0.5',
   }[colorScheme]
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       <button
         type="button"
         aria-label={label}
-        className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 select-none touch-none flex flex-col items-center justify-center font-black transition-all [-webkit-tap-highlight-color:transparent] ${colorStyles}`}
+        className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full border-2 select-none touch-none flex flex-col items-center justify-center font-black transition-all [-webkit-tap-highlight-color:transparent] ${colorStyles}`}
         onPointerDown={(e) => {
           e.preventDefault()
           try {
@@ -104,10 +104,10 @@ function SanwaButton({
         onPointerCancel={() => onRelease(gameKey)}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <span className="text-base sm:text-lg tracking-tight font-extrabold">{letter}</span>
-        {glyph && <span className="text-[10px] opacity-80 -mt-1 font-mono">{glyph}</span>}
+        <span className="text-sm sm:text-base tracking-tight font-extrabold">{letter}</span>
+        {glyph && <span className="text-[9px] opacity-80 -mt-1 font-mono">{glyph}</span>}
       </button>
-      <span className="text-[9px] uppercase font-bold tracking-wider text-white/60 drop-shadow">
+      <span className="text-[8px] uppercase font-bold tracking-wider text-white/60 drop-shadow">
         {label}
       </span>
     </div>
@@ -139,17 +139,18 @@ export function TouchPad({
   action2Glyph?: string
   forceVisible?: boolean
 }) {
-  const [isTouch, setIsTouch] = useState(false)
+  const [isTouch, setIsTouch] = useState(() => {
+    if (typeof window === 'undefined') return false
+    if (forceVisible) return true
+    const forceUrl = new URLSearchParams(window.location.search).get('touch') === '1'
+    return window.matchMedia('(pointer: coarse)').matches || forceUrl
+  })
 
   useEffect(() => {
-    if (forceVisible) {
-      setIsTouch(true)
-      return
-    }
+    if (typeof window === 'undefined') return
     const mq = window.matchMedia('(pointer: coarse)')
-    const forceUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('touch') === '1'
-    setIsTouch(mq.matches || forceUrl)
-    const fn = (e: MediaQueryListEvent) => setIsTouch(e.matches || forceUrl)
+    const forceUrl = new URLSearchParams(window.location.search).get('touch') === '1'
+    const fn = (e: MediaQueryListEvent) => setIsTouch(e.matches || forceUrl || forceVisible)
     mq.addEventListener('change', fn)
     return () => mq.removeEventListener('change', fn)
   }, [forceVisible])
@@ -159,17 +160,17 @@ export function TouchPad({
   return (
     <nav
       aria-label="Controles táctiles arcade"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 p-3 sm:p-4 flex items-end justify-between select-none"
+      className="w-full shrink-0 flex items-center justify-between px-3 sm:px-6 py-1 select-none z-20 bg-gradient-to-t from-zinc-950 via-zinc-950/95 to-zinc-950/70 border-t border-zinc-800/80 shadow-[0_-8px_25px_rgba(0,0,0,0.9)]"
       style={{
-        paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
       }}
     >
       {/* Cruceta Arcade (D-Pad) */}
       <div
-        className="pointer-events-auto grid grid-cols-3 grid-rows-3 gap-1.5 p-2 rounded-2xl bg-zinc-950/85 border border-zinc-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md"
+        className="grid grid-cols-3 grid-rows-3 gap-1 p-1 rounded-2xl bg-zinc-950/90 border border-zinc-700/80 shadow-[0_4px_16px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md"
         style={{
-          width: '9.5rem',
-          height: '9.5rem',
+          width: '7.8rem',
+          height: '7.8rem',
         }}
       >
         <span />
@@ -177,8 +178,8 @@ export function TouchPad({
         <span />
         <DPadButton gameKey="left" onPress={onPress} onRelease={onRelease} label="Izquierda" glyph="◀" />
         <div className="rounded-lg bg-zinc-900 border border-zinc-800 flex flex-col items-center justify-center">
-          <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
-          <span className="text-[7px] text-amber-300/70 font-mono mt-0.5 font-bold">MVS</span>
+          <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+          <span className="text-[6px] text-amber-300/70 font-mono mt-0.5 font-bold">MVS</span>
         </div>
         <DPadButton gameKey="right" onPress={onPress} onRelease={onRelease} label="Derecha" glyph="▶" />
         <span />
@@ -188,7 +189,7 @@ export function TouchPad({
 
       {/* Botones de acción Sanwa */}
       {(showAction || showAction2) && (
-        <div className="pointer-events-auto flex items-end gap-3 p-2 rounded-2xl bg-zinc-950/85 border border-zinc-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md">
+        <div className="flex items-end gap-2.5 p-1.5 rounded-2xl bg-zinc-950/90 border border-zinc-700/80 shadow-[0_4px_16px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md">
           {showAction2 && (
             <SanwaButton
               gameKey="action2"

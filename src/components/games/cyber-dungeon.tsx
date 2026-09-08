@@ -188,7 +188,7 @@ export default function CyberDungeon() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
+  const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest('cyber-dungeon') : 0))
   const [hp, setHp] = useState(3)
   const [potions, setPotions] = useState(1)
   const [hasKey, setHasKey] = useState(false)
@@ -199,10 +199,6 @@ export default function CyberDungeon() {
 
   const stateRef = useRef<DungeonState>(initial(1))
   const overRef = useRef(false)
-
-  useEffect(() => {
-    setBest(loadBest('cyber-dungeon'))
-  }, [])
 
   const restart = useCallback(() => {
     stateRef.current = initial(1)
@@ -780,11 +776,11 @@ export default function CyberDungeon() {
   }, [justPressedRef, pressedRef, restart])
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-[480px]">
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
       {/* Marcador superior estilo RPG arcade */}
-      <div className="flex items-center justify-between w-full px-2 text-xs font-mono">
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1" title="Corazones de Vida">
+      <div className="flex items-center justify-between w-full max-w-[480px] px-2 shrink-0 py-0.5 text-xs font-mono">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex gap-0.5" title="Corazones de Vida">
             {Array.from({ length: 3 }).map((_, i) => (
               <span key={i} className={i < hp ? 'text-red-500 text-sm' : 'text-zinc-700 text-sm'}>
                 ♥
@@ -794,66 +790,69 @@ export default function CyberDungeon() {
           <span className="text-amber-400 font-bold">PISO {floor}</span>
           <span className="text-emerald-400">POCIONES: {potions}</span>
         </div>
-        <div className="flex items-center gap-3">
-          {hasKey && <span className="text-amber-300 font-bold animate-pulse">🔑 LLAVE</span>}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {hasKey && <span className="text-amber-300 font-bold animate-pulse text-[11px]">🔑 LLAVE</span>}
           <span className="font-bold text-cyan-400">SCORE {String(score).padStart(6, '0')}</span>
         </div>
       </div>
 
-      {/* Pantalla Canvas */}
-      <div className="relative rounded-2xl border-2 border-amber-600/40 shadow-[0_0_30px_rgba(217,119,6,0.2),inset_0_0_20px_rgba(0,0,0,0.9)] overflow-hidden w-full aspect-square bg-[#1c1917]">
-        <canvas
-          ref={canvasRef}
-          className="block w-full h-full touch-none select-none cursor-pointer"
-          aria-label="Juego Cyber Dungeon Slayer"
-        />
+      {/* Pantalla Canvas adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-2xl border-2 border-amber-600/40 shadow-[0_0_30px_rgba(217,119,6,0.2)] overflow-hidden max-h-full max-w-full aspect-square flex items-center justify-center bg-[#1c1917]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none cursor-pointer"
+            style={{ aspectRatio: `${W} / ${H}` }}
+            aria-label="Juego Cyber Dungeon Slayer"
+          />
 
-        {/* Pantalla de inicio */}
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/85 text-center px-6 backdrop-blur-sm">
-            <h3 className="text-xl sm:text-2xl font-black text-amber-400 tracking-wider font-mono drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]">
-              CYBER DUNGEON SLAYER
-            </h3>
-            <p className="text-zinc-400 text-xs sm:text-sm max-w-xs leading-relaxed font-mono">
-              Explora la mazmorra con <b>flechas / WASD</b> y corta enemigos con <b>ESPACIO / A</b>.
-            </p>
-            <p className="text-amber-400/80 text-[11px] font-mono">
-              Recoge la <b>Llave Dorada</b> para desbloquear la trampilla y beber poción con <b>B / Poción</b>.
-            </p>
-            <button
-              type="button"
-              onClick={restart}
-              className="mt-2 px-6 py-2 rounded-full border border-amber-400 bg-amber-500/20 text-amber-300 font-bold font-mono text-sm hover:bg-amber-500/30 transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)]"
-            >
-              INSERT COIN / ENTRAR
-            </button>
-          </div>
-        )}
-
-        {/* Pantalla de Game Over */}
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/90 text-center px-6 backdrop-blur-md">
-            <p className="text-2xl font-black text-rose-500 font-mono tracking-widest drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">
-              HAS CAÍDO EN COMBATE
-            </p>
-            {newBest && (
-              <p className="text-amber-400 text-xs font-bold font-mono animate-bounce drop-shadow">
-                ★ ¡NUEVO RÉCORD DE MAZMORRA! ★
+          {/* Pantalla de inicio */}
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 text-center px-4 backdrop-blur-sm">
+              <h3 className="text-lg sm:text-2xl font-black text-amber-400 tracking-wider font-mono drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]">
+                CYBER DUNGEON SLAYER
+              </h3>
+              <p className="text-zinc-400 text-xs max-w-xs leading-relaxed font-mono">
+                Muévete con <b>D-Pad / WASD</b> y corta enemigos con <b>A / Espada</b>.
               </p>
-            )}
-            <p className="text-zinc-300 text-sm font-mono">
-              PUNTUACIÓN: <b className="text-amber-400">{score}</b> PTS
-            </p>
-            <p className="text-zinc-500 text-xs font-mono">Piso alcanzado: {floor}</p>
-            <button
-              type="button"
-              onClick={restart}
-              className="mt-3 px-6 py-2.5 rounded-xl border border-amber-400 bg-amber-500 text-black font-extrabold font-mono text-sm hover:bg-amber-400 transition-all shadow-[0_0_20px_rgba(245,158,11,0.6)]"
-            >
-              REINTENTAR MAZMORRA
-            </button>
-          </div>
-        )}
+              <p className="text-amber-400/80 text-[11px] font-mono">
+                Halla la <b>Llave</b> para descender. Bebe poción con <b>B</b>.
+              </p>
+              <button
+                type="button"
+                onClick={restart}
+                className="mt-1 px-5 py-1.5 rounded-full border border-amber-400 bg-amber-500/20 text-amber-300 font-bold font-mono text-xs sm:text-sm hover:bg-amber-500/30 active:scale-95 transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+              >
+                ENTRAR A MAZMORRA
+              </button>
+            </div>
+          )}
+
+          {/* Pantalla de Game Over */}
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/90 text-center px-4 backdrop-blur-md">
+              <p className="text-xl sm:text-2xl font-black text-rose-500 font-mono tracking-widest drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">
+                HAS CAÍDO EN COMBATE
+              </p>
+              {newBest && (
+                <p className="text-amber-400 text-xs font-bold font-mono animate-bounce drop-shadow">
+                  ★ ¡NUEVO RÉCORD DE MAZMORRA! ★
+                </p>
+              )}
+              <p className="text-zinc-300 text-xs sm:text-sm font-mono">
+                PUNTUACIÓN: <b className="text-amber-400">{score}</b> PTS
+              </p>
+              <p className="text-zinc-500 text-[11px] font-mono">Piso alcanzado: {floor}</p>
+              <button
+                type="button"
+                onClick={restart}
+                className="mt-2 px-5 py-2 rounded-xl border border-amber-400 bg-amber-500 text-black font-extrabold font-mono text-xs sm:text-sm hover:bg-amber-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(245,158,11,0.6)]"
+              >
+                REINTENTAR
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Controles táctiles */}

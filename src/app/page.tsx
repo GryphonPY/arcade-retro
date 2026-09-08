@@ -165,11 +165,33 @@ const GAMES: GameMeta[] = [
 
 export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [bests, setBests] = useState<Record<string, number>>({})
-  const [muted, setMutedState] = useState(false)
-  const [musicOn, setMusicOn] = useState(true)
-  const [crtFilter, setCrtFilter] = useState(true)
-  const [credits, setCredits] = useState(4)
+  const [bests, setBests] = useState<Record<string, number>>(() => {
+    const map: Record<string, number> = {}
+    if (typeof window !== 'undefined') {
+      for (const g of GAMES) map[g.id] = loadBest(g.id)
+    }
+    return map
+  })
+  const [muted, setMutedState] = useState(() => (typeof window !== 'undefined' ? loadMutePref() : false))
+  const [musicOn, setMusicOn] = useState(() => (typeof window !== 'undefined' ? loadMusicPref() : true))
+  const [crtFilter, setCrtFilter] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try {
+      const crtPref = window.localStorage.getItem('arcade-crt')
+      return crtPref !== null ? crtPref === '1' : true
+    } catch {
+      return true
+    }
+  })
+  const [credits, setCredits] = useState(() => {
+    if (typeof window === 'undefined') return 4
+    try {
+      const savedCredits = window.localStorage.getItem('arcade-credits')
+      return savedCredits !== null ? parseInt(savedCredits, 10) || 4 : 4
+    } catch {
+      return 4
+    }
+  })
   const [coinAnim, setCoinAnim] = useState(false)
 
   const refreshBests = useCallback(() => {
@@ -179,21 +201,9 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshBests()
   }, [refreshBests, activeId])
-
-  useEffect(() => {
-    setMutedState(loadMutePref())
-    setMusicOn(loadMusicPref())
-    try {
-      const crtPref = window.localStorage.getItem('arcade-crt')
-      if (crtPref !== null) setCrtFilter(crtPref === '1')
-      const savedCredits = window.localStorage.getItem('arcade-credits')
-      if (savedCredits !== null) setCredits(parseInt(savedCredits, 10) || 4)
-    } catch {
-      // sin acceso
-    }
-  }, [])
 
   // Inicializar WebAudio tras gesto del usuario
   useEffect(() => {
@@ -253,6 +263,110 @@ export default function Home() {
   }
 
   const activeGame = GAMES.find((g) => g.id === activeId) ?? null
+
+  if (activeGame) {
+    return (
+      <div className="fixed inset-0 z-30 flex flex-col h-[100dvh] w-full bg-[#06060a] text-zinc-100 overflow-hidden select-none">
+        {/* Filtro CRT Scanlines opcional */}
+        {crtFilter && (
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 z-50 crt-overlay crt-vignette opacity-70"
+          />
+        )}
+
+        {/* Barra superior de cabina estilizada (h-11 shrink-0) */}
+        <header className="h-11 shrink-0 px-2 sm:px-4 bg-zinc-950/95 border-b border-zinc-800/90 flex items-center justify-between gap-2 z-20">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveId(null)}
+              className="px-2.5 py-1 rounded-lg border border-zinc-700 bg-zinc-900 text-[11px] sm:text-xs font-mono font-bold text-amber-300 hover:bg-zinc-800 active:scale-95 transition-all shadow flex items-center gap-1"
+            >
+              <span>←</span>
+              <span className="hidden xs:inline">Cartuchos</span>
+              <span className="text-[10px] text-zinc-400 font-normal hidden sm:inline">(ESC)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const v = !muted
+                setMuted(v)
+                setMutedState(v)
+                if (!v) sfx.coin()
+              }}
+              className="p-1 sm:px-2 py-1 rounded-lg border border-zinc-800 bg-zinc-900 text-xs hover:bg-zinc-800"
+              title="Sonido"
+            >
+              {muted ? '🔇' : '🔊'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const v = !musicOn
+                setMusicEnabled(v)
+                setMusicOn(v)
+              }}
+              className="p-1 sm:px-2 py-1 rounded-lg border border-zinc-800 bg-zinc-900 text-xs hover:bg-zinc-800"
+              title="Música"
+            >
+              <span className={musicOn ? 'text-amber-300' : 'line-through text-zinc-500'}>🎵</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', code: 'KeyP', bubbles: true }))
+              }}
+              className="px-2 py-1 rounded-lg border border-zinc-800 bg-zinc-900 text-[11px] font-mono text-zinc-300 hover:bg-zinc-800"
+              title="Pausar o reanudar partida (P)"
+            >
+              ⏸️
+            </button>
+          </div>
+
+          {/* Título del cartucho */}
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="hidden sm:inline text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+              {activeGame.cartCode}
+            </span>
+            <span
+              className="text-xs sm:text-sm font-black font-mono tracking-wide truncate"
+              style={{ color: activeGame.textColor, textShadow: `0 0 12px ${activeGame.accent}66` }}
+            >
+              {activeGame.name}
+            </span>
+          </div>
+
+          {/* Estado de créditos */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-amber-400 font-bold">
+              {credits >= 10 ? 'FREE PLAY' : `CR: ${credits}`}
+            </span>
+          </div>
+        </header>
+
+        {/* Viewport del juego: ocupa exactamente flex-1 min-h-0, sin scroll, con el fondo del juego */}
+        <main
+          className="flex-1 min-h-0 w-full flex flex-col items-center justify-center relative overflow-hidden"
+          style={{ background: activeGame.viewBg }}
+        >
+          {activeGame.id === 'asteroid-drift' && <AsteroidDrift />}
+          {activeGame.id === 'cyber-dungeon' && <CyberDungeon />}
+          {activeGame.id === 'snake-neon' && <SnakeNeon />}
+          {activeGame.id === 'space-invasion' && <SpaceInvasion />}
+          {activeGame.id === 'desert-runner' && <DesertRunner />}
+          {activeGame.id === 'ghost-maze' && <GhostMaze />}
+          {activeGame.id === 'traffic-racer' && <TrafficRacer />}
+          {activeGame.id === 'brick-breaker' && <BrickBreaker />}
+          {activeGame.id === 'hit-and-run' && <HitAndRun />}
+          {activeGame.id === 'gun-and-run' && <GunAndRun />}
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#07070a] text-zinc-100 relative overflow-x-hidden selection:bg-amber-400 selection:text-black">
@@ -382,10 +496,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* CONTENIDO PRINCIPAL: CATÁLOGO DE CARTUCHOS O JUEGO ACTIVO */}
+      {/* CONTENIDO PRINCIPAL: CATÁLOGO DE CARTUCHOS */}
       <main className="relative z-20 flex-1 w-full max-w-6xl mx-auto px-3 sm:px-4 pb-16">
-        {!activeGame ? (
-          <div>
+        <div>
             {/* Título de sala de cartuchos */}
             <div className="flex items-center justify-between my-5 px-1">
               <div>
@@ -485,100 +598,7 @@ export default function Home() {
               })}
             </div>
           </div>
-        ) : (
-          /* PANTALLA DE JUEGO ACTIVO CON MARCO DE CABINA */
-          <section
-            className="rounded-3xl border-2 border-zinc-700 bg-zinc-950 p-3 sm:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden"
-            style={{ background: activeGame.viewBg }}
-            aria-label={`Juego activo: ${activeGame.name}`}
-          >
-            {/* Barra superior de control en partida */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-800">
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setActiveId(null)}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 py-1.5 text-xs font-mono font-bold text-zinc-200 hover:bg-zinc-800 active:scale-95 transition-all shadow"
-                >
-                  ← Volver a Cartuchos (ESC)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const v = !muted
-                    setMuted(v)
-                    setMutedState(v)
-                    if (!v) sfx.coin()
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 text-xs hover:bg-zinc-800"
-                  title="Sonido"
-                >
-                  {muted ? '🔇' : '🔊'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const v = !musicOn
-                    setMusicEnabled(v)
-                    setMusicOn(v)
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 text-xs hover:bg-zinc-800"
-                  title="Música"
-                >
-                  <span className={musicOn ? 'text-amber-300' : 'line-through text-zinc-500'}>🎵</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', code: 'KeyP', bubbles: true }))
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 text-xs hover:bg-zinc-800 font-mono"
-                  title="Pausar o reanudar partida (P)"
-                >
-                  ⏸️ P
-                </button>
-              </div>
-
-              {/* Título de cartucho activo */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
-                  {activeGame.cartCode}
-                </span>
-                <h2
-                  className="text-sm sm:text-base font-black font-mono tracking-wide"
-                  style={{ color: activeGame.textColor, textShadow: `0 0 15px ${activeGame.accent}66` }}
-                >
-                  {activeGame.name}
-                </h2>
-              </div>
-
-              {/* Información de control */}
-              <div className="hidden md:flex items-center gap-2 text-[10px] font-mono text-zinc-400">
-                <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800">
-                  P = Pausa
-                </span>
-                <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800">
-                  ESC = Menú
-                </span>
-              </div>
-            </div>
-
-            {/* Contenedor central del canvas */}
-            <div className="flex justify-center items-center py-1 sm:py-2">
-              {activeGame.id === 'asteroid-drift' && <AsteroidDrift />}
-              {activeGame.id === 'cyber-dungeon' && <CyberDungeon />}
-              {activeGame.id === 'snake-neon' && <SnakeNeon />}
-              {activeGame.id === 'space-invasion' && <SpaceInvasion />}
-              {activeGame.id === 'desert-runner' && <DesertRunner />}
-              {activeGame.id === 'ghost-maze' && <GhostMaze />}
-              {activeGame.id === 'traffic-racer' && <TrafficRacer />}
-              {activeGame.id === 'brick-breaker' && <BrickBreaker />}
-              {activeGame.id === 'hit-and-run' && <HitAndRun />}
-              {activeGame.id === 'gun-and-run' && <GunAndRun />}
-            </div>
-          </section>
-        )}
-      </main>
+        </main>
 
       {/* PIE DE CABINA ARCADE */}
       <footer className="relative z-20 mt-auto border-t border-zinc-800/80 bg-zinc-950/80 py-4 px-4 text-center font-mono text-xs text-zinc-500">

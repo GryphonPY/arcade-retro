@@ -181,7 +181,7 @@ export default function HitAndRun() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
+  const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest('hit-and-run') : 0))
   const [over, setOver] = useState(false)
   const [running, setRunning] = useState(false)
   const [wanted, setWanted] = useState(0)
@@ -191,11 +191,6 @@ export default function HitAndRun() {
   const stateRef = useRef<RunState>(initial())
   const scoreRef = useRef(0)
   const overRef = useRef(false)
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
-    setBest(loadBest('hit-and-run'))
-  }, [])
 
   const restart = useCallback(() => {
     stateRef.current = initial()
@@ -594,9 +589,10 @@ export default function HitAndRun() {
   }, [justPressedRef, pressedRef, restart])
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
+      {/* Marcador */}
       <div
-        className="flex items-center justify-between w-full max-w-[420px] px-1"
+        className="flex items-center justify-between w-full max-w-[420px] px-2 shrink-0 py-0.5"
         style={{ fontFamily: 'var(--font-pixel)' }}
       >
         <span className="text-[9px] text-[#FFC531]">PTS {score}</span>
@@ -608,66 +604,64 @@ export default function HitAndRun() {
         <span className="text-[9px] text-white/60">HI {Math.max(best, score)}</span>
       </div>
 
-      <div className="relative rounded-xl border-2 border-[#2E2E42] shadow-[0_0_40px_rgba(255,197,49,0.15)] overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="block touch-none select-none bg-[#0B0B16]"
-          style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
-          aria-label="Juego Hit and Run"
-        />
+      {/* Pantalla del Canvas adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-xl border-2 border-[#2E2E42] shadow-[0_0_40px_rgba(255,197,49,0.15)] overflow-hidden max-h-full max-w-full aspect-[360/480] flex items-center justify-center bg-[#0B0B16]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none bg-[#0B0B16]"
+            style={{ aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
+            aria-label="Juego Hit and Run"
+          />
 
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0B0B16]/85 text-center px-8">
-            <p
-              className="text-[#FFC531] text-base drop-shadow-[0_0_12px_rgba(255,197,49,0.9)]"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              HIT &amp; RUN
-            </p>
-            <p className="text-white/70 text-xs leading-relaxed">
-              Embiste los <b className="text-[#FFC531]">taxis amarillos</b> para sumar puntos…
-              pero cada golpe sube tu nivel de búsqueda y llegará la <b className="text-[#6B9BFF]">policía</b>.
-            </p>
-            <p className="text-white/50 text-[11px]">
-              Muévete con ↑ ↓ ← → / WASD · mantén <b>↑</b> para el turbo y escapar
-            </p>
-            <p className="text-white/35 text-[10px]">Pulsa una dirección para arrancar</p>
-          </div>
-        )}
-
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0B0B16]/90 text-center px-8">
-            <p
-              className="text-[#FF5D5D] text-sm drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              TE ATRAPARON
-            </p>
-            {newBest && (
-              <p className="text-[#FFC531] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
-                ¡NUEVO RÉCORD!
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0B0B16]/85 text-center px-4">
+              <p
+                className="text-[#FFC531] text-sm sm:text-base drop-shadow-[0_0_12px_rgba(255,197,49,0.9)]"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                HIT &amp; RUN
               </p>
-            )}
-            <p className="text-white/80 text-xs">Puntuación: {score}</p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                restart()
-              }}
-              className="text-[10px] px-4 py-2 rounded bg-[#FFC531]/15 border border-[#FFC531]/60 text-[#FFC531] hover:bg-[#FFC531]/30 transition-colors"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              OTRO GOLPE
-            </button>
-            <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
-          </div>
-        )}
-      </div>
+              <p className="text-white/70 text-xs leading-relaxed">
+                Embiste taxis amarillos para sumar puntos y escapa de la patrulla.
+              </p>
+              <p className="text-white/50 text-[11px]">
+                <b>↑ ↓ ← → / WASD</b> mover · <b>↑ / T</b> turbo
+              </p>
+              <p className="text-white/35 text-[10px]">Pulsa cualquier control para arrancar</p>
+            </div>
+          )}
 
-      <p className="hidden sm:block text-white/40 text-xs text-center">
-        Taxi embestido +150 · patrulla escapada +100 · sin chocar 9 s baja tu nivel de búsqueda.
-      </p>
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0B0B16]/90 text-center px-4">
+              <p
+                className="text-[#FF5D5D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                TE ATRAPARON
+              </p>
+              {newBest && (
+                <p className="text-[#FFC531] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
+                  ¡NUEVO RÉCORD!
+                </p>
+              )}
+              <p className="text-white/80 text-xs">Puntuación: {score}</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  restart()
+                }}
+                className="text-[10px] px-4 py-2 rounded bg-[#FFC531]/15 border border-[#FFC531]/60 text-[#FFC531] hover:bg-[#FFC531]/30 transition-colors"
+                style={{ fontFamily: 'var(--font-pixel)' }}
+              >
+                OTRO GOLPE
+              </button>
+              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Turbo" actionGlyph="T" />
     </div>

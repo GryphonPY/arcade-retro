@@ -179,7 +179,7 @@ export default function AsteroidDrift() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
+  const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest('asteroid-drift') : 0))
   const [lives, setLives] = useState(3)
   const [wave, setWave] = useState(1)
   const [running, setRunning] = useState(false)
@@ -189,10 +189,6 @@ export default function AsteroidDrift() {
   const stateRef = useRef<AsteroidState>(initial(1))
   const overRef = useRef(false)
   const shootCooldown = useRef(0)
-
-  useEffect(() => {
-    setBest(loadBest('asteroid-drift'))
-  }, [])
 
   const restart = useCallback(() => {
     stateRef.current = initial(1)
@@ -205,6 +201,53 @@ export default function AsteroidDrift() {
     setOver(false)
     setNewBest(false)
     sfx.start()
+  }, [])
+
+  const hitShip = useCallback((s: AsteroidState) => {
+    if (s.ship.shield) {
+      s.ship.shield = false
+      s.ship.invulnTimer = 1.2
+      sfx.hurt()
+      s.shakeT = 0.2
+      s.floatTexts.push({ x: s.ship.x, y: s.ship.y - 15, text: '¡ESCUDO ROTO!', color: '#f87171', life: 0.9 })
+      return
+    }
+
+    s.lives--
+    setLives(s.lives)
+    s.shakeT = 0.35
+    sfx.explode()
+
+    for (let p = 0; p < 25; p++) {
+      const a = Math.random() * Math.PI * 2
+      const spd = 40 + Math.random() * 160
+      s.particles.push({
+        x: s.ship.x,
+        y: s.ship.y,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd,
+        color: '#38bdf8',
+        life: 0.5,
+        maxLife: 0.5,
+        size: 2.5,
+      })
+    }
+
+    if (s.lives <= 0) {
+      s.dead = true
+      overRef.current = true
+      setOver(true)
+      setRunning(false)
+      const isNew = saveBest('asteroid-drift', s.score)
+      if (isNew) setNewBest(true)
+      sfx.gameOver()
+    } else {
+      s.ship.x = W / 2
+      s.ship.y = H / 2
+      s.ship.vx = 0
+      s.ship.vy = 0
+      s.ship.invulnTimer = 2.0
+    }
   }, [])
 
   useEffect(() => {
@@ -784,59 +827,12 @@ export default function AsteroidDrift() {
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [justPressedRef, pressedRef, restart])
-
-  function hitShip(s: AsteroidState) {
-    if (s.ship.shield) {
-      s.ship.shield = false
-      s.ship.invulnTimer = 1.2
-      sfx.hurt()
-      s.shakeT = 0.2
-      s.floatTexts.push({ x: s.ship.x, y: s.ship.y - 15, text: '¡ESCUDO ROTO!', color: '#f87171', life: 0.9 })
-      return
-    }
-
-    s.lives--
-    setLives(s.lives)
-    s.shakeT = 0.35
-    sfx.explode()
-
-    for (let p = 0; p < 25; p++) {
-      const a = Math.random() * Math.PI * 2
-      const spd = 40 + Math.random() * 160
-      s.particles.push({
-        x: s.ship.x,
-        y: s.ship.y,
-        vx: Math.cos(a) * spd,
-        vy: Math.sin(a) * spd,
-        color: '#38bdf8',
-        life: 0.5,
-        maxLife: 0.5,
-        size: 2.5,
-      })
-    }
-
-    if (s.lives <= 0) {
-      s.dead = true
-      overRef.current = true
-      setOver(true)
-      setRunning(false)
-      const isNew = saveBest('asteroid-drift', s.score)
-      if (isNew) setNewBest(true)
-      sfx.gameOver()
-    } else {
-      s.ship.x = W / 2
-      s.ship.y = H / 2
-      s.ship.vx = 0
-      s.ship.vy = 0
-      s.ship.invulnTimer = 2.0
-    }
-  }
+  }, [justPressedRef, pressedRef, restart, hitShip])
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-[480px]">
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
       {/* Marcador superior estilo cabina arcade */}
-      <div className="flex items-center justify-between w-full px-2 text-xs font-mono">
+      <div className="flex items-center justify-between w-full max-w-[480px] px-2 shrink-0 py-0.5 text-xs font-mono">
         <div className="flex items-center gap-3">
           <span className="font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
             SCORE {String(score).padStart(6, '0')}
@@ -853,60 +849,63 @@ export default function AsteroidDrift() {
         </div>
       </div>
 
-      {/* Pantalla Canvas */}
-      <div className="relative rounded-2xl border-2 border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25),inset_0_0_20px_rgba(0,0,0,0.8)] overflow-hidden w-full aspect-square bg-[#050710]">
-        <canvas
-          ref={canvasRef}
-          className="block w-full h-full touch-none select-none cursor-crosshair"
-          aria-label="Juego Asteroid Drift 360"
-        />
+      {/* Pantalla Canvas centrada y adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-2xl border-2 border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] overflow-hidden max-h-full max-w-full aspect-square flex items-center justify-center bg-[#050710]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none cursor-crosshair"
+            style={{ aspectRatio: `${W} / ${H}` }}
+            aria-label="Juego Asteroid Drift 360"
+          />
 
-        {/* Pantalla de inicio */}
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/85 text-center px-6 backdrop-blur-sm">
-            <h3 className="text-xl sm:text-2xl font-black text-cyan-300 tracking-wider font-mono drop-shadow-[0_0_12px_rgba(34,211,238,0.8)]">
-              ASTEROID DRIFT 360°
-            </h3>
-            <p className="text-zinc-400 text-xs sm:text-sm max-w-xs leading-relaxed font-mono">
-              Física vectorial inercial: gira con <b>← →</b>, propulsa con <b>↑</b> y dispara con <b>ESPACIO</b>.
-            </p>
-            <p className="text-cyan-400/80 text-[11px] font-mono">
-              Salto hiperespacial de emergencia: <b>↓</b> o <b>BOMBA / B</b>
-            </p>
-            <button
-              type="button"
-              onClick={restart}
-              className="mt-2 px-6 py-2 rounded-full border border-cyan-400 bg-cyan-500/20 text-cyan-300 font-bold font-mono text-sm hover:bg-cyan-500/30 transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)]"
-            >
-              INSERT COIN / INICIAR
-            </button>
-          </div>
-        )}
-
-        {/* Pantalla de Game Over */}
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/90 text-center px-6 backdrop-blur-md">
-            <p className="text-2xl font-black text-rose-500 font-mono tracking-widest drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">
-              GAME OVER
-            </p>
-            {newBest && (
-              <p className="text-amber-400 text-xs font-bold font-mono animate-bounce drop-shadow">
-                ★ ¡NUEVO RÉCORD ARCADE! ★
+          {/* Pantalla de inicio */}
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 text-center px-4 backdrop-blur-sm">
+              <h3 className="text-lg sm:text-2xl font-black text-cyan-300 tracking-wider font-mono drop-shadow-[0_0_12px_rgba(34,211,238,0.8)]">
+                ASTEROID DRIFT 360°
+              </h3>
+              <p className="text-zinc-400 text-xs max-w-xs leading-relaxed font-mono">
+                Gira con <b>← →</b>, propulsa con <b>↑</b> y dispara con <b>A / ESPACIO</b>.
               </p>
-            )}
-            <p className="text-zinc-300 text-sm font-mono">
-              PUNTUACIÓN: <b className="text-cyan-400">{score}</b> PTS
-            </p>
-            <p className="text-zinc-500 text-xs font-mono">Oleadas superadas: {wave}</p>
-            <button
-              type="button"
-              onClick={restart}
-              className="mt-3 px-6 py-2.5 rounded-xl border border-cyan-400 bg-cyan-500 text-black font-extrabold font-mono text-sm hover:bg-cyan-400 transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)]"
-            >
-              REINTENTAR PARTIDA
-            </button>
-          </div>
-        )}
+              <p className="text-cyan-400/80 text-[11px] font-mono">
+                Warp de emergencia: <b>B</b> o <b>↓</b>
+              </p>
+              <button
+                type="button"
+                onClick={restart}
+                className="mt-1 px-5 py-1.5 rounded-full border border-cyan-400 bg-cyan-500/20 text-cyan-300 font-bold font-mono text-xs sm:text-sm hover:bg-cyan-500/30 active:scale-95 transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)]"
+              >
+                INICIAR PARTIDA
+              </button>
+            </div>
+          )}
+
+          {/* Pantalla de Game Over */}
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/90 text-center px-4 backdrop-blur-md">
+              <p className="text-xl sm:text-2xl font-black text-rose-500 font-mono tracking-widest drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">
+                GAME OVER
+              </p>
+              {newBest && (
+                <p className="text-amber-400 text-xs font-bold font-mono animate-bounce drop-shadow">
+                  ★ ¡NUEVO RÉCORD ARCADE! ★
+                </p>
+              )}
+              <p className="text-zinc-300 text-xs sm:text-sm font-mono">
+                PUNTUACIÓN: <b className="text-cyan-400">{score}</b> PTS
+              </p>
+              <p className="text-zinc-500 text-[11px] font-mono">Oleadas superadas: {wave}</p>
+              <button
+                type="button"
+                onClick={restart}
+                className="mt-2 px-5 py-2 rounded-xl border border-cyan-400 bg-cyan-500 text-black font-extrabold font-mono text-xs sm:text-sm hover:bg-cyan-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)]"
+              >
+                REINTENTAR
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Controles táctiles */}

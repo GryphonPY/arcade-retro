@@ -86,7 +86,7 @@ export default function TrafficRacer() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
+  const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest('traffic-racer') : 0))
   const [over, setOver] = useState(false)
   const [running, setRunning] = useState(false)
   const [speedKmh, setSpeedKmh] = useState(0)
@@ -95,11 +95,6 @@ export default function TrafficRacer() {
   const stateRef = useRef<RaceState>(initial())
   const scoreRef = useRef(0)
   const overRef = useRef(false)
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única de localStorage tras montar (sistema externo)
-    setBest(loadBest('traffic-racer'))
-  }, [])
 
   const restart = useCallback(() => {
     stateRef.current = initial()
@@ -463,63 +458,65 @@ export default function TrafficRacer() {
   }, [justPressedRef, pressedRef, restart])
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex items-center justify-between w-full max-w-[380px] px-1">
-        <span className="text-sm font-bold text-[#E85D5D]" style={{ fontFamily: 'ui-monospace, monospace' }}>
-          {score} m
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
+      {/* Marcador */}
+      <div className="flex items-center justify-between w-full max-w-[380px] px-2 shrink-0 py-0.5 text-xs font-mono font-bold">
+        <span className="text-[#E85D5D]">
+          🏎️ {score} m
         </span>
-        <span className="text-sm font-bold text-white/60" style={{ fontFamily: 'ui-monospace, monospace' }}>
-          Récord: {Math.max(best, score)} m
+        <span className="text-amber-400">
+          {speedKmh > 0 ? `${speedKmh} km/h` : '0 km/h'}
+        </span>
+        <span className="text-white/60">
+          HI: {Math.max(best, score)} m
         </span>
       </div>
 
-      <div className="relative rounded-2xl border-2 border-[#4A4E58] shadow-[0_14px_40px_rgba(0,0,0,0.5)] overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="block touch-none select-none bg-[#1D1A26]"
-          style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
-          aria-label="Juego Carrera de Tráfico"
-        />
+      {/* Pantalla del Canvas adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-2xl border-2 border-[#4A4E58] shadow-[0_14px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-full max-w-full aspect-[380/520] flex items-center justify-center bg-[#1D1A26]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none bg-[#1D1A26]"
+            style={{ aspectRatio: `${W} / ${H}` }}
+            aria-label="Juego Carrera de Tráfico"
+          />
 
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#14121C]/85 text-center px-8">
-            <p className="text-2xl font-extrabold text-[#E85D5D] tracking-wide" style={{ fontFamily: 'ui-monospace, monospace' }}>
-              TRÁFICO NOCTURNO
-            </p>
-            <p className="text-white/70 text-sm">
-              ← → / A D para cambiar de carril
-            </p>
-            <p className="text-white/50 text-xs">
-              ↑ / W acelera · ↓ / S frena
-            </p>
-            <p className="text-white/40 text-[11px]">Pulsa una dirección para arrancar</p>
-          </div>
-        )}
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#14121C]/85 text-center px-4">
+              <p className="text-xl sm:text-2xl font-extrabold text-[#E85D5D] tracking-wide font-mono">
+                TRÁFICO NOCTURNO
+              </p>
+              <p className="text-white/70 text-xs">
+                <b>← → / A D</b> para cambiar de carril
+              </p>
+              <p className="text-white/50 text-xs">
+                <b>↑ / T</b> turbo acelerón · <b>↓</b> freno
+              </p>
+              <p className="text-white/40 text-[11px]">Pulsa cualquier control para arrancar</p>
+            </div>
+          )}
 
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#14121C]/90 text-center px-8">
-            <p className="text-2xl font-extrabold text-[#E85D5D]">💥 Choque</p>
-            {newBest && <p className="text-[#FFD23D] font-bold animate-pulse">¡Nuevo récord!</p>}
-            <p className="text-white/80 text-sm">Recorriste {score} m a {speedKmh} km/h</p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                restart()
-              }}
-              className="px-5 py-2.5 rounded-lg bg-[#E85D5D] text-white font-bold shadow-lg hover:bg-[#D44A4A] transition-colors"
-              style={{ fontFamily: 'ui-monospace, monospace' }}
-            >
-              OTRA CARRERA
-            </button>
-            <p className="text-white/40 text-xs">o pulsa ESPACIO / ENTER</p>
-          </div>
-        )}
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#14121C]/90 text-center px-4">
+              <p className="text-xl sm:text-2xl font-extrabold text-[#E85D5D]">💥 Choque</p>
+              {newBest && <p className="text-[#FFD23D] font-bold animate-pulse text-xs">¡Nuevo récord!</p>}
+              <p className="text-white/80 text-xs sm:text-sm">Recorriste {score} m a {speedKmh} km/h</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  restart()
+                }}
+                className="px-4 py-2 rounded-lg bg-[#E85D5D] text-white font-bold shadow-lg hover:bg-[#D44A4A] transition-colors font-mono text-xs sm:text-sm"
+              >
+                OTRA CARRERA
+              </button>
+              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+            </div>
+          )}
+        </div>
       </div>
-
-      <p className="hidden sm:block text-white/50 text-xs text-center">
-        ¡Pasa rozando a otros autos para ganar bonus de rebase (+25 m)! · P = Pausa
-      </p>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Turbo" actionGlyph="T" />
     </div>

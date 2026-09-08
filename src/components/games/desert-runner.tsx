@@ -544,57 +544,56 @@ export default function DesertRunner() {
   }, [justPressedRef, pressedRef, restart])
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex items-center justify-between w-full max-w-[520px] px-1">
-        <span className="text-sm font-bold text-[#B45E2C]">
+    <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
+      {/* Marcador */}
+      <div className="flex items-center justify-between w-full max-w-[520px] px-3 shrink-0 py-0.5 text-xs font-mono font-bold">
+        <span className="text-[#B45E2C]">
           🏜️ {score} m
         </span>
-        <span className="text-sm font-bold text-[#8A4B2A]">
-          Récord: {Math.max(best, score)} m
+        <span className="text-[#8A4B2A]">
+          RÉCORD: {Math.max(best, score)} m
         </span>
       </div>
 
-      <div className="relative rounded-3xl border-4 border-[#D98F3E] shadow-[0_14px_40px_rgba(217,143,62,0.35)] overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="block touch-none select-none"
-          style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
-          aria-label="Juego Corredor del Desierto"
-        />
+      {/* Pantalla del Canvas adaptativa */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
+        <div className="relative rounded-2xl border-3 border-[#D98F3E] shadow-[0_8px_30px_rgba(217,143,62,0.35)] overflow-hidden max-h-full max-w-full aspect-[520/300] flex items-center justify-center bg-[#1c1308]">
+          <canvas
+            ref={canvasRef}
+            className="block max-h-full max-w-full object-contain touch-none select-none"
+            style={{ aspectRatio: `${W} / ${H}` }}
+            aria-label="Juego Corredor del Desierto"
+          />
 
-        {!running && !over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#FFE9B8]/80 backdrop-blur-[1px] text-center px-6">
-            <p className="text-3xl font-extrabold text-[#8A4B2A]">Armadillo veloz</p>
-            <p className="text-[#7A3E14] text-sm">
-              Salta con <b>↑ / W</b> y agáchate con <b>↓ / S</b>
-            </p>
-            <p className="text-[#7A3E14]/70 text-xs">Pulsa salto para comenzar la carrera</p>
-          </div>
-        )}
+          {!running && !over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#FFE9B8]/90 backdrop-blur-[1px] text-center px-4">
+              <p className="text-xl sm:text-2xl font-extrabold text-[#8A4B2A]">Armadillo veloz</p>
+              <p className="text-[#7A3E14] text-xs sm:text-sm">
+                Salta con <b>↑ / A</b> y agáchate con <b>↓ / B</b>
+              </p>
+              <p className="text-[#7A3E14]/70 text-[11px]">Pulsa salto o A para iniciar</p>
+            </div>
+          )}
 
-        {over && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#FFE9B8]/88 backdrop-blur-[1px] text-center px-6">
-            <p className="text-3xl font-extrabold text-[#B45E2C]">¡Ay, chocaste!</p>
-            {newBest && <p className="text-[#3E9B4F] font-bold animate-pulse">¡Nuevo récord! 🏆</p>}
-            <p className="text-[#7A3E14] text-sm">Recorriste {score} metros por el desierto</p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                restart()
-              }}
-              className="px-5 py-2.5 rounded-full bg-[#3E9B4F] text-white font-bold shadow-lg hover:bg-[#358543] transition-colors"
-            >
-              Correr otra vez
-            </button>
-            <p className="text-[#7A3E14]/60 text-xs">o pulsa ESPACIO / ENTER</p>
-          </div>
-        )}
+          {over && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#FFE9B8]/92 backdrop-blur-[1px] text-center px-4">
+              <p className="text-xl sm:text-2xl font-extrabold text-[#B45E2C]">¡Ay, chocaste!</p>
+              {newBest && <p className="text-[#3E9B4F] text-xs font-bold animate-pulse">¡Nuevo récord! 🏆</p>}
+              <p className="text-[#7A3E14] text-xs sm:text-sm">Recorriste {score} metros por el desierto</p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  restart()
+                }}
+                className="px-4 py-1.5 rounded-full bg-[#3E9B4F] text-white text-xs sm:text-sm font-bold shadow-lg hover:bg-[#358543] active:scale-95 transition-transform"
+              >
+                Correr otra vez
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-
-      <p className="hidden sm:block text-white/40 text-xs text-center">
-        Los cactus y rocas se saltan; los buitres se esquivan agachándose. La velocidad no perdona.
-      </p>
 
       <TouchPad
         onPress={virtualPress}
