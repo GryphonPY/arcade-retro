@@ -95,7 +95,6 @@ El proyecto cuenta con un diseño responsivo especial para teléfonos inteligent
 
 ## 👤 Autor
 
-**Axel Johann Vázquez Cruz**
 - GitHub: [@GryphonPY](https://github.com/GryphonPY)
 
 ---
