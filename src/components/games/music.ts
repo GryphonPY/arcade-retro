@@ -211,6 +211,28 @@ const DEFS: Record<string, TrackDef> = {
     bassVol: 0.048,
     drums: R8F.repeat(2),
   },
+  // Asteroid Drift: vector space synthwave Fm – C# – D# – Fm
+  'asteroid-drift': {
+    bpm: 144,
+    bassType: 'sawtooth',
+    bass: 'F2 F2 F3 F2 F2 F3 F2 F3 C#2 C#2 C#3 C#2 C#2 C#3 C#2 C#3 D#2 D#2 D#3 D#2 D#2 D#3 D#2 D#3 F2 F2 F3 F2 G#2 - C3 -',
+    lead: 'F4 - G#4 - C5 - G#4 - F5 - D#5 - C5 - G#4 - C#5 - F5 - G#5 - F5 - D#5 - F5 - C5 - G#4 -',
+    leadType: 'square',
+    leadVol: 0.026,
+    bassVol: 0.046,
+    drums: R8F.repeat(2),
+  },
+  // Cyber Dungeon: mazecraft rogue Dm – Gm – Bb – A
+  'cyber-dungeon': {
+    bpm: 114,
+    bassType: 'sawtooth',
+    bass: 'D2 - D2 A2 D3 - D2 - G2 - G2 D3 G3 - G2 - A#2 - A#2 F3 A#3 - A#2 - A2 - A2 E3 A3 - C#3 -',
+    lead: 'D4 F4 A4 D5 - C5 A4 F4 G4 - A#4 - D5 A#4 G4 - F4 A4 D5 F5 E5 D5 C#5 D5 E5 - A4 - C#5 -',
+    leadType: 'triangle',
+    leadVol: 0.032,
+    bassVol: 0.048,
+    drums: R8.repeat(4),
+  },
 }
 
 function build(id: string): Built {

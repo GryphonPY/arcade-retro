@@ -32,11 +32,23 @@ interface Trail {
   y: number
 }
 
+interface Particle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  color: string
+  life: number
+  maxLife: number
+  size: number
+}
+
 interface BrickState {
   paddleX: number
   ball: { x: number; y: number; vx: number; vy: number; stuck: boolean }
   bricks: Brick[]
   trail: Trail[]
+  particles: Particle[]
   lives: number
   level: number
   score: number
@@ -45,6 +57,7 @@ interface BrickState {
   dead: boolean
   winT: number
   shakeT: number
+  paused: boolean
 }
 
 function buildBricks(): Brick[] {
@@ -70,6 +83,7 @@ function initial(): BrickState {
     ball: { x: W / 2, y: PADDLE_Y - 12, vx: 0, vy: 0, stuck: true },
     bricks: buildBricks(),
     trail: [],
+    particles: [],
     lives: 3,
     level: 1,
     score: 0,
@@ -78,6 +92,7 @@ function initial(): BrickState {
     dead: false,
     winT: 0,
     shakeT: 0,
+    paused: false,
   }
 }
 
@@ -148,6 +163,13 @@ export default function BrickBreaker() {
       const pressed = pressedRef.current
       const jp = justPressedRef.current
 
+      if (s.started && !overRef.current && jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+        return
+      }
+      if (s.paused) return
+
       if (overRef.current) {
         if (jp.has('action')) restart()
         if (s.shakeT > 0) s.shakeT -= dt
@@ -171,6 +193,8 @@ export default function BrickBreaker() {
           setRunning(true)
           launch(s)
           sfx.start()
+          if (pressed.has('left')) s.paddleX -= 420 * dt
+          if (pressed.has('right')) s.paddleX += 420 * dt
         }
         return
       }
@@ -241,6 +265,23 @@ export default function BrickBreaker() {
             else s.ball.vy *= -1
             s.shakeT = 0.08
             sfx.brick(b.row)
+
+            // Fragmentos de impacto
+            const color = ROW_COLORS[b.row]
+            for (let i = 0; i < 8; i++) {
+              const angle = Math.random() * Math.PI * 2
+              const spd = 60 + Math.random() * 120
+              s.particles.push({
+                x: b.x + BRICK_W / 2,
+                y: b.y + BRICK_H / 2,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd,
+                color,
+                life: 0.4 + Math.random() * 0.3,
+                maxLife: 0.7,
+                size: 2.5 + Math.random() * 3,
+              })
+            }
             break
           }
         }
@@ -262,6 +303,15 @@ export default function BrickBreaker() {
       // estela suave
       s.trail.push({ x: s.ball.x, y: s.ball.y })
       if (s.trail.length > 9) s.trail.shift()
+
+      // actualizar partículas
+      s.particles = s.particles.filter((p) => {
+        p.x += p.vx * dt
+        p.y += p.vy * dt
+        p.vy += 220 * dt
+        p.life -= dt
+        return p.life > 0
+      })
 
       // victoria del nivel
       if (s.bricks.every((b) => !b.alive)) {
@@ -367,6 +417,25 @@ export default function BrickBreaker() {
         ctx.textAlign = 'left'
       }
 
+      // Partículas de impacto
+      for (const p of s.particles) {
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife)
+        ctx.fillStyle = p.color
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+      }
+      ctx.globalAlpha = 1
+
+      // Pausa
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(251,243,228,0.65)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 26px monospace'
+        ctx.fillStyle = '#E8899E'
+        ctx.textAlign = 'center'
+        ctx.fillText('PAUSA (P)', W / 2, H / 2)
+        ctx.textAlign = 'left'
+      }
+
       ctx.restore()
     }
 
@@ -394,7 +463,24 @@ export default function BrickBreaker() {
       <div className="relative rounded-3xl border-2 border-[#EBDDC8] shadow-[0_14px_40px_rgba(240,180,170,0.35)] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="block touch-none select-none"
+          onClick={() => {
+            const s = stateRef.current
+            if (!s.started) {
+              s.started = true
+              setRunning(true)
+              launch(s)
+              sfx.start()
+            } else if (s.ball.stuck) {
+              launch(s)
+              sfx.start()
+            }
+          }}
+          onPointerMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const relX = ((e.clientX - rect.left) / rect.width) * W
+            stateRef.current.paddleX = Math.max(8, Math.min(W - PADDLE_W - 8, relX - PADDLE_W / 2))
+          }}
+          className="block touch-none select-none cursor-pointer"
           style={{ width: '100%', maxWidth: W, height: 'auto', aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Rompe Ladrillos"
         />

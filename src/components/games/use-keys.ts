@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 
-export type LogicalKey = 'up' | 'down' | 'left' | 'right' | 'action'
+export type LogicalKey = 'up' | 'down' | 'left' | 'right' | 'action' | 'action2' | 'pause'
 export type Dir = 'up' | 'down' | 'left' | 'right'
 
 const KEY_MAP: Record<string, LogicalKey> = {
@@ -16,6 +16,13 @@ const KEY_MAP: Record<string, LogicalKey> = {
   KeyD: 'right',
   Space: 'action',
   Enter: 'action',
+  KeyZ: 'action',
+  KeyJ: 'action',
+  KeyX: 'action2',
+  KeyK: 'action2',
+  ShiftLeft: 'action2',
+  ShiftRight: 'action2',
+  KeyP: 'pause',
 }
 
 /**
@@ -27,6 +34,7 @@ const KEY_MAP: Record<string, LogicalKey> = {
 export function useKeys() {
   const pressedRef = useRef<Set<LogicalKey>>(new Set())
   const justPressedRef = useRef<Set<LogicalKey>>(new Set())
+  const keyQueueRef = useRef<LogicalKey[]>([])
 
   useEffect(() => {
     const handleDown = (e: KeyboardEvent) => {
@@ -35,6 +43,7 @@ export function useKeys() {
       e.preventDefault()
       if (e.repeat) return
       if (!pressedRef.current.has(key)) justPressedRef.current.add(key)
+      keyQueueRef.current.push(key)
       pressedRef.current.add(key)
     }
     const handleUp = (e: KeyboardEvent) => {
@@ -45,6 +54,7 @@ export function useKeys() {
     const handleBlur = () => {
       pressedRef.current.clear()
       justPressedRef.current.clear()
+      keyQueueRef.current = []
     }
     window.addEventListener('keydown', handleDown)
     window.addEventListener('keyup', handleUp)
@@ -58,6 +68,7 @@ export function useKeys() {
 
   const virtualPress = useCallback((key: LogicalKey) => {
     if (!pressedRef.current.has(key)) justPressedRef.current.add(key)
+    keyQueueRef.current.push(key)
     pressedRef.current.add(key)
   }, [])
 
@@ -65,5 +76,5 @@ export function useKeys() {
     pressedRef.current.delete(key)
   }, [])
 
-  return { pressedRef, justPressedRef, virtualPress, virtualRelease }
+  return { pressedRef, justPressedRef, keyQueueRef, virtualPress, virtualRelease }
 }

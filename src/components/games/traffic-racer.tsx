@@ -24,6 +24,7 @@ interface Car {
   speed: number
   color: string
   passed: boolean
+  nearMissed?: boolean
 }
 interface Puff {
   x: number
@@ -32,11 +33,19 @@ interface Puff {
   life: number
 }
 
+interface ScoreFloat {
+  x: number
+  y: number
+  text: string
+  life: number
+}
+
 interface RaceState {
   playerX: number
   playerY: number
   speed: number
   dist: number
+  bonusScore: number
   cars: Car[]
   spawnT: number
   laneDash: number
@@ -44,6 +53,8 @@ interface RaceState {
   started: boolean
   dead: boolean
   shakeT: number
+  scoreFloats: ScoreFloat[]
+  paused: boolean
 }
 
 const CAR_COLORS = ['#4C8DE8', '#58C27D', '#E8B54C', '#B06CE8', '#E87A4C', '#7DC4E8', '#C4C9D4']
@@ -58,6 +69,7 @@ function initial(): RaceState {
     playerY: H - 110,
     speed: 330,
     dist: 0,
+    bonusScore: 0,
     cars: [],
     spawnT: 0.9,
     laneDash: 0,
@@ -65,6 +77,8 @@ function initial(): RaceState {
     started: false,
     dead: false,
     shakeT: 0,
+    scoreFloats: [],
+    paused: false,
   }
 }
 
@@ -155,14 +169,22 @@ export default function TrafficRacer() {
     }
 
     const spawnCar = (s: RaceState) => {
-      // elegir carril evitando bloquear todos los carriles
-      const lane = Math.floor(Math.random() * LANES)
-      const occupied = s.cars.filter((c) => c.y < 130).length
-      if (occupied >= LANES - 1) return
-      // no apilar dos coches muy cerca en el mismo carril
+      // garantizar al menos 1 carril completamente libre y seguro
+      const laneOccupied = [false, false, false, false]
+      for (const c of s.cars) {
+        if (c.y < 160) {
+          for (let l = 0; l < LANES; l++) {
+            if (Math.abs(c.x + c.w / 2 - laneCenter(l)) < LANE_W * 0.45) {
+              laneOccupied[l] = true
+            }
+          }
+        }
+      }
+      const freeLanes = [0, 1, 2, 3].filter((l) => !laneOccupied[l])
+      if (freeLanes.length <= 1) return // Mantiene siempre al menos un carril libre de paso
+
+      const lane = freeLanes[Math.floor(Math.random() * freeLanes.length)]
       const cx = laneCenter(lane)
-      const tooClose = s.cars.some((c) => Math.abs(c.x - cx) < LANE_W * 0.7 && c.y < 220)
-      if (tooClose) return
       const w = 40 + Math.random() * 8
       const h = w * 1.7
       s.cars.push({
@@ -173,6 +195,7 @@ export default function TrafficRacer() {
         speed: 110 + Math.random() * 130,
         color: CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)],
         passed: false,
+        nearMissed: false,
       })
     }
 
@@ -194,6 +217,12 @@ export default function TrafficRacer() {
       const pressed = pressedRef.current
       const jp = justPressedRef.current
 
+      if (jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+      }
+      if (s.paused) return
+
       // líneas de carril siempre animadas
       s.laneDash = (s.laneDash + s.speed * dt) % 64
 
@@ -207,18 +236,26 @@ export default function TrafficRacer() {
           s.started = true
           setRunning(true)
           sfx.start()
+        } else {
+          return
         }
-        return
       }
 
+      // actualizar flotantes
+      s.scoreFloats = s.scoreFloats.filter((f) => {
+        f.life -= dt
+        f.y -= dt * 25
+        return f.life > 0
+      })
+
       // aceleración progresiva + boost/freno
-      const boosting = pressed.has('up')
+      const boosting = pressed.has('up') || pressed.has('action')
       const braking = pressed.has('down')
       const target = Math.min(640, 330 + s.dist * 0.012) + (boosting ? 110 : 0) - (braking ? 150 : 0)
       s.speed += (target - s.speed) * Math.min(1, dt * 1.8)
       s.speed = Math.max(160, s.speed)
       s.dist += s.speed * dt
-      const meters = Math.floor(s.dist / 8)
+      const meters = Math.floor(s.dist / 8) + s.bonusScore
       if (meters !== scoreRef.current) {
         scoreRef.current = meters
         setScore(meters)
@@ -254,11 +291,23 @@ export default function TrafficRacer() {
         return c.y < H + 120
       })
 
-      // colisión
+      // colisión y rebase cercano (near-miss)
       for (const c of s.cars) {
         if (aabb(s.playerX + 4, s.playerY + 4, PLAYER_W - 8, PLAYER_H - 8, c.x + 4, c.y + 4, c.w - 8, c.h - 8)) {
           crash()
           return
+        }
+        // Near-miss: pasar rozando a gran velocidad
+        if (!c.nearMissed && c.y > s.playerY && c.y < s.playerY + PLAYER_H + 30) {
+          const lateralDist = Math.abs((s.playerX + PLAYER_W / 2) - (c.x + c.w / 2))
+          if (lateralDist < (PLAYER_W + c.w) / 2 + 15 && s.speed > 260) {
+            c.nearMissed = true
+            s.bonusScore += 25
+            scoreRef.current += 25
+            setScore(scoreRef.current)
+            sfx.nearMiss()
+            s.scoreFloats.push({ x: s.playerX + PLAYER_W / 2, y: s.playerY - 14, text: '+25 ¡ROCE!', life: 0.9 })
+          }
         }
       }
     }
@@ -371,6 +420,32 @@ export default function TrafficRacer() {
       ctx.textAlign = 'center'
       ctx.fillText(`${Math.round(s.speed * 0.42)} km/h`, W - 64, 34)
 
+      // flotantes de rebase (+25 ¡ROCE!)
+      for (const f of s.scoreFloats) {
+        ctx.save()
+        ctx.font = 'bold 13px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#FFE23D'
+        ctx.shadowColor = '#FFE23D'
+        ctx.shadowBlur = 6
+        ctx.textAlign = 'center'
+        ctx.fillText(f.text, f.x, f.y)
+        ctx.restore()
+      }
+
+      // overlay de pausa
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(20, 18, 28, 0.78)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 22px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#E85D5D'
+        ctx.textAlign = 'center'
+        ctx.fillText('PAUSA', W / 2, H / 2 - 8)
+        ctx.font = '12px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText('Pulsa P para acelerar', W / 2, H / 2 + 18)
+        ctx.textAlign = 'left'
+      }
+
       ctx.restore()
       ctx.textAlign = 'left'
     }
@@ -442,11 +517,11 @@ export default function TrafficRacer() {
         )}
       </div>
 
-      <p className="hidden sm:block text-white/40 text-xs text-center">
-        El acelerón suma metros más rápido… si tienes reflejos. Los frenazos también salvan.
+      <p className="hidden sm:block text-white/50 text-xs text-center">
+        ¡Pasa rozando a otros autos para ganar bonus de rebase (+25 m)! · P = Pausa
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Turbo" actionGlyph="T" />
     </div>
   )
 }

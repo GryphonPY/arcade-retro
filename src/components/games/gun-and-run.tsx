@@ -204,6 +204,7 @@ interface GState {
   t: number
   started: boolean
   dead: boolean
+  paused: boolean
 }
 
 const V_PIX = ['G.....G', 'G.....G', 'G.....G', '.G...G.', '..G.G..', '...G...']
@@ -239,6 +240,7 @@ function initial(): GState {
     t: 0,
     started: false,
     dead: false,
+    paused: false,
   }
 }
 
@@ -389,6 +391,13 @@ export default function GunAndRun() {
       const jp = justPressedRef.current
       s.t += dt
 
+      if (s.started && !overRef.current && jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+        return
+      }
+      if (s.paused) return
+
       if (overRef.current) {
         if (jp.has('action')) restart()
         if (s.shake > 0) s.shake -= dt
@@ -403,10 +412,16 @@ export default function GunAndRun() {
       }
 
       if (!s.started) {
-        if (jp.has('up') || jp.has('down') || jp.has('left') || jp.has('right') || jp.has('action')) {
+        if (jp.has('up') || jp.has('down') || jp.has('left') || jp.has('right') || jp.has('action') || jp.has('action2')) {
           s.started = true
           setRunning(true)
           sfx.start()
+          if (jp.has('action')) fire(s)
+          if (jp.has('up') || jp.has('action2')) {
+            s.vy = -420
+            s.onGround = false
+            sfx.jump()
+          }
         }
         return
       }
@@ -421,7 +436,7 @@ export default function GunAndRun() {
       const dir = (pressed.has('right') ? 1 : 0) - (pressed.has('left') ? 1 : 0)
       s.vx = dir * 172
       if (dir !== 0) s.facing = dir
-      if (jp.has('up') && s.onGround) {
+      if ((jp.has('up') || jp.has('action2')) && s.onGround) {
         s.vy = -420
         s.onGround = false
         sfx.jump()
@@ -966,6 +981,17 @@ export default function GunAndRun() {
         ctx.fillRect(W - 50, 19, 44 * (s.tripleT / 9), 4)
       }
 
+      // Overlay de pausa
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(10,5,15,0.7)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 26px monospace'
+        ctx.fillStyle = '#FFD23D'
+        ctx.textAlign = 'center'
+        ctx.fillText('PAUSA (P)', W / 2, H / 2)
+        ctx.textAlign = 'left'
+      }
+
       ctx.restore()
     }
 
@@ -1058,7 +1084,16 @@ export default function GunAndRun() {
         Soldado +100 · dron +150 · torreta +250 · la V activa el triple disparo · botiquín +1 vida.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Disparar" />
+      <TouchPad
+        onPress={virtualPress}
+        onRelease={virtualRelease}
+        showAction
+        actionLabel="Disparo"
+        actionGlyph="A"
+        showAction2
+        action2Label="Salto"
+        action2Glyph="B"
+      />
     </div>
   )
 }

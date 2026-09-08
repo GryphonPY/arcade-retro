@@ -32,6 +32,13 @@ interface Dust {
   life: number
 }
 
+interface ScoreFloat {
+  x: number
+  y: number
+  text: string
+  life: number
+}
+
 interface RunnerState {
   y: number
   vy: number
@@ -46,6 +53,9 @@ interface RunnerState {
   dust: Dust[]
   started: boolean
   dead: boolean
+  lastMilestone: number
+  scoreFloats: ScoreFloat[]
+  paused: boolean
 }
 
 function initial(): RunnerState {
@@ -67,6 +77,9 @@ function initial(): RunnerState {
     dust: [],
     started: false,
     dead: false,
+    lastMilestone: 0,
+    scoreFloats: [],
+    paused: false,
   }
 }
 
@@ -159,6 +172,14 @@ export default function DesertRunner() {
       const pressed = pressedRef.current
       const jp = justPressedRef.current
 
+      // Pausa toggle
+      if (s.started && !overRef.current && jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+        return
+      }
+      if (s.paused) return
+
       // nubes siempre a la deriva
       for (const c of s.clouds) {
         c.x -= (12 + s.speed * 0.06) * c.s * dt
@@ -177,29 +198,50 @@ export default function DesertRunner() {
           s.started = true
           setRunning(true)
           sfx.start()
+          // Salto inmediato reactivo
+          s.vy = -720
+          s.onGround = false
+          addDust(120, GROUND_Y, 6)
+          sfx.jump()
         }
         return
       }
 
       // velocidad progresiva
-      s.speed = Math.min(560, 270 + s.dist * 0.028)
+      s.speed = Math.min(580, 270 + s.dist * 0.028)
       s.dist += s.speed * dt
       const sc = Math.floor(s.dist / 12)
       if (sc !== scoreRef.current) {
         scoreRef.current = sc
         setScore(sc)
+
+        // Hito cada 100m con sonido festivo y popup
+        if (sc >= s.lastMilestone + 100) {
+          s.lastMilestone = Math.floor(sc / 100) * 100
+          sfx.golden()
+          s.scoreFloats.push({
+            x: 130,
+            y: GROUND_Y - 50,
+            text: `¡${s.lastMilestone} m! ⭐`,
+            life: 1.5,
+          })
+        }
       }
 
       // salto y agacharse
-      s.ducking = s.onGround && pressed.has('down')
+      s.ducking = s.onGround && (pressed.has('down') || pressed.has('action2'))
       if ((jp.has('up') || jp.has('action')) && s.onGround) {
-        s.vy = -700
+        s.vy = -720
         s.onGround = false
         addDust(120, GROUND_Y, 6)
         sfx.jump()
       }
+      // Salto variable: soltar corta el ascenso
+      if (!s.onGround && s.vy < -260 && !pressed.has('up') && !pressed.has('action')) {
+        s.vy = -260
+      }
       if (!s.onGround) {
-        s.vy += 2150 * dt
+        s.vy += 2200 * dt
         s.y += s.vy * dt
         if (s.y >= GROUND_Y) {
           s.y = GROUND_Y
@@ -219,6 +261,13 @@ export default function DesertRunner() {
         d.y += d.vy * dt
         d.vy += 120 * dt
         return d.life > 0
+      })
+
+      // flotantes de hito
+      s.scoreFloats = s.scoreFloats.filter((f) => {
+        f.y -= 36 * dt
+        f.life -= dt
+        return f.life > 0
       })
 
       // obstáculos
@@ -458,6 +507,28 @@ export default function DesertRunner() {
       ctx.textAlign = 'right'
       ctx.fillText(`${scoreRef.current} m`, W - 14, 28)
       ctx.textAlign = 'left'
+
+      // Textos flotantes de hito
+      for (const f of s.scoreFloats) {
+        ctx.save()
+        ctx.globalAlpha = Math.max(0, Math.min(1, f.life * 1.5))
+        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#8A4B2A'
+        ctx.textAlign = 'center'
+        ctx.fillText(f.text, f.x, f.y)
+        ctx.restore()
+      }
+
+      // Overlay de pausa
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(43,27,16,0.55)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 26px monospace'
+        ctx.fillStyle = '#FFE9B8'
+        ctx.textAlign = 'center'
+        ctx.fillText('PAUSA (P)', W / 2, H / 2)
+        ctx.textAlign = 'left'
+      }
     }
 
     const loop = (now: number) => {
@@ -525,7 +596,16 @@ export default function DesertRunner() {
         Los cactus y rocas se saltan; los buitres se esquivan agachándose. La velocidad no perdona.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Saltar" />
+      <TouchPad
+        onPress={virtualPress}
+        onRelease={virtualRelease}
+        showAction
+        actionLabel="Saltar"
+        actionGlyph="A"
+        showAction2
+        action2Label="Agachar"
+        action2Glyph="B"
+      />
     </div>
   )
 }

@@ -57,6 +57,16 @@ const SHIP = [
   '.XXXXXXX.',
   'XX.XXX.XX',
 ]
+const UFO = [
+  '....XXXXX....',
+  '..XXXXXXXXX..',
+  '.XXXXXXXXXXX.',
+  'XX.XX.XX.XX.XX',
+  'XXXXXXXXXXXXX',
+  '...XXX.XXX...',
+]
+const UFO_W = 14 * 3
+const UFO_H = 6 * 3
 
 const COLS = 9
 const ROWS = 4
@@ -82,6 +92,13 @@ interface Particle {
   color: string
 }
 
+interface ScoreFloat {
+  x: number
+  y: number
+  text: string
+  life: number
+}
+
 interface SpaceState {
   shipX: number
   shipY: number
@@ -103,6 +120,10 @@ interface SpaceState {
   started: boolean
   dead: boolean
   hitFlash: number
+  ufo: { x: number; y: number; vx: number } | null
+  ufoTimer: number
+  scoreFloats: ScoreFloat[]
+  paused: boolean
 }
 
 function makeStars() {
@@ -140,6 +161,10 @@ function initial(): SpaceState {
     started: false,
     dead: false,
     hitFlash: 0,
+    ufo: null,
+    ufoTimer: 18,
+    scoreFloats: [],
+    paused: false,
   }
 }
 
@@ -253,6 +278,12 @@ export default function SpaceInvasion() {
       if (s.hitFlash > 0) s.hitFlash -= dt
       if (s.invuln > 0) s.invuln -= dt
 
+      if (jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+      }
+      if (s.paused) return
+
       if (overRef.current || !s.started) {
         if (overRef.current && jp.has('action')) restart()
         if (!s.started &&
@@ -261,8 +292,32 @@ export default function SpaceInvasion() {
           s.started = true
           setRunning(true)
           sfx.start()
+          if (jp.has('action')) {
+            s.cooldown = 0.26
+            s.bullets.push({ x: s.shipX, y: s.shipY - 16, vy: -540 })
+            sfx.shoot()
+          }
         }
         return
+      }
+
+      // flotantes de puntuación
+      s.scoreFloats = s.scoreFloats.filter((f) => {
+        f.life -= dt
+        f.y -= dt * 20
+        return f.life > 0
+      })
+
+      // platillo misterioso (OVNI nodriza)
+      s.ufoTimer -= dt
+      if (s.ufoTimer <= 0 && !s.ufo) {
+        s.ufo = { x: -50, y: 44, vx: 130 }
+        s.ufoTimer = 20 + Math.random() * 12
+        sfx.ufo()
+      }
+      if (s.ufo) {
+        s.ufo.x += s.ufo.vx * dt
+        if (s.ufo.x > W + 60) s.ufo = null
       }
 
       // movimiento nave
@@ -286,6 +341,7 @@ export default function SpaceInvasion() {
 
       // formación invasores
       let anyAlive = false
+      let aliveCount = 0
       let leftEdge = Infinity
       let rightEdge = -Infinity
       let bottomEdge = -Infinity
@@ -293,6 +349,7 @@ export default function SpaceInvasion() {
         for (let c = 0; c < COLS; c++) {
           if (!s.alive[r][c]) continue
           anyAlive = true
+          aliveCount++
           const x = s.formX + c * GAP_X
           const y = s.formY + r * GAP_Y
           leftEdge = Math.min(leftEdge, x)
@@ -315,7 +372,10 @@ export default function SpaceInvasion() {
         return
       }
 
-      s.formX += s.dirSign * s.speed * dt
+      // velocidad dinámica: se acelera cuando quedan pocos marcianos
+      const speedBoost = (ROWS * COLS - aliveCount) * 1.9
+      const currentSpeed = (26 + (s.wave - 1) * 9 + speedBoost)
+      s.formX += s.dirSign * currentSpeed * dt
       if (rightEdge > W - 8 && s.dirSign > 0) {
         s.dirSign = -1
         s.formY += 18
@@ -378,6 +438,17 @@ export default function SpaceInvasion() {
             return false
           }
           return true
+        }
+        // bala del jugador vs OVNI nodriza
+        if (s.ufo && aabb(b.x - 2, b.y - 6, 4, 12, s.ufo.x, s.ufo.y, UFO_W, UFO_H)) {
+          const pts = [100, 150, 200, 300][Math.floor(Math.random() * 4)]
+          burst(s.ufo.x + UFO_W / 2, s.ufo.y + UFO_H / 2, '#FF2E55', 22)
+          scoreRef.current += pts
+          setScore(scoreRef.current)
+          s.scoreFloats.push({ x: s.ufo.x + UFO_W / 2, y: s.ufo.y, text: `+${pts}`, life: 1.2 })
+          sfx.golden()
+          s.ufo = null
+          return false
         }
         // bala del jugador vs invasores
         for (let r = ROWS - 1; r >= 0; r--) {
@@ -452,9 +523,40 @@ export default function SpaceInvasion() {
         ctx.fillRect(0, 0, W, H)
       }
 
+      // platillo misterioso (OVNI nodriza)
+      if (s.ufo) {
+        drawMatrix(ctx, UFO, s.ufo.x, s.ufo.y, 3, '#FF2E55')
+      }
+
+      // flotantes de puntuación
+      for (const f of s.scoreFloats) {
+        ctx.save()
+        ctx.font = 'bold 13px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#FFE23D'
+        ctx.shadowColor = '#FFE23D'
+        ctx.shadowBlur = 8
+        ctx.textAlign = 'center'
+        ctx.fillText(f.text, f.x, f.y)
+        ctx.restore()
+      }
+
       // vidas como naves mini
       for (let i = 0; i < s.lives; i++) {
         drawMatrix(ctx, SHIP, 14 + i * 34, H - 26, 3, '#7cff6b')
+      }
+
+      // overlay de pausa
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(5, 5, 16, 0.75)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 22px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#5fe8de'
+        ctx.textAlign = 'center'
+        ctx.fillText('PAUSA', W / 2, H / 2 - 8)
+        ctx.font = '12px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText('Pulsa P para reanudar el combate', W / 2, H / 2 + 18)
+        ctx.textAlign = 'left'
       }
     }
 
@@ -540,8 +642,8 @@ export default function SpaceInvasion() {
         )}
       </div>
 
-      <p className="hidden sm:block text-white/40 text-xs text-center">
-        Vida extra: esquiva los disparos rojos. Limpiar una oleada suma 100 puntos.
+      <p className="hidden sm:block text-white/50 text-xs text-center">
+        ¡Dispara al OVNI nodriza rojo para puntos extra! Los últimos marcianos corren más rápido · P = Pausa
       </p>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction />

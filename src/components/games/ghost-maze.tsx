@@ -49,6 +49,14 @@ interface Ghost {
   py: number
   color: string
   home: Tile
+  eaten: boolean
+}
+
+interface ScoreFloat {
+  x: number
+  y: number
+  text: string
+  life: number
 }
 
 interface MazeState {
@@ -67,6 +75,10 @@ interface MazeState {
   mouthT: number
   started: boolean
   dead: boolean
+  scaredT: number
+  ghostMultiplier: number
+  scoreFloats: ScoreFloat[]
+  paused: boolean
 }
 
 function isWall(state: MazeState, c: number, r: number): boolean {
@@ -113,6 +125,10 @@ function buildMaze(): MazeState {
     mouthT: 0,
     started: false,
     dead: false,
+    scaredT: 0,
+    ghostMultiplier: 1,
+    scoreFloats: [],
+    paused: false,
   }
   const pc = centerOf(playerTile)
   state.player.px = pc.x
@@ -132,6 +148,7 @@ function buildMaze(): MazeState {
       py: gc.y,
       color: g.color,
       home: g.t,
+      eaten: false,
     })
   }
   return state
@@ -248,6 +265,12 @@ export default function GhostMaze() {
       s.mouthT += dt
       const jp = justPressedRef.current
 
+      if (jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+      }
+      if (s.paused) return
+
       if (overRef.current) {
         if (jp.has('action')) restart()
         return
@@ -264,9 +287,25 @@ export default function GhostMaze() {
           s.started = true
           setRunning(true)
           sfx.start()
+        } else {
+          return
         }
-        return
       }
+
+      if (s.scaredT > 0) {
+        s.scaredT -= dt
+        if (s.scaredT <= 0) {
+          s.scaredT = 0
+          s.ghostMultiplier = 1
+        }
+      }
+
+      // actualizar flotantes de puntuación
+      s.scoreFloats = s.scoreFloats.filter((f) => {
+        f.life -= dt
+        f.y -= dt * 18
+        return f.life > 0
+      })
 
       if (s.pauseT > 0) {
         s.pauseT -= dt
@@ -275,7 +314,6 @@ export default function GhostMaze() {
       if (s.levelFlash > 0) {
         s.levelFlash -= dt
         if (s.levelFlash <= 0) {
-          // subir de nivel: reconstruir bolitas y recolocar
           s.level += 1
           setLevel(s.level)
           const fresh = buildMaze()
@@ -321,8 +359,13 @@ export default function GhostMaze() {
           s.power[p.tile.r][p.tile.c] = false
           s.pelletCount--
           s.score += 50
+          s.scaredT = 7.5
+          s.ghostMultiplier = 1
           setScore(s.score)
           sfx.power()
+          for (const g of s.ghosts) {
+            if (!g.eaten) g.dir = OPPOSITE[g.dir]
+          }
         }
         if (s.pelletCount <= 0) {
           s.score += 200
@@ -350,10 +393,11 @@ export default function GhostMaze() {
       }
 
       // fantasmas
-      const gSpeed = Math.min(4.15, 3.35 + (s.level - 1) * 0.28)
+      const isScared = s.scaredT > 0
+      const baseGSpeed = Math.min(4.15, 3.35 + (s.level - 1) * 0.28)
       for (const g of s.ghosts) {
+        const curSpeed = g.eaten ? baseGSpeed * 1.6 : isScared ? baseGSpeed * 0.62 : baseGSpeed
         if (!g.target) {
-          // elegir dirección en intersección
           const options: Tile[] = []
           const all: Dir[] = ['up', 'down', 'left', 'right']
           for (const d of all) {
@@ -368,7 +412,29 @@ export default function GhostMaze() {
             options.push({ c: g.tile.c + v.x, r: g.tile.r + v.y })
           }
           let choice: Tile
-          if (Math.random() < 0.25) {
+          if (g.eaten) {
+            // volver a casa
+            let bestD = Infinity
+            choice = options[0]
+            for (const o of options) {
+              const d = Math.hypot(o.c - g.home.c, o.r - g.home.r)
+              if (d < bestD) {
+                bestD = d
+                choice = o
+              }
+            }
+          } else if (isScared) {
+            // huir del jugador (maximizar distancia)
+            let bestD = -Infinity
+            choice = options[0]
+            for (const o of options) {
+              const d = Math.hypot(o.c - p.tile.c, o.r - p.tile.r)
+              if (d > bestD) {
+                bestD = d
+                choice = o
+              }
+            }
+          } else if (Math.random() < 0.25) {
             choice = options[Math.floor(Math.random() * options.length)]
           } else {
             let bestD = Infinity
@@ -385,19 +451,33 @@ export default function GhostMaze() {
             choice.c > g.tile.c ? 'right' : choice.c < g.tile.c ? 'left' : choice.r > g.tile.r ? 'down' : 'up'
           g.target = choice
         }
-        stepEntity(g, g, gSpeed, dt)
+        const arrivedG = stepEntity(g, g, curSpeed, dt)
+        if (arrivedG && g.eaten && g.tile.c === g.home.c && g.tile.r === g.home.r) {
+          g.eaten = false
+        }
 
         // colisión con jugador
         if (Math.hypot(g.px - p.px, g.py - p.py) < T * 0.58) {
-          s.lives -= 1
-          setLives(s.lives)
-          sfx.hurt()
-          if (s.lives <= 0) {
-            gameOver()
+          if (isScared && !g.eaten) {
+            // ¡Comer fantasma!
+            g.eaten = true
+            const pts = 200 * s.ghostMultiplier
+            s.ghostMultiplier = Math.min(8, s.ghostMultiplier * 2)
+            s.score += pts
+            setScore(s.score)
+            sfx.eatGhost()
+            s.scoreFloats.push({ x: g.px, y: g.py - 6, text: `+${pts}`, life: 1.1 })
+          } else if (!g.eaten) {
+            s.lives -= 1
+            setLives(s.lives)
+            sfx.hurt()
+            if (s.lives <= 0) {
+              gameOver()
+              return
+            }
+            resetPositions(s)
             return
           }
-          resetPositions(s)
-          return
         }
       }
     }
@@ -482,40 +562,83 @@ export default function GhostMaze() {
       ctx.restore()
 
       // fantasmas
+      const isScared = s.scaredT > 0
       for (const g of s.ghosts) {
         const gx = g.px
         const gy = g.py
-        ctx.fillStyle = g.color
-        ctx.beginPath()
-        ctx.arc(gx, gy - 2, 9, Math.PI, 0)
-        ctx.lineTo(gx + 9, gy + 6)
-        // faldón ondulado
-        const wob = Math.sin(s.mouthT * 10) * 1.4
-        ctx.lineTo(gx + 6, gy + 3.4 + wob)
-        ctx.lineTo(gx + 3, gy + 6 - wob)
-        ctx.lineTo(gx, gy + 3.4 + wob)
-        ctx.lineTo(gx - 3, gy + 6 - wob)
-        ctx.lineTo(gx - 6, gy + 3.4 + wob)
-        ctx.lineTo(gx - 9, gy + 6)
-        ctx.closePath()
-        ctx.fill()
+
+        if (!g.eaten) {
+          // cuerpo del fantasma (azul si asustado, o parpadeante en los últimos segundos)
+          if (isScared) {
+            const flashWhite = s.scaredT < 2.2 && Math.sin(s.mouthT * 14) > 0
+            ctx.fillStyle = flashWhite ? '#FFFFFF' : '#2855F5'
+          } else {
+            ctx.fillStyle = g.color
+          }
+          ctx.beginPath()
+          ctx.arc(gx, gy - 2, 9, Math.PI, 0)
+          ctx.lineTo(gx + 9, gy + 6)
+          // faldón ondulado
+          const wob = Math.sin(s.mouthT * 10) * 1.4
+          ctx.lineTo(gx + 6, gy + 3.4 + wob)
+          ctx.lineTo(gx + 3, gy + 6 - wob)
+          ctx.lineTo(gx, gy + 3.4 + wob)
+          ctx.lineTo(gx - 3, gy + 6 - wob)
+          ctx.lineTo(gx - 6, gy + 3.4 + wob)
+          ctx.lineTo(gx - 9, gy + 6)
+          ctx.closePath()
+          ctx.fill()
+        }
+
         // ojos
         const dv = DIR_VEC[g.dir]
-        ctx.fillStyle = '#FFFFFF'
+        ctx.fillStyle = isScared && !g.eaten ? '#FFE23D' : '#FFFFFF'
         ctx.beginPath()
         ctx.ellipse(gx - 3.4 + dv.x, gy - 3 + dv.y, 2.8, 3.4, 0, 0, Math.PI * 2)
         ctx.ellipse(gx + 3.4 + dv.x, gy - 3 + dv.y, 2.8, 3.4, 0, 0, Math.PI * 2)
         ctx.fill()
-        ctx.fillStyle = '#2A2AB8'
+        ctx.fillStyle = isScared && !g.eaten ? '#FF2222' : '#2A2AB8'
         ctx.beginPath()
         ctx.arc(gx - 3.4 + dv.x * 1.7, gy - 3 + dv.y * 1.9, 1.5, 0, Math.PI * 2)
         ctx.arc(gx + 3.4 + dv.x * 1.7, gy - 3 + dv.y * 1.9, 1.5, 0, Math.PI * 2)
         ctx.fill()
       }
 
+      // flotantes de puntuación (+200, +400, etc.)
+      for (const f of s.scoreFloats) {
+        ctx.save()
+        ctx.font = 'bold 12px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#57E0C8'
+        ctx.shadowColor = '#57E0C8'
+        ctx.shadowBlur = 6
+        ctx.textAlign = 'center'
+        ctx.fillText(f.text, f.x, f.y)
+        ctx.restore()
+      }
+
+      // barra de tiempo de fantasmas asustados
+      if (s.scaredT > 0) {
+        ctx.save()
+        const barW = (s.scaredT / 7.5) * (W - 40)
+        ctx.fillStyle = 'rgba(40, 85, 245, 0.35)'
+        ctx.fillRect(20, H - 10, W - 40, 4)
+        ctx.fillStyle = '#57E0C8'
+        ctx.fillRect(20, H - 10, barW, 4)
+        ctx.restore()
+      }
+
       // mensajes de estado dentro del canvas
       ctx.textAlign = 'center'
-      if (s.levelFlash > 0) {
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(4, 4, 14, 0.7)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 22px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#FFE23D'
+        ctx.fillText('PAUSA', W / 2, H / 2 - 8)
+        ctx.font = '12px "Segoe UI", system-ui, sans-serif'
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText('Pulsa P para reanudar', W / 2, H / 2 + 18)
+      } else if (s.levelFlash > 0) {
         ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif'
         ctx.fillStyle = '#FFE23D'
         ctx.fillText('¡NIVEL SUPERADO!', W / 2, H / 2 - 6)
@@ -612,8 +735,8 @@ export default function GhostMaze() {
         )}
       </div>
 
-      <p className="hidden sm:block text-white/40 text-xs text-center">
-        Las bolitas grandes (doradas) valen 50. Cada nivel, los fantasmas persiguen más rápido.
+      <p className="hidden sm:block text-white/50 text-xs text-center">
+        ¡Come las bolitas doradas para asustar y devorar a los fantasmas (+200, +400 pts)! · P = Pausa
       </p>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />

@@ -28,12 +28,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Arcade Retro — 8 mini-juegos con teclado y música chiptune",
+  title: "Arcade Retro MVS — 10 juegos arcade clásicos",
   description:
-    "Sala de arcade con 8 mini-juegos clásicos para jugar con las flechas o WASD, cada uno con su música chiptune: Snake neón, invasión espacial, corredor del desierto, laberinto fantasma, carrera de tráfico, rompe ladrillos, Hit & Run y Gun & Run.",
-  keywords: ["arcade", "juegos", "mini-juegos", "snake", "retro", "wasd", "flechas", "chiptune"],
+    "Sala arcade retro estilo Neo-Geo MVS / Candy Cab con 10 mini-juegos clásicos de recreativa: Asteroid Drift, Cyber Dungeon, Snake Neón, Invasión Espacial, Corredor del Desierto, Laberinto Fantasma, Carrera de Tráfico, Rompe Ladrillos, Hit & Run y Gun & Run. Sintetizador WebAudio chiptune y control táctil completo.",
+  keywords: ["arcade", "neo-geo", "mvs", "chiptune", "retro gaming", "pixel art", "asteroids", "dungeon", "space invaders", "pacman", "snake"],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
   },
 };
 

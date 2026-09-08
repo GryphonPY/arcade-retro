@@ -83,6 +83,14 @@ interface Building {
   seed: number
 }
 
+interface ScoreFloat {
+  x: number
+  y: number
+  text: string
+  color: string
+  life: number
+}
+
 interface RunState {
   px: number
   py: number
@@ -104,6 +112,8 @@ interface RunState {
   started: boolean
   dead: boolean
   boosting: boolean
+  scoreFloats: ScoreFloat[]
+  paused: boolean
 }
 
 const BUILDING_COLORS = ['#1B1B30', '#22223A', '#191927', '#26263E', '#1E1E34']
@@ -144,6 +154,8 @@ function initial(): RunState {
     started: false,
     dead: false,
     boosting: false,
+    scoreFloats: [],
+    paused: false,
   }
 }
 
@@ -237,6 +249,13 @@ export default function HitAndRun() {
       const jp = justPressedRef.current
       s.lightT += dt
 
+      if (s.started && !overRef.current && jp.has('pause')) {
+        s.paused = !s.paused
+        sfx.pause()
+        return
+      }
+      if (s.paused) return
+
       if (overRef.current) {
         if (jp.has('action')) restart()
         if (s.shake > 0) s.shake -= dt
@@ -247,13 +266,17 @@ export default function HitAndRun() {
           s.started = true
           setRunning(true)
           sfx.start()
+          if (pressed.has('left')) s.px -= 290 * dt
+          if (pressed.has('right')) s.px += 290 * dt
+          if (pressed.has('up')) s.py -= 210 * 0.4 * dt
+          if (pressed.has('down')) s.py += 210 * 0.4 * dt
         }
         return
       }
 
       // ===== velocidad de crucero =====
       const base = Math.min(540, 250 + s.dist * 0.007 + s.wanted * 16)
-      s.boosting = pressed.has('up')
+      s.boosting = pressed.has('up') || pressed.has('action')
       if (s.boosting && !boostWasPressed) sfx.boost()
       boostWasPressed = s.boosting
       const target = pressed.has('down') ? Math.max(150, base * 0.5) : base + (s.boosting ? 150 : 0)
@@ -323,6 +346,13 @@ export default function HitAndRun() {
           s.heatT = 0
           s.shake = 0.3
           sfx.explode()
+          s.scoreFloats.push({
+            x: t.x + CAR_W / 2,
+            y: t.y,
+            text: '+150 ¡CHOQUE!',
+            color: '#FFC531',
+            life: 1.2,
+          })
           return false
         }
         return true
@@ -343,24 +373,51 @@ export default function HitAndRun() {
           s.bonus += 100
           recalc()
           sfx.coin()
+          s.scoreFloats.push({
+            x: c.x + CAR_W / 2,
+            y: 40,
+            text: '¡EVADIDA! +100',
+            color: '#7DD8B7',
+            life: 1.3,
+          })
           return false
         }
         if (c.y > H + 60) return false
 
         if (s.invuln <= 0 && aabb(s.px + 3, s.py + 3, CAR_W - 6, CAR_H - 6, c.x + 3, c.y + 3, CAR_W - 6, CAR_H - 6)) {
-          burst(s, c.x + CAR_W / 2, c.y + CAR_H / 2, true)
-          s.armor -= 1
-          setArmor(s.armor)
-          s.wanted = Math.min(5, s.wanted + 1)
-          setWanted(s.wanted)
-          s.invuln = 1.7
-          s.shake = 0.45
-          sfx.crash()
-          if (s.armor <= 0) {
-            gameOver()
+          if (s.boosting) {
+            // ¡TAKEDOWN A TODA VELOCIDAD!
+            burst(s, c.x + CAR_W / 2, c.y + CAR_H / 2, true)
+            s.bonus += 300
+            recalc()
+            s.wanted = Math.max(0, s.wanted - 1)
+            setWanted(s.wanted)
+            s.shake = 0.45
+            sfx.explode()
+            sfx.golden()
+            s.scoreFloats.push({
+              x: c.x + CAR_W / 2,
+              y: c.y,
+              text: '¡TAKEDOWN! +300 ⭐',
+              color: '#FFD23D',
+              life: 1.6,
+            })
+            return false
+          } else {
+            burst(s, c.x + CAR_W / 2, c.y + CAR_H / 2, true)
+            s.armor -= 1
+            setArmor(s.armor)
+            s.wanted = Math.min(5, s.wanted + 1)
+            setWanted(s.wanted)
+            s.invuln = 1.7
+            s.shake = 0.45
+            sfx.crash()
+            if (s.armor <= 0) {
+              gameOver()
+              return false
+            }
             return false
           }
-          return false
         }
         return true
       })
@@ -374,6 +431,13 @@ export default function HitAndRun() {
         p.vy *= 1 - 2.2 * dt
         p.y += s.scroll * 0.4 * dt
         return p.life > 0
+      })
+
+      // flotantes
+      s.scoreFloats = s.scoreFloats.filter((f) => {
+        f.y -= 35 * dt
+        f.life -= dt
+        return f.life > 0
       })
     }
 
@@ -492,6 +556,28 @@ export default function HitAndRun() {
       }
       ctx.globalAlpha = 1
 
+      // Textos flotantes
+      for (const f of s.scoreFloats) {
+        ctx.save()
+        ctx.globalAlpha = Math.max(0, Math.min(1, f.life * 1.5))
+        ctx.font = 'bold 15px "Segoe UI", system-ui, monospace'
+        ctx.fillStyle = f.color
+        ctx.textAlign = 'center'
+        ctx.fillText(f.text, f.x, f.y)
+        ctx.restore()
+      }
+
+      // Overlay de pausa
+      if (s.paused) {
+        ctx.fillStyle = 'rgba(11,11,22,0.7)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.font = 'bold 24px monospace'
+        ctx.fillStyle = '#FFD23D'
+        ctx.textAlign = 'center'
+        ctx.fillText('PAUSA (P)', W / 2, H / 2)
+        ctx.textAlign = 'left'
+      }
+
       ctx.restore()
     }
 
@@ -583,7 +669,7 @@ export default function HitAndRun() {
         Taxi embestido +150 · patrulla escapada +100 · sin chocar 9 s baja tu nivel de búsqueda.
       </p>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Turbo" actionGlyph="T" />
     </div>
   )
 }

@@ -1,29 +1,64 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
-<defs>
-  <style type="text/css">
-    .st194{fill:#2D2D2D;stroke:#FFFFFF;stroke-width:0.6317;stroke-miterlimit:10;}
-    .st23{fill:#FFFFFF;}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="cabGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="screenGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#022c22"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+    <linearGradient id="marqGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
 
-    .z-breathe {
-      animation: breathe 2.5s ease-in-out infinite;
-    }
+  <!-- Cabinet Shell -->
+  <path d="M10 6 L54 6 L50 20 L52 46 L46 60 L18 60 L12 46 L14 20 Z" fill="url(#cabGrad)" stroke="#f59e0b" stroke-width="2"/>
 
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-  </style>
-</defs>
+  <!-- Marquee Header -->
+  <rect x="14" y="9" width="36" height="9" rx="2" fill="url(#marqGrad)" stroke="#fef08a" stroke-width="1"/>
+  <text x="32" y="16" fill="#000" font-family="monospace" font-size="6" font-weight="900" text-anchor="middle" letter-spacing="1">ARCADE</text>
 
-<g>
-  <path class="st194" d="M24.51,28.51H5.49c-2.21,0-4-1.79-4-4V5.49c0-2.21,1.79-4,4-4h19.03c2.21,0,4,1.79,4,4v19.03
-    C28.51,26.72,26.72,28.51,24.51,28.51z"/>
-  <g class="z-breathe">
-    <path class="st23" d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z"/>
-    <polygon class="st23" points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1"/>
-    <path class="st23" d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z"/>
+  <!-- CRT Screen Bezel -->
+  <rect x="14" y="21" width="36" height="23" rx="4" fill="#09090b" stroke="#3f3f46" stroke-width="1.5"/>
+  <!-- CRT Phosphor Screen -->
+  <rect x="16" y="23" width="32" height="19" rx="2" fill="url(#screenGrad)"/>
+  
+  <!-- Pixel Space Invader on Screen -->
+  <g fill="#22c55e">
+    <rect x="30" y="26" width="4" height="2"/>
+    <rect x="28" y="28" width="8" height="2"/>
+    <rect x="26" y="30" width="12" height="2"/>
+    <rect x="26" y="32" width="2" height="2"/>
+    <rect x="30" y="32" width="4" height="2"/>
+    <rect x="36" y="32" width="2" height="2"/>
+    <rect x="28" y="34" width="2" height="2"/>
+    <rect x="34" y="34" width="2" height="2"/>
   </g>
-</g>
+
+  <!-- Scanlines effect -->
+  <line x1="16" y1="27" x2="48" y2="27" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1"/>
+  <line x1="16" y1="31" x2="48" y2="31" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1"/>
+  <line x1="16" y1="35" x2="48" y2="35" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1"/>
+  <line x1="16" y1="39" x2="48" y2="39" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1"/>
+
+  <!-- Control Deck -->
+  <polygon points="12,46 52,46 48,53 16,53" fill="#18181b" stroke="#52525b" stroke-width="1"/>
+  
+  <!-- Joystick (Bat-top) -->
+  <line x1="24" y1="49" x2="24" y2="45" stroke="#a1a1aa" stroke-width="2"/>
+  <circle cx="24" cy="44" r="3" fill="#ef4444" stroke="#b91c1c" stroke-width="1"/>
+
+  <!-- Action Buttons -->
+  <circle cx="34" cy="49" r="2" fill="#3b82f6"/>
+  <circle cx="40" cy="48" r="2" fill="#eab308"/>
+  <circle cx="44" cy="50" r="1.5" fill="#22c55e"/>
+
+  <!-- Coin Door -->
+  <rect x="26" y="55" width="12" height="5" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
+  <rect x="28" y="56" width="3" height="3" fill="#ef4444"/>
+  <rect x="33" y="56" width="3" height="3" fill="#ef4444"/>
 </svg>

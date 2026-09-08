@@ -117,6 +117,39 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[#08080c] text-white;
+    font-family: var(--font-sans), system-ui, sans-serif;
   }
 }
+
+/* Efectos retro arcade auténticos */
+.font-pixel {
+  font-family: var(--font-pixel), monospace;
+}
+
+.crt-overlay {
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+              linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  background-size: 100% 3px, 6px 100%;
+}
+
+.crt-vignette {
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.9);
+}
+
+.arcade-text-glow {
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.7), 0 0 20px rgba(245, 158, 11, 0.4), 2px 2px 0px #000;
+}
+
+.arcade-cyan-glow {
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.8), 0 0 25px rgba(34, 211, 238, 0.4), 2px 2px 0px #000;
+}
+
+.cartridge-ribs {
+  background-image: repeating-linear-gradient(90deg, #27272a 0px, #27272a 6px, #18181b 6px, #18181b 12px);
+}
+
+.pcb-pins {
+  background-image: repeating-linear-gradient(90deg, #d97706 0px, #d97706 4px, transparent 4px, transparent 8px);
+}
+

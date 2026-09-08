@@ -189,6 +189,72 @@ export const sfx = {
   boost() {
     tone({ freq: 180, to: 320, dur: 0.18, vol: 0.03, type: 'sawtooth' })
   },
+  /** Comer fantasma asustado */
+  eatGhost() {
+    tone({ freq: 440, to: 880, dur: 0.18, vol: 0.06, type: 'square' })
+    tone({ freq: 880, to: 1320, dur: 0.18, vol: 0.05, type: 'triangle', delay: 0.08 })
+  },
+  /** Fruta / orbe dorado */
+  golden() {
+    ;[659, 880, 1175, 1397].forEach((f, i) =>
+      tone({ freq: f, dur: 0.08, vol: 0.05, delay: i * 0.06, type: 'triangle' }),
+    )
+  },
+  /** Platillo OVNI */
+  ufo() {
+    tone({ freq: 900, to: 1100, dur: 0.12, vol: 0.03, type: 'sine' })
+  },
+  /** Rebase peligroso rozando coche */
+  nearMiss() {
+    tone({ freq: 480, to: 720, dur: 0.12, vol: 0.04, type: 'sine' })
+  },
+  /** Sonido de espada / tajo cuerpo a cuerpo */
+  slash() {
+    tone({ freq: 880, to: 220, dur: 0.08, vol: 0.05, type: 'sawtooth' })
+    noise({ dur: 0.07, vol: 0.06, freq: 1600 })
+  },
+  /** Impacto / golpe recibido por enemigo */
+  hit() {
+    tone({ freq: 280, to: 70, dur: 0.12, vol: 0.07, type: 'square' })
+    noise({ dur: 0.08, vol: 0.07, freq: 700 })
+  },
+  /** Beber poción / curación */
+  potion() {
+    ;[523, 659, 784, 1046].forEach((f, i) =>
+      tone({ freq: f, dur: 0.06, vol: 0.04, delay: i * 0.04, type: 'sine' }),
+    )
+  },
+  /** Recoger llave / tesoro */
+  key() {
+    ;[784, 988, 1319, 1568].forEach((f, i) =>
+      tone({ freq: f, dur: 0.08, vol: 0.045, delay: i * 0.05, type: 'triangle' }),
+    )
+  },
+  /** Salto hiperespacial / teletransporte */
+  warp() {
+    tone({ freq: 200, to: 1800, dur: 0.22, vol: 0.05, type: 'sawtooth' })
+    noise({ dur: 0.2, vol: 0.04, freq: 2400 })
+  },
+  /** Disparo láser vector */
+  laser() {
+    tone({ freq: 1800, to: 400, dur: 0.08, vol: 0.04, type: 'sawtooth' })
+  },
+  /** Bomba inteligente / explosión masiva */
+  bomb() {
+    noise({ dur: 0.6, vol: 0.14, freq: 600 })
+    tone({ freq: 160, to: 25, dur: 0.5, vol: 0.09, type: 'triangle' })
+  },
+  /** Inserción física de moneda mecánica */
+  coinInsert() {
+    tone({ freq: 1200, dur: 0.04, vol: 0.05, type: 'sine' })
+    tone({ freq: 1600, dur: 0.08, vol: 0.06, delay: 0.04, type: 'triangle' })
+    noise({ dur: 0.09, vol: 0.05, freq: 2800, delay: 0.07 })
+    tone({ freq: 880, dur: 0.12, vol: 0.04, delay: 0.11, type: 'sine' })
+  },
+  /** Pausar o reanudar */
+  pause() {
+    tone({ freq: 520, to: 440, dur: 0.09, vol: 0.04, type: 'triangle' })
+  },
   /** Fin de partida (melodía descendente) */
   gameOver() {
     ;[392, 330, 262, 196].forEach((f, i) =>
@@ -196,3 +262,4 @@ export const sfx = {
     )
   },
 }
+
