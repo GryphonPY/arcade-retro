@@ -31,6 +31,8 @@ export interface GameMeta {
   landscape?: boolean
   /** En desarrollo: no se muestra en el build de producción. */
   wip?: boolean
+  /** Cómo se juega en celular, si no usa la cruceta y los botones A/B estándar. */
+  touchHelp?: string
   accent: string
   /** Fondo de la vista de juego. */
   viewBg: string
@@ -59,7 +61,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'bunker-93',
-    wip: true,
     flagship: true,
     landscape: true,
     isNew: true,
@@ -71,15 +72,17 @@ const ALL_GAMES: GameMeta[] = [
     controls: [
       { keys: ['W', 'A', 'S', 'D'], label: 'moverse' },
       { keys: ['Mouse'], label: 'apuntar' },
-      { keys: ['Clic'], label: 'disparar' },
-      { keys: ['1', '2', '3', '4'], label: 'armas' },
+      { keys: ['Clic', 'Espacio'], label: 'disparar' },
+      { keys: ['1-5', 'Q'], label: 'armas' },
+      { keys: ['E'], label: 'doble cañón' },
     ],
+    touchHelp:
+      'Con el celular acostado: joystick a la izquierda para moverte, arrastra en la mitad derecha para girar, FUEGO para disparar y ARMA para cambiar. Tiene ayuda de puntería.',
     accent: '#ef4444',
     viewBg: '#0a0505',
   },
   {
     id: 'sunset-run',
-    wip: true,
     flagship: true,
     landscape: true,
     isNew: true,
@@ -91,9 +94,12 @@ const ALL_GAMES: GameMeta[] = [
     controls: [
       { keys: ['←', '→'], label: 'girar' },
       { keys: ['↑'], label: 'acelerar' },
-      { keys: ['↓'], label: 'frenar' },
+      { keys: ['↓'], label: 'frenar / derrapar' },
       { keys: ['Espacio'], label: 'nitro' },
+      { keys: ['R'], label: 'radio' },
     ],
+    touchHelp:
+      'Con el celular acostado: flechas grandes a la izquierda para girar; FRENO y NITRO a la derecha. Acelera solo por defecto, y puedes activar girar inclinando el teléfono.',
     accent: '#f97316',
     viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(249,115,22,0.14), transparent), #0f0905',
   },

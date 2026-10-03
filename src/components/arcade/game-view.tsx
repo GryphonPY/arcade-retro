@@ -197,7 +197,9 @@ function HelpSheet({ game, onClose }: { game: GameMeta; onClose: () => void }) {
         <ControlList controls={game.controls} className="mt-2" />
 
         <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-dim">Celular</h3>
-        <p className="mt-1 text-sm text-zinc-400">Usa la cruceta y los botones A / B en la parte de abajo de la pantalla.</p>
+        <p className="mt-1 text-sm text-zinc-400">
+          {game.touchHelp ?? 'Usa la cruceta y los botones A / B en la parte de abajo de la pantalla.'}
+        </p>
 
         <button
           type="button"
