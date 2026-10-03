@@ -2507,7 +2507,6 @@ export default function CyberDungeon() {
       }
     }
 
-    ;(window as unknown as { __cd?: unknown }).__cd = { G, buildFloor, makeEnemy, killEnemy, updateVis, juice } // DEBUGTMP
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
