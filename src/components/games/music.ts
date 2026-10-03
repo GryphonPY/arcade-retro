@@ -747,7 +747,8 @@ function ensureLoop() {
 /** Cambia la pista musical (por id de juego) sin cortar el AudioContext. */
 export function startMusic(id: string): void {
   if (currentId !== id) {
-    currentId = DEFS[id] ? id : 'hub'
+    // Los juegos con música propia no tienen pista aquí: el secuenciador se calla.
+    currentId = DEFS[id] ? id : ''
     step = 0
     nextT = 0
   }

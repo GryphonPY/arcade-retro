@@ -12,6 +12,9 @@ const loading = () => <div className="flex-1" />
 
 // Cada juego se descarga solo cuando se abre.
 const GAME_COMPONENTS: Record<string, ComponentType> = {
+  'nebula-strike': dynamic(() => import('@/components/games/nebula-strike'), { ssr: false, loading }),
+  'bunker-93': dynamic(() => import('@/components/games/bunker-93'), { ssr: false, loading }),
+  'sunset-run': dynamic(() => import('@/components/games/sunset-run'), { ssr: false, loading }),
   'pong-duelo': dynamic(() => import('@/components/games/pong-duelo'), { ssr: false, loading }),
   'defensa-final': dynamic(() => import('@/components/games/defensa-final'), { ssr: false, loading }),
   horda: dynamic(() => import('@/components/games/horda'), { ssr: false, loading }),

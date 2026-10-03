@@ -5,6 +5,9 @@ import { Badge as TorreNeonBadge } from './badges/torre-neon'
 import { Badge as PongDueloBadge } from './badges/pong-duelo'
 import { Badge as DefensaFinalBadge } from './badges/defensa-final'
 import { Badge as HordaBadge } from './badges/horda'
+import { Badge as NebulaStrikeBadge } from './badges/nebula-strike'
+import { Badge as Bunker93Badge } from './badges/bunker-93'
+import { Badge as SunsetRunBadge } from './badges/sunset-run'
 
 export function CartridgeBadge({ gameId }: { gameId: string }) {
   switch (gameId) {
@@ -22,6 +25,12 @@ export function CartridgeBadge({ gameId }: { gameId: string }) {
       return <DefensaFinalBadge />
     case 'horda':
       return <HordaBadge />
+    case 'nebula-strike':
+      return <NebulaStrikeBadge />
+    case 'bunker-93':
+      return <Bunker93Badge />
+    case 'sunset-run':
+      return <SunsetRunBadge />
     case 'snake-neon':
       return (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">

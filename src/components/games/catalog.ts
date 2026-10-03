@@ -25,6 +25,12 @@ export interface GameMeta {
   /** Color de acento principal del juego. */
   /** Marca el juego como novedad en la sala. */
   isNew?: boolean
+  /** Juego estrella: aparece primero y con tarjeta grande en la sala. */
+  flagship?: boolean
+  /** Se juega mejor con el celular acostado. */
+  landscape?: boolean
+  /** En desarrollo: no se muestra en el build de producción. */
+  wip?: boolean
   accent: string
   /** Fondo de la vista de juego. */
   viewBg: string
@@ -32,10 +38,67 @@ export interface GameMeta {
 
 const MOVE: ControlHint = { keys: ['←', '↑', '→', '↓'], label: 'mover' }
 
-export const GAMES: GameMeta[] = [
+const ALL_GAMES: GameMeta[] = [
+  {
+    id: 'nebula-strike',
+    wip: true,
+    flagship: true,
+    isNew: true,
+    category: 'accion',
+    name: 'Nebula Strike',
+    genre: 'Shooter de naves',
+    year: '1995',
+    desc: 'Elige tu nave y atraviesa lluvias de balas neón, mejora tus armas en pleno vuelo y derriba jefes colosales sector tras sector.',
+    controls: [
+      { keys: ['←', '↑', '→', '↓'], label: 'mover' },
+      { keys: ['Espacio'], label: 'disparar' },
+      { keys: ['Shift'], label: 'bomba' },
+    ],
+    accent: '#22d3ee',
+    viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(34,211,238,0.14), transparent), #04060f',
+  },
+  {
+    id: 'bunker-93',
+    wip: true,
+    flagship: true,
+    landscape: true,
+    isNew: true,
+    category: 'accion',
+    name: 'Búnker 93',
+    genre: 'FPS retro',
+    year: '1993',
+    desc: 'Shooter en primera persona: una base militar tomada por mutantes, oleadas cada vez más brutales y jefes que hacen temblar el piso.',
+    controls: [
+      { keys: ['W', 'A', 'S', 'D'], label: 'moverse' },
+      { keys: ['Mouse'], label: 'apuntar' },
+      { keys: ['Clic'], label: 'disparar' },
+      { keys: ['1', '2', '3', '4'], label: 'armas' },
+    ],
+    accent: '#ef4444',
+    viewBg: '#0a0505',
+  },
+  {
+    id: 'sunset-run',
+    wip: true,
+    flagship: true,
+    landscape: true,
+    isNew: true,
+    category: 'reflejos',
+    name: 'Sunset Run',
+    genre: 'Carreras',
+    year: '1986',
+    desc: 'Carreras en pseudo 3D al atardecer: elige coche y estación de radio, y gana copas contra siete rivales entre curvas, colinas y nitro.',
+    controls: [
+      { keys: ['←', '→'], label: 'girar' },
+      { keys: ['↑'], label: 'acelerar' },
+      { keys: ['↓'], label: 'frenar' },
+      { keys: ['Espacio'], label: 'nitro' },
+    ],
+    accent: '#f97316',
+    viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(249,115,22,0.14), transparent), #0f0905',
+  },
   {
     id: 'pong-duelo',
-    isNew: true,
     category: 'clasicos',
     name: 'Duelo Pong',
     genre: 'Versus',
@@ -51,7 +114,6 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'defensa-final',
-    isNew: true,
     category: 'accion',
     name: 'Defensa Final',
     genre: 'Defensa',
@@ -67,7 +129,6 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'horda',
-    isNew: true,
     category: 'accion',
     name: 'Horda Nocturna',
     genre: 'Supervivencia',
@@ -256,3 +317,7 @@ export const GAMES: GameMeta[] = [
     viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(255,138,61,0.14), transparent), #17100a',
   },
 ]
+
+// Los juegos marcados como `wip` solo aparecen en desarrollo.
+export const GAMES: GameMeta[] =
+  process.env.NODE_ENV === 'production' ? ALL_GAMES.filter((g) => !g.wip) : ALL_GAMES
