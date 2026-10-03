@@ -364,7 +364,6 @@ export default function DesertRunner() {
     const PIX = pixVar ? `${pixVar}, monospace` : 'monospace'
 
     const pal = makePalOut()
-    ;(window as unknown as { __dr: typeof G }).__dr = G // DEBUG-TEMP
     let raf = 0
     let last = performance.now()
     let hudT = 0

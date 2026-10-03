@@ -2431,7 +2431,6 @@ export default function CyberDungeon() {
       const cx = Math.round(G.camX)
       const cy = Math.round(G.camY)
       ctx.translate(-cx, -cy)
-      G.camX = cx === Math.round(G.camX) ? G.camX : G.camX
       drawTiles()
       drawStairs()
       drawItems()

@@ -310,7 +310,6 @@ export default function TrafficRacer() {
     if (!ctx0) throw new Error('Canvas 2D no disponible')
     const ctx = ctx0
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ;(window as unknown as { __tr: typeof R }).__tr = R // DEBUG-TEMP
 
     const pixVar = getComputedStyle(document.body).getPropertyValue('--font-pixel').trim()
     const PIX = pixVar ? `${pixVar}, monospace` : 'monospace'
