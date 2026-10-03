@@ -1338,10 +1338,15 @@ export default function GhostMaze() {
       }
     }
 
-    const drawBanner = (text: string, y: number, color: string, size = 12) => {
+    const drawBanner = (text: string, y: number, color: string, size = 12, plate = false) => {
       ctx.font = font(size)
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
+      if (plate) {
+        const tw = ctx.measureText(text).width + 18
+        ctx.fillStyle = 'rgba(4,4,14,0.82)'
+        ctx.fillRect(W / 2 - tw / 2, y - size * 0.95, tw, size * 1.9)
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.85)'
       ctx.fillText(text, W / 2 + 2, y + 2)
       ctx.fillStyle = color
@@ -1412,8 +1417,8 @@ export default function GhostMaze() {
       juice.drawTexts(ctx, pixelFont)
       // rótulos de estado
       if (w.phase === 'ready' && w.phaseT >= 0) {
-        drawBanner(`NIVEL ${w.level}`, 8.5 * T, '#7df9ff', 11)
-        drawBanner('¡LISTO!', 13.5 * T, ACCENT, 13)
+        drawBanner(`NIVEL ${w.level}`, 8.5 * T, '#7df9ff', 11, true)
+        drawBanner('¡LISTO!', 13.5 * T, ACCENT, 13, true)
       }
       if (w.scaredT > 0 && w.phase === 'play') {
         const k = w.scaredT / w.scaredDur
@@ -1432,7 +1437,6 @@ export default function GhostMaze() {
       }
     }
 
-    ;(window as unknown as { __gm?: unknown }).__gm = { get w() { return w }, juice, nextLevel, startClear } // DEBUGTMP
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
@@ -1490,8 +1494,8 @@ export default function GhostMaze() {
             title="LABERINTO FANTASMA"
             accent={ACCENT}
             subtitle="Come todas las bolitas. Cada fantasma te persigue distinto: el rojo de frente, el rosa te corta el paso, el cian te flanquea y el naranja duda. Las bolas grandes los asustan."
-            hint="Pulsa una flecha o ESPACIO para empezar"
-            touchHint="Desliza la cruceta para empezar"
+            hint="Flecha o ESPACIO para empezar"
+            touchHint="Usa la cruceta para empezar"
             onStart={begin}
           >
             <p className="max-w-xs text-xs leading-relaxed text-white/55">

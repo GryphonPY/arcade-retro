@@ -744,7 +744,6 @@ export default function SpaceInvasion() {
       g.mode = 'title'
     }
     setupTitle()
-    ;(window as unknown as { __si?: unknown }).__si = { g, spawnWave, juice } // TEMPDEBUG
 
     // ---------- actualización ----------
     const shoot = () => {

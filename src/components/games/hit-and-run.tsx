@@ -13,7 +13,7 @@ import { sfx, tone, noise } from './sfx'
 // Constantes del mundo
 // ---------------------------------------------------------------------------
 const W = 360
-const H = 540
+const H = 480
 const SW_L = 40 // inicio de la banqueta izquierda
 const ROAD_L = 62
 const ROAD_R = 298
@@ -516,7 +516,7 @@ export default function HitAndRun() {
     const rawFont = getComputedStyle(document.body).getPropertyValue('--font-pixel').trim()
     const FONT = rawFont ? `${rawFont}, monospace` : '"Press Start 2P", monospace'
     try {
-      void document.fonts?.load(`10px ${FONT}`)
+      void document.fonts?.load(`10px ${FONT}`).catch(() => {})
     } catch {
       // sin API de fuentes
     }
@@ -1780,8 +1780,8 @@ export default function HitAndRun() {
       // misión
       if (g.mission && g.phase === 'play') {
         const m = g.mission
-        const mw = 250
-        const mx = (W - mw) / 2
+        const mw = 240
+        const mx = 76
         const my = 36
         ctx.fillStyle = 'rgba(8,8,20,0.72)'
         ctx.fillRect(mx, my, mw, 26)
@@ -2043,7 +2043,7 @@ export default function HitAndRun() {
         className="rounded-xl border-2 border-[#34344a] bg-[#0a0a13] shadow-[0_0_40px_rgba(255,197,49,0.15)]"
         hud={
           <Hud>
-            <span className="text-[#ffc531]">PTS {score.toLocaleString('es-MX')}</span>
+            <span className="whitespace-nowrap text-[#ffc531]">PTS {score.toLocaleString('es-MX')}</span>
             <span className="flex items-center gap-0.5" aria-label={`Nivel de búsqueda ${stars} de 5`}>
               {[0, 1, 2, 3, 4].map((i) => (
                 <svg key={i} viewBox="0 0 10 10" className={`size-3 ${i < stars ? 'text-[#ff5d5d]' : 'text-white/20'}`} fill="currentColor">
@@ -2051,7 +2051,7 @@ export default function HitAndRun() {
                 </svg>
               ))}
             </span>
-            <span className="text-white/60">HI {Math.max(best, score).toLocaleString('es-MX')}</span>
+            <span className="whitespace-nowrap text-white/60">HI {Math.max(best, score).toLocaleString('es-MX')}</span>
           </Hud>
         }
       >
