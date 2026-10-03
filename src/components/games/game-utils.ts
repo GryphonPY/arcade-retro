@@ -1,8 +1,16 @@
 'use client'
 
-/** Prepara un canvas con escala DPR para dibujado nítido. */
+/**
+ * Factor de resolución interna del canvas. Se renderiza al menos a 2x para que
+ * la pantalla siga nítida cuando se escala para llenar monitores grandes.
+ */
+export function renderScale(): number {
+  return Math.min(3, Math.max(2, Math.ceil(window.devicePixelRatio || 1)))
+}
+
+/** Prepara un canvas con escala de resolución para dibujado nítido. */
 export function setupCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRenderingContext2D {
-  const dpr = Math.min(2, window.devicePixelRatio || 1)
+  const dpr = renderScale()
   canvas.width = Math.round(w * dpr)
   canvas.height = Math.round(h * dpr)
   const ctx = canvas.getContext('2d')
@@ -30,6 +38,7 @@ export function saveBest(gameId: string, score: number): boolean {
     const prev = loadBest(gameId)
     if (score > prev) {
       window.localStorage.setItem(`arcade-best-${gameId}`, String(score))
+      window.dispatchEvent(new Event('arcade-store-change'))
       return true
     }
     return false

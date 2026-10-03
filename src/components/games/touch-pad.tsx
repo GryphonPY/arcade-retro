@@ -1,131 +1,178 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useRef, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import type { LogicalKey } from './use-keys'
 
-function triggerHaptic() {
-  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-    try {
-      navigator.vibrate(10)
-    } catch {
-      // Ignorar si el navegador bloquea vibración
-    }
+function haptic() {
+  try {
+    navigator.vibrate?.(8)
+  } catch {
+    // sin vibración
   }
 }
 
-function DPadButton({
-  gameKey,
-  onPress,
-  onRelease,
-  label,
-  glyph,
-  className,
-}: {
-  gameKey: LogicalKey
-  onPress: (k: LogicalKey) => void
-  onRelease: (k: LogicalKey) => void
-  label: string
-  glyph: string
-  className?: string
-}) {
+function subscribeCoarse(cb: () => void) {
+  const mq = window.matchMedia('(pointer: coarse)')
+  mq.addEventListener('change', cb)
+  return () => mq.removeEventListener('change', cb)
+}
+
+function isTouchDevice() {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      className={`select-none touch-none rounded-xl border border-white/20 bg-zinc-900/90 text-amber-300 backdrop-blur-md active:bg-amber-400 active:text-black flex items-center justify-center text-lg leading-none shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_4px_8px_rgba(0,0,0,0.6)] active:shadow-inner active:scale-95 transition-transform [-webkit-tap-highlight-color:transparent] ${className ?? ''}`}
-      onPointerDown={(e) => {
-        e.preventDefault()
-        try {
-          e.currentTarget.releasePointerCapture(e.pointerId)
-        } catch {
-          // sin captura
-        }
-        triggerHaptic()
-        onPress(gameKey)
-      }}
-      onPointerEnter={(e) => {
-        if (e.buttons > 0) {
-          e.preventDefault()
-          triggerHaptic()
-          onPress(gameKey)
-        }
-      }}
-      onPointerLeave={() => onRelease(gameKey)}
-      onPointerUp={() => onRelease(gameKey)}
-      onPointerCancel={() => onRelease(gameKey)}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {glyph}
-    </button>
+    window.matchMedia('(pointer: coarse)').matches ||
+    new URLSearchParams(window.location.search).get('touch') === '1'
   )
 }
 
-function SanwaButton({
+type Dir = 'up' | 'down' | 'left' | 'right'
+
+/**
+ * Cruceta analógica: un solo área táctil que calcula la dirección según la
+ * posición del dedo respecto al centro, así se puede deslizar entre
+ * direcciones (incluidas diagonales) sin levantar el pulgar.
+ */
+function DPad({ onPress, onRelease }: { onPress: (k: LogicalKey) => void; onRelease: (k: LogicalKey) => void }) {
+  const active = useRef<Set<Dir>>(new Set())
+  const knob = useRef<HTMLDivElement | null>(null)
+  const arrows = useRef<Record<Dir, HTMLSpanElement | null>>({ up: null, down: null, left: null, right: null })
+
+  const apply = (next: Set<Dir>) => {
+    for (const d of active.current) if (!next.has(d)) onRelease(d)
+    for (const d of next) if (!active.current.has(d)) onPress(d)
+    if ([...next].some((d) => !active.current.has(d))) haptic()
+    active.current = next
+    for (const d of ['up', 'down', 'left', 'right'] as Dir[]) {
+      arrows.current[d]?.classList.toggle('dpad-on', next.has(d))
+    }
+  }
+
+  const track = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const dx = e.clientX - (r.left + r.width / 2)
+    const dy = e.clientY - (r.top + r.height / 2)
+    const dead = r.width * 0.12
+    const next = new Set<Dir>()
+    if (Math.hypot(dx, dy) > dead) {
+      const a = Math.atan2(dy, dx) // -PI..PI, 0 = derecha
+      const deg = (a * 180) / Math.PI
+      // sectores de 90° con solape de 22.5° para diagonales
+      if (deg > -67.5 && deg < 67.5) next.add('right')
+      if (deg > 112.5 || deg < -112.5) next.add('left')
+      if (deg > 22.5 && deg < 157.5) next.add('down')
+      if (deg < -22.5 && deg > -157.5) next.add('up')
+    }
+    const max = r.width * 0.22
+    const len = Math.hypot(dx, dy) || 1
+    const k = Math.min(1, max / len)
+    if (knob.current) knob.current.style.transform = `translate(${dx * k}px, ${dy * k}px)`
+    apply(next)
+  }
+
+  const end = () => {
+    if (knob.current) knob.current.style.transform = ''
+    apply(new Set())
+  }
+
+  const arrow = (d: Dir, cls: string, rotate: number) => (
+    <span
+      ref={(el) => {
+        arrows.current[d] = el
+      }}
+      className={`absolute flex size-10 items-center justify-center text-sm text-white/45 transition-colors ${cls}`}
+    >
+      <svg viewBox="0 0 10 10" className="size-3.5 fill-current" style={{ transform: `rotate(${rotate}deg)` }} aria-hidden>
+        <path d="M5 1.5 9 8H1z" />
+      </svg>
+    </span>
+  )
+
+  return (
+    <div
+      role="group"
+      aria-label="Cruceta de dirección"
+      className="relative size-[8.5rem] shrink-0 touch-none rounded-full border border-white/10 bg-white/[0.04] shadow-[inset_0_2px_12px_rgba(0,0,0,0.5)]"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        track(e)
+      }}
+      onPointerMove={(e) => {
+        if (e.buttons > 0 || e.pointerType === 'touch') track(e)
+      }}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onLostPointerCapture={end}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {arrow('up', 'left-1/2 top-1 -translate-x-1/2', 0)}
+      {arrow('down', 'bottom-1 left-1/2 -translate-x-1/2', 180)}
+      {arrow('left', 'left-1 top-1/2 -translate-y-1/2', 270)}
+      {arrow('right', 'right-1 top-1/2 -translate-y-1/2', 90)}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div
+          ref={knob}
+          className="size-14 rounded-full border border-white/15 bg-gradient-to-b from-white/20 to-white/5 shadow-[0_6px_16px_rgba(0,0,0,0.6)] transition-transform duration-75"
+        />
+      </div>
+    </div>
+  )
+}
+
+function ActionButton({
   gameKey,
   onPress,
   onRelease,
   label,
   letter,
-  glyph,
-  colorScheme = 'red',
+  tone,
 }: {
   gameKey: LogicalKey
   onPress: (k: LogicalKey) => void
   onRelease: (k: LogicalKey) => void
   label: string
   letter: string
-  glyph?: string
-  colorScheme?: 'red' | 'blue' | 'yellow'
+  tone: 'primary' | 'secondary'
 }) {
-  const colorStyles = {
-    red: 'border-red-500/80 bg-gradient-to-b from-red-500 to-red-700 text-white shadow-[0_4px_0_#7f1d1d,0_6px_12px_rgba(239,68,68,0.4)] active:shadow-[0_1px_0_#7f1d1d] active:translate-y-0.5',
-    blue: 'border-cyan-400/80 bg-gradient-to-b from-cyan-500 to-blue-600 text-white shadow-[0_4px_0_#1e3a8a,0_6px_12px_rgba(6,182,212,0.4)] active:shadow-[0_1px_0_#1e3a8a] active:translate-y-0.5',
-    yellow: 'border-amber-400/80 bg-gradient-to-b from-amber-400 to-amber-600 text-zinc-950 shadow-[0_4px_0_#78350f,0_6px_12px_rgba(245,158,11,0.4)] active:shadow-[0_1px_0_#78350f] active:translate-y-0.5',
-  }[colorScheme]
-
+  const styles =
+    tone === 'primary'
+      ? 'bg-gradient-to-b from-rose-400 to-rose-600 shadow-[0_5px_0_#881337,0_10px_24px_rgba(244,63,94,0.35)] active:shadow-[0_1px_0_#881337] size-[4.5rem]'
+      : 'bg-gradient-to-b from-sky-400 to-sky-600 shadow-[0_5px_0_#0c4a6e,0_10px_24px_rgba(14,165,233,0.3)] active:shadow-[0_1px_0_#0c4a6e] size-16'
+  const release = () => onRelease(gameKey)
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="flex flex-col items-center gap-1.5">
       <button
         type="button"
         aria-label={label}
-        className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full border-2 select-none touch-none flex flex-col items-center justify-center font-black transition-all [-webkit-tap-highlight-color:transparent] ${colorStyles}`}
+        className={`touch-none select-none rounded-full text-lg font-bold text-white transition-transform active:translate-y-1 ${styles}`}
         onPointerDown={(e) => {
           e.preventDefault()
-          try {
-            e.currentTarget.releasePointerCapture(e.pointerId)
-          } catch {
-            // sin captura
-          }
-          triggerHaptic()
+          e.currentTarget.setPointerCapture(e.pointerId)
+          haptic()
           onPress(gameKey)
         }}
-        onPointerLeave={() => onRelease(gameKey)}
-        onPointerUp={() => onRelease(gameKey)}
-        onPointerCancel={() => onRelease(gameKey)}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onLostPointerCapture={release}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <span className="text-sm sm:text-base tracking-tight font-extrabold">{letter}</span>
-        {glyph && <span className="text-[9px] opacity-80 -mt-1 font-mono">{glyph}</span>}
+        {letter}
       </button>
-      <span className="text-[8px] uppercase font-bold tracking-wider text-white/60 drop-shadow">
-        {label}
-      </span>
+      <span className="text-[10px] font-medium uppercase tracking-wider text-white/50">{label}</span>
     </div>
   )
 }
 
 /**
- * Mando arcade virtual táctil con cruceta japonesa y botones Sanwa.
- * Se muestra automáticamente en pantallas táctiles o si se fuerza por prop/URL.
+ * Mando táctil: cruceta a la izquierda y botones de acción a la derecha.
+ * Solo se muestra en pantallas táctiles (o con ?touch=1 en la URL).
  */
 export function TouchPad({
   onPress,
   onRelease,
   showAction = false,
-  actionLabel = 'Disparar',
+  actionLabel = 'Acción',
   actionGlyph = 'A',
   showAction2 = false,
-  action2Label = 'Bomba',
+  action2Label = 'B',
   action2Glyph = 'B',
   forceVisible = false,
 }: {
@@ -139,75 +186,39 @@ export function TouchPad({
   action2Glyph?: string
   forceVisible?: boolean
 }) {
-  const [isTouch, setIsTouch] = useState(() => {
-    if (typeof window === 'undefined') return false
-    if (forceVisible) return true
-    const forceUrl = new URLSearchParams(window.location.search).get('touch') === '1'
-    return window.matchMedia('(pointer: coarse)').matches || forceUrl
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(pointer: coarse)')
-    const forceUrl = new URLSearchParams(window.location.search).get('touch') === '1'
-    const fn = (e: MediaQueryListEvent) => setIsTouch(e.matches || forceUrl || forceVisible)
-    mq.addEventListener('change', fn)
-    return () => mq.removeEventListener('change', fn)
-  }, [forceVisible])
-
-  if (!isTouch) return null
+  const isTouch = useSyncExternalStore(subscribeCoarse, isTouchDevice, () => false)
+  if (!isTouch && !forceVisible) return null
 
   return (
     <nav
-      aria-label="Controles táctiles arcade"
-      className="w-full shrink-0 flex items-center justify-between px-3 sm:px-6 py-1 select-none z-20 bg-gradient-to-t from-zinc-950 via-zinc-950/95 to-zinc-950/70 border-t border-zinc-800/80 shadow-[0_-8px_25px_rgba(0,0,0,0.9)]"
-      style={{
-        paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
-      }}
+      aria-label="Controles táctiles"
+      className="relative z-20 flex w-full shrink-0 select-none items-center justify-between gap-4 px-5 pt-3"
+      style={{ paddingBottom: 'calc(0.9rem + env(safe-area-inset-bottom, 0px))' }}
+      onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Cruceta Arcade (D-Pad) */}
-      <div
-        className="grid grid-cols-3 grid-rows-3 gap-1 p-1 rounded-2xl bg-zinc-950/90 border border-zinc-700/80 shadow-[0_4px_16px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md"
-        style={{
-          width: '7.8rem',
-          height: '7.8rem',
-        }}
-      >
-        <span />
-        <DPadButton gameKey="up" onPress={onPress} onRelease={onRelease} label="Arriba" glyph="▲" />
-        <span />
-        <DPadButton gameKey="left" onPress={onPress} onRelease={onRelease} label="Izquierda" glyph="◀" />
-        <div className="rounded-lg bg-zinc-900 border border-zinc-800 flex flex-col items-center justify-center">
-          <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
-          <span className="text-[6px] text-amber-300/70 font-mono mt-0.5 font-bold">MVS</span>
-        </div>
-        <DPadButton gameKey="right" onPress={onPress} onRelease={onRelease} label="Derecha" glyph="▶" />
-        <span />
-        <DPadButton gameKey="down" onPress={onPress} onRelease={onRelease} label="Abajo" glyph="▼" />
-        <span />
-      </div>
-
-      {/* Botones de acción Sanwa */}
+      <DPad onPress={onPress} onRelease={onRelease} />
       {(showAction || showAction2) && (
-        <div className="flex items-end gap-2.5 p-1.5 rounded-2xl bg-zinc-950/90 border border-zinc-700/80 shadow-[0_4px_16px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md">
+        <div className="flex items-end gap-4">
           {showAction2 && (
-            <SanwaButton
-              gameKey="action2"
-              onPress={onPress}
-              onRelease={onRelease}
-              letter={action2Glyph}
-              label={action2Label}
-              colorScheme="blue"
-            />
+            <div className="mb-6">
+              <ActionButton
+                gameKey="action2"
+                onPress={onPress}
+                onRelease={onRelease}
+                label={action2Label}
+                letter={action2Glyph}
+                tone="secondary"
+              />
+            </div>
           )}
           {showAction && (
-            <SanwaButton
+            <ActionButton
               gameKey="action"
               onPress={onPress}
               onRelease={onRelease}
-              letter={actionGlyph}
               label={actionLabel}
-              colorScheme="red"
+              letter={actionGlyph}
+              tone="primary"
             />
           )}
         </div>

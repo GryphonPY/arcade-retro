@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys, type Dir } from './use-keys'
-import { loadBest, saveBest, rr } from './game-utils'
+import { loadBest, saveBest, rr, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { GameScreen } from './game-screen'
 import { sfx } from './sfx'
 
 const COLS = 22
@@ -111,7 +112,7 @@ export default function SnakeNeon() {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = (() => {
-      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      const dpr = renderScale()
       canvas.width = Math.round(W * dpr)
       canvas.height = Math.round(H * dpr)
       const c = canvas.getContext('2d')
@@ -394,71 +395,71 @@ export default function SnakeNeon() {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
-      {/* Marcador */}
-      <div
-        className="flex items-center justify-between w-full max-w-[440px] px-2 shrink-0 py-0.5"
-        style={{ fontFamily: 'var(--font-pixel)' }}
+      <GameScreen
+        width={W}
+        height={H}
+        className="rounded-2xl p-[3px] bg-gradient-to-br from-[#22f7c5] via-[#b026ff] to-[#ff2fd6] shadow-[0_0_36px_rgba(176,38,255,0.35)]"
+        hud={
+          <div
+            className="flex items-center justify-between w-full px-2 shrink-0 py-0.5"
+            style={{ fontFamily: 'var(--font-pixel)' }}
+          >
+            <span className="text-[10px] text-[#22f7c5] drop-shadow-[0_0_6px_rgba(34,247,197,0.8)]">
+              PUNTOS {score}
+            </span>
+            <span className="text-[10px] text-[#ff2fd6] drop-shadow-[0_0_6px_rgba(255,47,214,0.8)]">
+              RÉCORD {Math.max(best, score)}
+            </span>
+          </div>
+        }
       >
-        <span className="text-[10px] text-[#22f7c5] drop-shadow-[0_0_6px_rgba(34,247,197,0.8)]">
-          PUNTOS {score}
-        </span>
-        <span className="text-[10px] text-[#ff2fd6] drop-shadow-[0_0_6px_rgba(255,47,214,0.8)]">
-          RÉCORD {Math.max(best, score)}
-        </span>
-      </div>
+        <canvas
+          ref={canvasRef}
+          className="block h-full w-full object-contain touch-none select-none rounded-[13px] bg-[#070213]"
+          aria-label="Juego Snake Neón"
+        />
 
-      {/* Pantalla del Canvas adaptativa */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
-        <div className="relative rounded-2xl p-[3px] bg-gradient-to-br from-[#22f7c5] via-[#b026ff] to-[#ff2fd6] shadow-[0_0_36px_rgba(176,38,255,0.35)] overflow-hidden max-h-full max-w-full aspect-square flex items-center justify-center">
-          <canvas
-            ref={canvasRef}
-            className="block max-h-full max-w-full object-contain touch-none select-none rounded-[13px] bg-[#070213]"
-            style={{ aspectRatio: '1 / 1' }}
-            aria-label="Juego Snake Neón"
-          />
+        {!running && !over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[13px] bg-[#070213]/85 backdrop-blur-[2px] text-center px-4">
+            <p
+              className="text-[#22f7c5] text-sm drop-shadow-[0_0_10px_rgba(34,247,197,0.9)]"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              SNAKE NEÓN
+            </p>
+            <p className="text-white/70 text-xs">{hintText}</p>
+          </div>
+        )}
 
-          {!running && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[13px] bg-[#070213]/85 backdrop-blur-[2px] text-center px-4">
-              <p
-                className="text-[#22f7c5] text-sm drop-shadow-[0_0_10px_rgba(34,247,197,0.9)]"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                SNAKE NEÓN
+        {over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[13px] bg-[#070213]/88 backdrop-blur-[2px] text-center px-4">
+            <p
+              className="text-[#ff2fd6] text-sm drop-shadow-[0_0_10px_rgba(255,47,214,0.9)]"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              GAME OVER
+            </p>
+            {newBest && (
+              <p className="text-[#ffe23d] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
+                ¡NUEVO RÉCORD!
               </p>
-              <p className="text-white/70 text-xs">{hintText}</p>
-            </div>
-          )}
-
-          {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[13px] bg-[#070213]/88 backdrop-blur-[2px] text-center px-4">
-              <p
-                className="text-[#ff2fd6] text-sm drop-shadow-[0_0_10px_rgba(255,47,214,0.9)]"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                GAME OVER
-              </p>
-              {newBest && (
-                <p className="text-[#ffe23d] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
-                  ¡NUEVO RÉCORD!
-                </p>
-              )}
-              <p className="text-white/80 text-xs">Puntuación: {score}</p>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.currentTarget.blur()
-                  restart()
-                }}
-                className="text-[10px] px-4 py-2 rounded-lg bg-[#ff2fd6]/20 border border-[#ff2fd6]/60 text-[#ff9ae8] hover:bg-[#ff2fd6]/35 transition-colors"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                REINICIAR
-              </button>
-              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+            <p className="text-white/80 text-xs">Puntuación: {score}</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.currentTarget.blur()
+                restart()
+              }}
+              className="text-[10px] px-4 py-2 rounded-lg bg-[#ff2fd6]/20 border border-[#ff2fd6]/60 text-[#ff9ae8] hover:bg-[#ff2fd6]/35 transition-colors"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              REINICIAR
+            </button>
+            <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+          </div>
+        )}
+      </GameScreen>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
     </div>

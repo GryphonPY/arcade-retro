@@ -1,14 +1,11 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: "export",
+  // Sitio 100% estático: se publica la carpeta ./out en Cloudflare.
+  output: 'export',
   images: {
     unoptimized: true,
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  reactStrictMode: false,
-};
+}
 
-export default nextConfig;
+export default nextConfig

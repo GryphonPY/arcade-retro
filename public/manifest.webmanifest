@@ -1,0 +1,11 @@
+{
+  "name": "Arcade Retro",
+  "short_name": "Arcade",
+  "description": "10 juegos arcade clásicos en tu navegador.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07070b",
+  "theme_color": "#07070b",
+  "icons": [{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

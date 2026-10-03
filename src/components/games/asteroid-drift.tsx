@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, setupCanvas } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { GameScreen } from './game-screen'
 import { sfx } from './sfx'
 
 const W = 480
@@ -831,82 +832,79 @@ export default function AsteroidDrift() {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
-      {/* Marcador superior estilo cabina arcade */}
-      <div className="flex items-center justify-between w-full max-w-[480px] px-2 shrink-0 py-0.5 text-xs font-mono">
-        <div className="flex items-center gap-3">
-          <span className="font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
-            SCORE {String(score).padStart(6, '0')}
-          </span>
-          <span className="text-emerald-400 font-bold">WAVE {wave}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1" title="Vidas">
-            {Array.from({ length: Math.max(0, lives) }).map((_, i) => (
-              <span key={i} className="text-cyan-400 text-sm">▲</span>
-            ))}
+      <GameScreen
+        width={W}
+        height={H}
+        className="rounded-2xl border-2 border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] bg-[#050710]"
+        hud={
+          <div className="flex items-center justify-between w-full px-2 shrink-0 py-0.5 text-xs font-mono">
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
+                SCORE {String(score).padStart(6, '0')}
+              </span>
+              <span className="text-emerald-400 font-bold">WAVE {wave}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1" title="Vidas">
+                {Array.from({ length: Math.max(0, lives) }).map((_, i) => (
+                  <span key={i} className="text-cyan-400 text-sm">▲</span>
+                ))}
+              </div>
+              <span className="text-zinc-400">HI {String(Math.max(best, score)).padStart(6, '0')}</span>
+            </div>
           </div>
-          <span className="text-zinc-400">HI {String(Math.max(best, score)).padStart(6, '0')}</span>
-        </div>
-      </div>
-
-      {/* Pantalla Canvas centrada y adaptativa */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
-        <div className="relative rounded-2xl border-2 border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] overflow-hidden max-h-full max-w-full aspect-square flex items-center justify-center bg-[#050710]">
-          <canvas
-            ref={canvasRef}
-            className="block max-h-full max-w-full object-contain touch-none select-none cursor-crosshair"
-            style={{ aspectRatio: `${W} / ${H}` }}
-            aria-label="Juego Asteroid Drift 360"
-          />
-
-          {/* Pantalla de inicio */}
-          {!running && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 text-center px-4 backdrop-blur-sm">
-              <h3 className="text-lg sm:text-2xl font-black text-cyan-300 tracking-wider font-mono drop-shadow-[0_0_12px_rgba(34,211,238,0.8)]">
-                ASTEROID DRIFT 360°
-              </h3>
-              <p className="text-zinc-400 text-xs max-w-xs leading-relaxed font-mono">
-                Gira con <b>← →</b>, propulsa con <b>↑</b> y dispara con <b>A / ESPACIO</b>.
+        }
+      >
+        <canvas
+          ref={canvasRef}
+          className="block h-full w-full object-contain touch-none select-none cursor-crosshair"
+          style={{ aspectRatio: `${W} / ${H}` }}
+          aria-label="Juego Asteroid Drift 360"
+        />
+        {!running && !over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 text-center px-4 backdrop-blur-sm">
+            <h3 className="text-lg sm:text-2xl font-black text-cyan-300 tracking-wider font-mono drop-shadow-[0_0_12px_rgba(34,211,238,0.8)]">
+              ASTEROID DRIFT 360°
+            </h3>
+            <p className="text-zinc-400 text-xs max-w-xs leading-relaxed font-mono">
+              Gira con <b>← →</b>, propulsa con <b>↑</b> y dispara con <b>A / ESPACIO</b>.
+            </p>
+            <p className="text-cyan-400/80 text-[11px] font-mono">
+              Warp de emergencia: <b>B</b> o <b>↓</b>
+            </p>
+            <button
+              type="button"
+              onClick={restart}
+              className="mt-1 px-5 py-1.5 rounded-full border border-cyan-400 bg-cyan-500/20 text-cyan-300 font-bold font-mono text-xs sm:text-sm hover:bg-cyan-500/30 active:scale-95 transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)]"
+            >
+              INICIAR PARTIDA
+            </button>
+          </div>
+        )}
+        {over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/90 text-center px-4 backdrop-blur-md">
+            <p className="text-xl sm:text-2xl font-black text-rose-500 font-mono tracking-widest drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">
+              GAME OVER
+            </p>
+            {newBest && (
+              <p className="text-amber-400 text-xs font-bold font-mono animate-bounce drop-shadow">
+                ★ ¡NUEVO RÉCORD ARCADE! ★
               </p>
-              <p className="text-cyan-400/80 text-[11px] font-mono">
-                Warp de emergencia: <b>B</b> o <b>↓</b>
-              </p>
-              <button
-                type="button"
-                onClick={restart}
-                className="mt-1 px-5 py-1.5 rounded-full border border-cyan-400 bg-cyan-500/20 text-cyan-300 font-bold font-mono text-xs sm:text-sm hover:bg-cyan-500/30 active:scale-95 transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)]"
-              >
-                INICIAR PARTIDA
-              </button>
-            </div>
-          )}
-
-          {/* Pantalla de Game Over */}
-          {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/90 text-center px-4 backdrop-blur-md">
-              <p className="text-xl sm:text-2xl font-black text-rose-500 font-mono tracking-widest drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">
-                GAME OVER
-              </p>
-              {newBest && (
-                <p className="text-amber-400 text-xs font-bold font-mono animate-bounce drop-shadow">
-                  ★ ¡NUEVO RÉCORD ARCADE! ★
-                </p>
-              )}
-              <p className="text-zinc-300 text-xs sm:text-sm font-mono">
-                PUNTUACIÓN: <b className="text-cyan-400">{score}</b> PTS
-              </p>
-              <p className="text-zinc-500 text-[11px] font-mono">Oleadas superadas: {wave}</p>
-              <button
-                type="button"
-                onClick={restart}
-                className="mt-2 px-5 py-2 rounded-xl border border-cyan-400 bg-cyan-500 text-black font-extrabold font-mono text-xs sm:text-sm hover:bg-cyan-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)]"
-              >
-                REINTENTAR
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+            <p className="text-zinc-300 text-xs sm:text-sm font-mono">
+              PUNTUACIÓN: <b className="text-cyan-400">{score}</b> PTS
+            </p>
+            <p className="text-zinc-500 text-[11px] font-mono">Oleadas superadas: {wave}</p>
+            <button
+              type="button"
+              onClick={restart}
+              className="mt-2 px-5 py-2 rounded-xl border border-cyan-400 bg-cyan-500 text-black font-extrabold font-mono text-xs sm:text-sm hover:bg-cyan-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)]"
+            >
+              REINTENTAR
+            </button>
+          </div>
+        )}
+      </GameScreen>
 
       {/* Controles táctiles */}
       <TouchPad

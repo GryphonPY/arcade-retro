@@ -1,7 +1,18 @@
-import React from 'react'
+import { Badge as BloquesBadge } from './badges/bloques'
+import { Badge as FlapPixelBadge } from './badges/flap-pixel'
+import { Badge as CruzaCaminoBadge } from './badges/cruza-camino'
+import { Badge as TorreNeonBadge } from './badges/torre-neon'
 
 export function CartridgeBadge({ gameId }: { gameId: string }) {
   switch (gameId) {
+    case 'bloques':
+      return <BloquesBadge />
+    case 'flap-pixel':
+      return <FlapPixelBadge />
+    case 'cruza-camino':
+      return <CruzaCaminoBadge />
+    case 'torre-neon':
+      return <TorreNeonBadge />
     case 'snake-neon':
       return (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">

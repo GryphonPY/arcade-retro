@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
-import { loadBest, saveBest, aabb, rr } from './game-utils'
+import { loadBest, saveBest, aabb, rr, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { GameScreen } from './game-screen'
 import { sfx } from './sfx'
 
 const W = 480
@@ -132,7 +133,7 @@ export default function BrickBreaker() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
     const ctx0 = canvas.getContext('2d')
@@ -448,79 +449,80 @@ export default function BrickBreaker() {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
-      {/* Marcador */}
-      <div className="flex items-center justify-between w-full max-w-[480px] px-2 shrink-0 py-0.5 text-xs font-mono font-bold">
-        <span className="text-[#E8899E]">{score} PTS</span>
-        <div className="flex items-center gap-2">
-          <span className="text-[#7DD8B7]">NIVEL {level}</span>
-          <span className="text-red-400" title="Vidas">
-            {'♥'.repeat(Math.max(0, lives))}
-          </span>
-        </div>
-        <span className="text-[#9DB8A8]">
-          HI: {Math.max(best, score)}
-        </span>
-      </div>
-
-      {/* Pantalla del Canvas adaptativa */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
-        <div className="relative rounded-3xl border-2 border-[#EBDDC8] shadow-[0_14px_40px_rgba(240,180,170,0.35)] overflow-hidden max-h-full max-w-full aspect-[460/400] flex items-center justify-center bg-[#18181b]">
-          <canvas
-            ref={canvasRef}
-            onClick={() => {
-              const s = stateRef.current
-              if (!s.started) {
-                s.started = true
-                setRunning(true)
-                launch(s)
-                sfx.start()
-              } else if (s.ball.stuck) {
-                launch(s)
-                sfx.start()
-              }
-            }}
-            onPointerMove={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect()
-              const relX = ((e.clientX - rect.left) / rect.width) * W
-              stateRef.current.paddleX = Math.max(8, Math.min(W - PADDLE_W - 8, relX - PADDLE_W / 2))
-            }}
-            className="block max-h-full max-w-full object-contain touch-none select-none cursor-pointer"
-            style={{ aspectRatio: `${W} / ${H}` }}
-            aria-label="Juego Rompe Ladrillos"
-          />
-
-          {!running && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#FBF3E4]/85 text-center px-4">
-              <p className="text-xl sm:text-2xl font-extrabold text-[#E8899E]">Rompe Ladrillos</p>
-              <p className="text-[#8D7B62] text-xs sm:text-sm">
-                Mueve la paleta con <b>← →</b> o <b>A D</b>
-              </p>
-              <p className="text-[#8D7B62]/80 text-[11px]">
-                Lanza la bola con <b>A / ESPACIO</b> o toca la pantalla
-              </p>
+      <GameScreen
+        width={W}
+        height={H}
+        className="rounded-3xl border-2 border-[#EBDDC8] shadow-[0_14px_40px_rgba(240,180,170,0.35)] bg-[#18181b]"
+        hud={
+          <div className="flex items-center justify-between w-full px-2 shrink-0 py-0.5 text-xs font-mono font-bold">
+            <span className="text-[#E8899E]">{score} PTS</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[#7DD8B7]">NIVEL {level}</span>
+              <span className="text-red-400" title="Vidas">
+                {'♥'.repeat(Math.max(0, lives))}
+              </span>
             </div>
-          )}
+            <span className="text-[#9DB8A8]">
+              HI: {Math.max(best, score)}
+            </span>
+          </div>
+        }
+      >
+        <canvas
+          ref={canvasRef}
+          onClick={() => {
+            const s = stateRef.current
+            if (!s.started) {
+              s.started = true
+              setRunning(true)
+              launch(s)
+              sfx.start()
+            } else if (s.ball.stuck) {
+              launch(s)
+              sfx.start()
+            }
+          }}
+          onPointerMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const relX = ((e.clientX - rect.left) / rect.width) * W
+            stateRef.current.paddleX = Math.max(8, Math.min(W - PADDLE_W - 8, relX - PADDLE_W / 2))
+          }}
+          className="block h-full w-full object-contain touch-none select-none cursor-pointer"
+          style={{ aspectRatio: `${W} / ${H}` }}
+          aria-label="Juego Rompe Ladrillos"
+        />
 
-          {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#FBF3E4]/90 text-center px-4">
-              <p className="text-xl sm:text-2xl font-extrabold text-[#E8899E]">Se acabaron las vidas</p>
-              {newBest && <p className="text-[#7DD8B7] font-bold animate-pulse text-xs">¡Nuevo récord!</p>}
-              <p className="text-[#8D7B62] text-xs sm:text-sm">Puntuación final: {score} pts · Nivel {level}</p>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.currentTarget.blur()
-                  restart()
-                }}
-                className="px-5 py-2 rounded-full bg-[#7DD8B7] text-white font-bold shadow-lg hover:bg-[#66C7A5] transition-colors text-xs sm:text-sm"
-              >
-                Jugar de nuevo
-              </button>
-              <p className="text-[#8D7B62]/60 text-[10px]">o pulsa ESPACIO / ENTER</p>
-            </div>
-          )}
-        </div>
-      </div>
+        {!running && !over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#FBF3E4]/85 text-center px-4">
+            <p className="text-xl sm:text-2xl font-extrabold text-[#E8899E]">Rompe Ladrillos</p>
+            <p className="text-[#8D7B62] text-xs sm:text-sm">
+              Mueve la paleta con <b>← →</b> o <b>A D</b>
+            </p>
+            <p className="text-[#8D7B62]/80 text-[11px]">
+              Lanza la bola con <b>A / ESPACIO</b> o toca la pantalla
+            </p>
+          </div>
+        )}
+
+        {over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#FBF3E4]/90 text-center px-4">
+            <p className="text-xl sm:text-2xl font-extrabold text-[#E8899E]">Se acabaron las vidas</p>
+            {newBest && <p className="text-[#7DD8B7] font-bold animate-pulse text-xs">¡Nuevo récord!</p>}
+            <p className="text-[#8D7B62] text-xs sm:text-sm">Puntuación final: {score} pts · Nivel {level}</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.currentTarget.blur()
+                restart()
+              }}
+              className="px-5 py-2 rounded-full bg-[#7DD8B7] text-white font-bold shadow-lg hover:bg-[#66C7A5] transition-colors text-xs sm:text-sm"
+            >
+              Jugar de nuevo
+            </button>
+            <p className="text-[#8D7B62]/60 text-[10px]">o pulsa ESPACIO / ENTER</p>
+          </div>
+        )}
+      </GameScreen>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Lanzar" />
     </div>

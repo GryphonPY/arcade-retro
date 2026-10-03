@@ -48,7 +48,7 @@ function ac(): AudioContext | null {
   }
 }
 
-interface ToneOpts {
+export interface ToneOpts {
   freq: number
   to?: number
   dur: number
@@ -57,7 +57,8 @@ interface ToneOpts {
   delay?: number
 }
 
-function tone(o: ToneOpts): void {
+/** Tono sintetizado; útil para crear efectos propios en cada juego. */
+export function tone(o: ToneOpts): void {
   if (muted) return
   const c = ac()
   if (!c) return
@@ -80,14 +81,15 @@ function tone(o: ToneOpts): void {
   }
 }
 
-interface NoiseOpts {
+export interface NoiseOpts {
   dur: number
   vol?: number
   freq?: number
   delay?: number
 }
 
-function noise(o: NoiseOpts): void {
+/** Ráfaga de ruido filtrado (explosiones, golpes, motor). */
+export function noise(o: NoiseOpts): void {
   if (muted) return
   const c = ac()
   if (!c) return

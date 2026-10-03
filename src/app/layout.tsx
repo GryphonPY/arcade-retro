@@ -1,57 +1,52 @@
-import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import type { Metadata, Viewport } from 'next'
+import { Geist, Geist_Mono, Press_Start_2P } from 'next/font/google'
+import './globals.css'
 
 const pixelFont = Press_Start_2P({
-  variable: "--font-pixel",
-  subsets: ["latin"],
-  weight: "400",
-  display: "swap",
-});
+  variable: '--font-pixel',
+  subsets: ['latin'],
+  weight: '400',
+  display: 'swap',
+})
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const viewport: Viewport = {
-  width: "device-width",
+  width: 'device-width',
   initialScale: 1,
-  userScalable: false,
-  viewportFit: "cover",
-};
+  viewportFit: 'cover',
+  themeColor: '#07070b',
+}
 
 export const metadata: Metadata = {
-  title: "Arcade Retro MVS — 10 juegos arcade clásicos",
+  title: 'Arcade Retro — 10 juegos clásicos en tu navegador',
   description:
-    "Sala arcade retro estilo Neo-Geo MVS / Candy Cab con 10 mini-juegos clásicos de recreativa: Asteroid Drift, Cyber Dungeon, Snake Neón, Invasión Espacial, Corredor del Desierto, Laberinto Fantasma, Carrera de Tráfico, Rompe Ladrillos, Hit & Run y Gun & Run. Sintetizador WebAudio chiptune y control táctil completo.",
-  keywords: ["arcade", "neo-geo", "mvs", "chiptune", "retro gaming", "pixel art", "asteroids", "dungeon", "space invaders", "pacman", "snake"],
+    'Diez juegos arcade clásicos para jugar gratis en el navegador, en computadora o celular: Snake, invasores, laberinto con fantasmas, rompe ladrillos, carreras y más. Con música chiptune y controles táctiles.',
+  keywords: ['arcade', 'juegos retro', 'snake', 'space invaders', 'pac-man', 'breakout', 'asteroids', 'chiptune'],
   icons: {
-    icon: "/logo.svg",
-    shortcut: "/logo.svg",
-    apple: "/logo.svg",
+    icon: '/logo.svg',
+    apple: '/logo.svg',
   },
-};
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Arcade Retro',
+    statusBarStyle: 'black-translucent',
+  },
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${pixelFont.variable} antialiased bg-background text-foreground`}
-      >
-        {children}
-        <Toaster />
-      </body>
+    <html lang="es">
+      <body className={`${geistSans.variable} ${geistMono.variable} ${pixelFont.variable}`}>{children}</body>
     </html>
-  );
+  )
 }

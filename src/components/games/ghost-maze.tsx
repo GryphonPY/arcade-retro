@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys, type Dir } from './use-keys'
-import { loadBest, saveBest } from './game-utils'
+import { loadBest, saveBest, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { GameScreen } from './game-screen'
 import { sfx } from './sfx'
 
 const MAZE = [
@@ -182,7 +183,7 @@ export default function GhostMaze() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
     const ctx0 = canvas.getContext('2d')
@@ -663,76 +664,77 @@ export default function GhostMaze() {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
-      {/* Marcador */}
-      <div
-        className="flex items-center justify-between w-full max-w-[494px] px-2 shrink-0 py-0.5"
-        style={{ fontFamily: 'var(--font-pixel)' }}
+      <GameScreen
+        width={W}
+        height={H}
+        className="rounded-xl border-2 border-[#232B7E] shadow-[0_0_36px_rgba(77,99,255,0.25)] bg-[#04040E]"
+        hud={
+          <div
+            className="flex items-center justify-between w-full px-2 shrink-0 py-0.5"
+            style={{ fontFamily: 'var(--font-pixel)' }}
+          >
+            <span className="text-[9px] text-[#FFE23D]">PTS {score}</span>
+            <span className="text-[9px] text-[#FFD9A0]">NIVEL {level}</span>
+            <span className="text-[9px] text-[#FF5D5D]">
+              VIDAS {'●'.repeat(Math.max(0, lives))}
+            </span>
+            <span className="text-[9px] text-[#57E0C8]">HI {Math.max(best, score)}</span>
+          </div>
+        }
       >
-        <span className="text-[9px] text-[#FFE23D]">PTS {score}</span>
-        <span className="text-[9px] text-[#FFD9A0]">NIVEL {level}</span>
-        <span className="text-[9px] text-[#FF5D5D]">
-          VIDAS {'●'.repeat(Math.max(0, lives))}
-        </span>
-        <span className="text-[9px] text-[#57E0C8]">HI {Math.max(best, score)}</span>
-      </div>
+        <canvas
+          ref={canvasRef}
+          className="block h-full w-full object-contain touch-none select-none bg-[#04040E]"
+          style={{ aspectRatio: `${W} / ${H}` }}
+          aria-label="Juego Laberinto Fantasma"
+        />
 
-      {/* Pantalla del Canvas adaptativa */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
-        <div className="relative rounded-xl border-2 border-[#232B7E] shadow-[0_0_36px_rgba(77,99,255,0.25)] overflow-hidden max-h-full max-w-full aspect-[494/456] flex items-center justify-center bg-[#04040E]">
-          <canvas
-            ref={canvasRef}
-            className="block max-h-full max-w-full object-contain touch-none select-none bg-[#04040E]"
-            style={{ aspectRatio: `${W} / ${H}` }}
-            aria-label="Juego Laberinto Fantasma"
-          />
+        {!running && !over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#04040E]/85 text-center px-4">
+            <p
+              className="text-[#FFE23D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,226,61,0.9)]"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              LABERINTO FANTASMA
+            </p>
+            <p className="text-white/70 text-xs">
+              Come todas las bolitas y evita los fantasmas
+            </p>
+            <p className="text-white/40 text-[11px]">
+              Muévete con <b>↑ ↓ ← →</b> o <b>WASD</b> para empezar
+            </p>
+          </div>
+        )}
 
-          {!running && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#04040E]/85 text-center px-4">
-              <p
-                className="text-[#FFE23D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,226,61,0.9)]"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                LABERINTO FANTASMA
+        {over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#04040E]/90 text-center px-4">
+            <p
+              className="text-[#FF5D5D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              TE ATRAPARON
+            </p>
+            {newBest && (
+              <p className="text-[#FFE23D] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
+                ¡NUEVO RÉCORD!
               </p>
-              <p className="text-white/70 text-xs">
-                Come todas las bolitas y evita los fantasmas
-              </p>
-              <p className="text-white/40 text-[11px]">
-                Muévete con <b>↑ ↓ ← →</b> o <b>WASD</b> para empezar
-              </p>
-            </div>
-          )}
-
-          {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#04040E]/90 text-center px-4">
-              <p
-                className="text-[#FF5D5D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                TE ATRAPARON
-              </p>
-              {newBest && (
-                <p className="text-[#FFE23D] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
-                  ¡NUEVO RÉCORD!
-                </p>
-              )}
-              <p className="text-white/80 text-xs">Puntuación: {score} · Nivel {level}</p>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.currentTarget.blur()
-                  restart()
-                }}
-                className="text-[10px] px-4 py-2 rounded bg-[#FFE23D]/15 border border-[#FFE23D]/60 text-[#FFE23D] hover:bg-[#FFE23D]/30 transition-colors"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                JUGAR OTRA VEZ
-              </button>
-              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+            <p className="text-white/80 text-xs">Puntuación: {score} · Nivel {level}</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.currentTarget.blur()
+                restart()
+              }}
+              className="text-[10px] px-4 py-2 rounded bg-[#FFE23D]/15 border border-[#FFE23D]/60 text-[#FFE23D] hover:bg-[#FFE23D]/30 transition-colors"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              JUGAR OTRA VEZ
+            </button>
+            <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+          </div>
+        )}
+      </GameScreen>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Acción" />
     </div>

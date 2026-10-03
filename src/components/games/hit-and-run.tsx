@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
-import { loadBest, saveBest, aabb } from './game-utils'
+import { loadBest, saveBest, aabb, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
+import { GameScreen } from './game-screen'
 import { sfx } from './sfx'
 
 const W = 420
@@ -207,7 +208,7 @@ export default function HitAndRun() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
     const ctx0 = canvas.getContext('2d')
@@ -590,78 +591,79 @@ export default function HitAndRun() {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden p-1 sm:p-2">
-      {/* Marcador */}
-      <div
-        className="flex items-center justify-between w-full max-w-[420px] px-2 shrink-0 py-0.5"
-        style={{ fontFamily: 'var(--font-pixel)' }}
+      <GameScreen
+        width={W}
+        height={H}
+        className="rounded-xl border-2 border-[#2E2E42] shadow-[0_0_40px_rgba(255,197,49,0.15)] bg-[#0B0B16]"
+        hud={
+          <div
+            className="flex items-center justify-between w-full px-2 shrink-0 py-0.5"
+            style={{ fontFamily: 'var(--font-pixel)' }}
+          >
+            <span className="text-[9px] text-[#FFC531]">PTS {score}</span>
+            <span className="text-[9px] text-[#FF5D5D]" title="Nivel de búsqueda">
+              {'★'.repeat(wanted)}
+              {'☆'.repeat(5 - wanted)}
+            </span>
+            <span className="text-[9px] text-[#7DD8B7]">{armor > 0 ? '♦'.repeat(armor) : '—'}</span>
+            <span className="text-[9px] text-white/60">HI {Math.max(best, score)}</span>
+          </div>
+        }
       >
-        <span className="text-[9px] text-[#FFC531]">PTS {score}</span>
-        <span className="text-[9px] text-[#FF5D5D]" title="Nivel de búsqueda">
-          {'★'.repeat(wanted)}
-          {'☆'.repeat(5 - wanted)}
-        </span>
-        <span className="text-[9px] text-[#7DD8B7]">{armor > 0 ? '♦'.repeat(armor) : '—'}</span>
-        <span className="text-[9px] text-white/60">HI {Math.max(best, score)}</span>
-      </div>
+        <canvas
+          ref={canvasRef}
+          className="block h-full w-full object-contain touch-none select-none bg-[#0B0B16]"
+          style={{ imageRendering: 'pixelated' }}
+          aria-label="Juego Hit and Run"
+        />
 
-      {/* Pantalla del Canvas adaptativa */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1">
-        <div className="relative rounded-xl border-2 border-[#2E2E42] shadow-[0_0_40px_rgba(255,197,49,0.15)] overflow-hidden max-h-full max-w-full aspect-[360/480] flex items-center justify-center bg-[#0B0B16]">
-          <canvas
-            ref={canvasRef}
-            className="block max-h-full max-w-full object-contain touch-none select-none bg-[#0B0B16]"
-            style={{ aspectRatio: `${W} / ${H}`, imageRendering: 'pixelated' }}
-            aria-label="Juego Hit and Run"
-          />
+        {!running && !over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0B0B16]/85 text-center px-4">
+            <p
+              className="text-[#FFC531] text-sm sm:text-base drop-shadow-[0_0_12px_rgba(255,197,49,0.9)]"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              HIT &amp; RUN
+            </p>
+            <p className="text-white/70 text-xs leading-relaxed">
+              Embiste taxis amarillos para sumar puntos y escapa de la patrulla.
+            </p>
+            <p className="text-white/50 text-[11px]">
+              <b>↑ ↓ ← → / WASD</b> mover · <b>↑ / T</b> turbo
+            </p>
+            <p className="text-white/35 text-[10px]">Pulsa cualquier control para arrancar</p>
+          </div>
+        )}
 
-          {!running && !over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0B0B16]/85 text-center px-4">
-              <p
-                className="text-[#FFC531] text-sm sm:text-base drop-shadow-[0_0_12px_rgba(255,197,49,0.9)]"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                HIT &amp; RUN
+        {over && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0B0B16]/90 text-center px-4">
+            <p
+              className="text-[#FF5D5D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              TE ATRAPARON
+            </p>
+            {newBest && (
+              <p className="text-[#FFC531] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
+                ¡NUEVO RÉCORD!
               </p>
-              <p className="text-white/70 text-xs leading-relaxed">
-                Embiste taxis amarillos para sumar puntos y escapa de la patrulla.
-              </p>
-              <p className="text-white/50 text-[11px]">
-                <b>↑ ↓ ← → / WASD</b> mover · <b>↑ / T</b> turbo
-              </p>
-              <p className="text-white/35 text-[10px]">Pulsa cualquier control para arrancar</p>
-            </div>
-          )}
-
-          {over && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0B0B16]/90 text-center px-4">
-              <p
-                className="text-[#FF5D5D] text-sm sm:text-base drop-shadow-[0_0_10px_rgba(255,93,93,0.9)]"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                TE ATRAPARON
-              </p>
-              {newBest && (
-                <p className="text-[#FFC531] text-[10px] animate-pulse" style={{ fontFamily: 'var(--font-pixel)' }}>
-                  ¡NUEVO RÉCORD!
-                </p>
-              )}
-              <p className="text-white/80 text-xs">Puntuación: {score}</p>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.currentTarget.blur()
-                  restart()
-                }}
-                className="text-[10px] px-4 py-2 rounded bg-[#FFC531]/15 border border-[#FFC531]/60 text-[#FFC531] hover:bg-[#FFC531]/30 transition-colors"
-                style={{ fontFamily: 'var(--font-pixel)' }}
-              >
-                OTRO GOLPE
-              </button>
-              <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+            <p className="text-white/80 text-xs">Puntuación: {score}</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.currentTarget.blur()
+                restart()
+              }}
+              className="text-[10px] px-4 py-2 rounded bg-[#FFC531]/15 border border-[#FFC531]/60 text-[#FFC531] hover:bg-[#FFC531]/30 transition-colors"
+              style={{ fontFamily: 'var(--font-pixel)' }}
+            >
+              OTRO GOLPE
+            </button>
+            <p className="text-white/40 text-[10px]">o pulsa ESPACIO / ENTER</p>
+          </div>
+        )}
+      </GameScreen>
 
       <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Turbo" actionGlyph="T" />
     </div>
