@@ -252,7 +252,7 @@ interface Result {
 
 export default function FlapPixel() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const { pressedRef, justPressedRef, keyQueueRef, virtualPress, virtualRelease } = useKeys()
+  const { justPressedRef, keyQueueRef, virtualPress, virtualRelease } = useKeys()
   const startRef = useRef<() => void>(() => {})
   const [ui, setUi] = useState<Phase>('menu')
   const [score, setScore] = useState(0)
@@ -475,6 +475,7 @@ export default function FlapPixel() {
       if (wantFlap) flap()
       const spd = speedFor(g.passed)
       g.scroll += spd * dt
+      g.nextX -= spd * dt
       g.vy = Math.min(g.vy + GRAVITY * dt, TERMINAL_V)
       g.y += g.vy * dt
       if (g.y < BIRD_R) {
@@ -711,7 +712,10 @@ export default function FlapPixel() {
       ctx.fillStyle = css(mix([222, 184, 112], [78, 62, 66], n))
       ctx.fillRect(-20, gy, W + 40, H - gy + 20)
       ctx.fillStyle = css(mix([196, 156, 92], [60, 48, 54], n))
-      for (let x = -((g.scroll * 1.0) % 48); x < W; x += 48) ctx.fillRect(x + 10, gy + 34, 14, 4), ctx.fillRect(x + 32, gy + 52, 10, 4)
+      for (let x = -((g.scroll * 1.0) % 48); x < W; x += 48) {
+        ctx.fillRect(x + 10, gy + 34, 14, 4)
+        ctx.fillRect(x + 32, gy + 52, 10, 4)
+      }
       ctx.fillStyle = css(mix([40, 98, 36], [10, 40, 36], n))
       ctx.fillRect(-20, gy - 2, W + 40, 4)
       ctx.fillStyle = css(mix([120, 214, 84], [30, 96, 70], n))
@@ -801,7 +805,7 @@ export default function FlapPixel() {
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000)
+      const dt = clamp((now - last) / 1000, 0, 0.05)
       last = now
       update(dt)
       justPressedRef.current.clear()

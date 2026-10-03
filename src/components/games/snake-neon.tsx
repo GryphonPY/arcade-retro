@@ -357,7 +357,6 @@ export default function SnakeNeon() {
     const font = (px: number) => `${px}px ${pixelFont}`
 
     const juice = new Juice(7)
-    ;(window as unknown as { __dbg?: unknown }).__dbg = { get: () => stateRef.current, juice } // DBG
     const bgs: (HTMLCanvasElement | null)[] = PALETTES.map(() => null)
     const getBg = (lvl: number) => {
       const i = (lvl - 1) % PALETTES.length
@@ -519,13 +518,13 @@ export default function SnakeNeon() {
         const seg = s.snake[i]
         const t = n === 1 ? 0 : i / (n - 1)
         const color = `hsl(${166 + t * 134} 100% 60%)`
-        juice.burst(cx(seg.x), cx(seg.y), [color, '#ffffff'], {
-          count: i === 0 ? 14 : 4,
-          speed: i === 0 ? 240 : 150,
-          life: 0.9,
-          size: i === 0 ? 5 : 4.5,
-          drag: 1.6,
-          gravity: 90,
+        juice.burst(cx(seg.x), cx(seg.y), [color, color, '#ffffff'], {
+          count: i === 0 ? 16 : 5,
+          speed: i === 0 ? 260 : 170,
+          life: 1.1,
+          size: i === 0 ? 7 : 6,
+          drag: 1.3,
+          gravity: 80,
         })
       }
       juice.shake(0.95)
@@ -941,9 +940,9 @@ export default function SnakeNeon() {
         const m = multOf(s.combo)
         const pop = 1 + Math.max(0, s.multPop) * 0.7
         ctx.save()
-        ctx.translate(14, 24)
+        ctx.translate(14, 26)
         ctx.scale(pop, pop)
-        ctx.font = font(15)
+        ctx.font = font(19)
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
         ctx.fillStyle = 'rgba(0,0,0,0.65)'
@@ -953,10 +952,10 @@ export default function SnakeNeon() {
         ctx.restore()
         const frac = Math.max(0, s.comboT / s.comboWindow)
         ctx.fillStyle = 'rgba(255,255,255,0.14)'
-        rr(ctx, 12, 36, 56, 5, 2.5)
+        rr(ctx, 12, 42, 56, 5, 2.5)
         ctx.fill()
         ctx.fillStyle = frac < 0.3 ? '#ff5c7a' : m >= 4 ? GOLD : '#ff7ae0'
-        rr(ctx, 12, 36, Math.max(3, 56 * frac), 5, 2.5)
+        rr(ctx, 12, 42, Math.max(3, 56 * frac), 5, 2.5)
         ctx.fill()
       }
 
