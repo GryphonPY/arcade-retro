@@ -1053,7 +1053,8 @@ export default function DefensaFinal() {
 
     const drawBloom = (b: Boom) => {
       if (b.r < 1) return
-      const r = b.r + Math.sin(g.t * 40 + b.x) * 1.2
+      // El parpadeo no debe dejar el radio en negativo (rompe createRadialGradient).
+      const r = Math.max(0.5, b.r + Math.sin(g.t * 40 + b.x) * 1.2)
       let c1 = 'rgba(254,205,211,0.95)'
       let c2 = 'rgba(251,113,133,0.55)'
       let c3 = 'rgba(251,113,133,0)'

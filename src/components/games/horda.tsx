@@ -96,7 +96,7 @@ const WDEFS: WDef[] = [
     id: 'orb',
     name: 'Orbes Guardianes',
     color: '#4ade80',
-    desc: ['2 orbes giran a tu alrededor', 'Órbita más amplia', '3 orbes', '4 orbes', '5 orbes veloces'],
+    desc: ['2 orbes giran a tu alrededor', 'Orbita más amplia', '3 orbes', '4 orbes', '5 orbes veloces'],
   },
 ]
 
@@ -161,7 +161,7 @@ const ET: EType[] = [
   { hp: 70, speed: 30, r: 12, dmg: 11, xp: 8, colors: ['#d97706', '#92400e'] }, // 5 tanque
   { hp: 1, speed: 45, r: 17, dmg: 14, xp: 0, colors: ['#fff', '#ef4444'] }, // 6 jefe
 ]
-const BOSS_NAMES = ['REY ESQUELETO', 'EL SEGADOR', 'COLOSO PÚTRIDO']
+const BOSS_NAMES = ['REY ESQUELETO', 'EL SEGADOR', 'COLOSO PUTRIDO']
 const BOSS_COLORS = ['#e5e7eb', '#38bdf8', '#84cc16']
 
 interface Enemy {
@@ -1990,7 +1990,7 @@ export default function Horda() {
         hud={
           <Hud>
             <span style={{ color: ACCENT }}>PUNTOS {hud.score.toLocaleString('es-MX')}</span>
-            <span className="text-white/60">RÉCORD {Math.max(best, hud.score).toLocaleString('es-MX')}</span>
+            <span className="text-white/60">RECORD {Math.max(best, hud.score).toLocaleString('es-MX')}</span>
           </Hud>
         }
       >
