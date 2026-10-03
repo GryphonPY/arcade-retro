@@ -27,13 +27,16 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Arcade Retro — 14 juegos arcade en tu navegador',
+  title: 'Arcade Retro — 17 juegos arcade en tu navegador',
   description:
-    'Catorce juegos arcade para jugar gratis en el navegador, en computadora o celular: Snake, invasores, laberinto con fantasmas, rompe ladrillos, carreras y más. Con música chiptune y controles táctiles.',
+    'Diecisiete juegos arcade para jugar gratis en el navegador, en computadora o celular: Pong para dos, bloques, Snake, invasores, laberinto con fantasmas, supervivencia y más. Tabla de récords mundial, música chiptune y controles táctiles.',
   keywords: ['arcade', 'juegos retro', 'snake', 'space invaders', 'pac-man', 'breakout', 'asteroids', 'chiptune'],
   icons: {
-    icon: '/logo.svg',
-    apple: '/logo.svg',
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.webmanifest',
   appleWebApp: {

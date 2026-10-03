@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { GAMES } from '@/components/games/catalog'
 import { sfx } from '@/components/games/sfx'
 import { primeMusic, startMusic } from '@/components/games/music'
 import { Hub } from '@/components/arcade/hub'
 import { GameView } from '@/components/arcade/game-view'
+import { markPlayed } from '@/components/arcade/store'
 
 // El juego abierto vive en el hash (#snake-neon): se puede compartir el
 // enlace y el botón "atrás" del navegador/celular regresa a la sala.
@@ -23,11 +24,14 @@ function readHash() {
 
 export default function Home() {
   const activeId = useSyncExternalStore(subscribeHash, readHash, () => null)
-  const [lastPlayed, setLastPlayed] = useState<string | null>(null)
 
   // El audio arranca con el primer gesto del usuario (política de autoplay).
   useEffect(() => {
     primeMusic()
+    // Modo sin conexión e instalación como app (solo en producción).
+    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
   }, [])
 
   useEffect(() => {
@@ -37,7 +41,7 @@ export default function Home() {
 
   const play = useCallback((id: string) => {
     sfx.coin()
-    setLastPlayed(id)
+    markPlayed(id)
     enteredFromHub = true
     window.location.hash = id
   }, [])
@@ -55,13 +59,12 @@ export default function Home() {
   }, [])
 
   const activeGame = GAMES.find((g) => g.id === activeId)
-  const featuredId = activeId ?? lastPlayed ?? GAMES[0].id
 
   return (
     <>
       {/* La sala queda montada debajo para conservar el scroll al volver. */}
       <div aria-hidden={!!activeGame} inert={!!activeGame}>
-        <Hub featuredId={featuredId} onPlay={play} />
+        <Hub onPlay={play} />
       </div>
       {activeGame && <GameView game={activeGame} onExit={exit} />}
     </>

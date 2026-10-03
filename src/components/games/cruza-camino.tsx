@@ -381,8 +381,8 @@ function support(row: Row, x: number, t: number): Platform | null {
 const CAUSE_TITLE: Record<Cause, string> = {
   car: 'ATROPELLADO',
   train: '¡TRENAZO!',
-  water: '¡CHAPUZÓN!',
-  eagle: '¡EL ÁGUILA!',
+  water: '¡CHAPUZON!',
+  eagle: '¡EL AGUILA!',
   drift: 'ARRASTRADO',
 }
 
@@ -1769,7 +1769,7 @@ export default function CruzaCamino() {
           <Hud>
             <span style={{ color: ACCENT }}>FILAS {score}</span>
             <span className="text-amber-300">MONEDAS {coins}</span>
-            <span className="text-white/60">RÉCORD {Math.max(best, score)}</span>
+            <span className="text-white/60">RECORD {Math.max(best, score)}</span>
           </Hud>
         }
       >

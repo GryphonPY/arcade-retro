@@ -440,7 +440,7 @@ export default function DesertRunner() {
       g.nearMisses++
       g.bonus += 30
       addStreak(g, 3)
-      juice.text(PCX + 24, g.y - 52, 'RASPÓN +30', '#7df9ff', 8, 0.9)
+      juice.text(PCX + 24, g.y - 52, 'RASPON +30', '#7df9ff', 8, 0.9)
       juice.burst(o.x + o.w / 2, o.y + o.h / 2, ['#7df9ff', '#ffffff'], { count: 8, speed: 120, life: 0.35, size: 3 })
       juice.shake(0.12)
       sfx.nearMiss()
@@ -822,7 +822,7 @@ export default function DesertRunner() {
             if (it.kind === 'shield') g.shield = true
             else if (it.kind === 'magnet') g.magnetT = 9
             else g.bootsT = 9
-            const label = it.kind === 'shield' ? 'ESCUDO' : it.kind === 'magnet' ? 'IMÁN' : 'BOTAS'
+            const label = it.kind === 'shield' ? 'ESCUDO' : it.kind === 'magnet' ? 'IMAN' : 'BOTAS'
             juice.text(cx, g.y - 64, label, PU_COLOR[it.kind], 10, 1)
             juice.burst(cx, cy, [PU_COLOR[it.kind], '#ffffff'], { count: 16, speed: 170, life: 0.5, size: 4 })
             juice.flash(PU_COLOR[it.kind], 0.15)
@@ -1545,7 +1545,7 @@ export default function DesertRunner() {
         ctx.translate(W / 2, 96)
         ctx.scale(pop, pop)
         txt(g.banner.text, 0, 0, 24, '#ffd23d', 'center')
-        txt('¡SIGUE ASÍ!', 0, 26, 8, '#ffffff', 'center')
+        txt('¡SIGUE ASI!', 0, 26, 8, '#ffffff', 'center')
         ctx.restore()
         ctx.globalAlpha = 1
       }
@@ -1553,7 +1553,7 @@ export default function DesertRunner() {
       // pista inicial
       if (g.hintT > 0 && !g.dead) {
         ctx.globalAlpha = Math.min(1, g.hintT)
-        txt('MANTÉN PARA SALTAR MÁS ALTO', W / 2, 150, 8, '#ffffff', 'center')
+        txt('MANTEN PARA SALTAR MAS ALTO', W / 2, 150, 8, '#ffffff', 'center')
         ctx.globalAlpha = 1
       }
 
@@ -1648,7 +1648,7 @@ export default function DesertRunner() {
           <Hud>
             <span style={{ color: ACCENT }}>PUNTOS {score.toLocaleString('es-MX')}</span>
             {mult > 1 && <span className="text-[#ffd23d]">x{mult}</span>}
-            <span className="text-white/60">RÉCORD {Math.max(best, score).toLocaleString('es-MX')}</span>
+            <span className="text-white/60">RECORD {Math.max(best, score).toLocaleString('es-MX')}</span>
           </Hud>
         }
       >

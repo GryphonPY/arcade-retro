@@ -25,6 +25,11 @@ const KEY_MAP: Record<string, LogicalKey> = {
   KeyP: 'pause',
 }
 
+function isTyping(target: EventTarget | null) {
+  const el = target as HTMLElement | null
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+}
+
 /**
  * Hook de entrada unificado: flechas + WASD (+ Espacio/Enter como acción).
  * Expone un Set de teclas pulsadas (para movimiento continuo) y un Set de
@@ -38,6 +43,8 @@ export function useKeys() {
 
   useEffect(() => {
     const handleDown = (e: KeyboardEvent) => {
+      // Al escribir (p. ej. el apodo para la tabla en línea) las teclas no son del juego.
+      if (isTyping(e.target)) return
       const key = KEY_MAP[e.code]
       if (!key) return
       e.preventDefault()

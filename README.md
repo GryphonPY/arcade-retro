@@ -1,13 +1,18 @@
 # Arcade Retro
 
-Sala de juegos arcade para el navegador: **14 juegos clásicos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio y controles táctiles pensados para el celular.
+Sala de juegos arcade para el navegador: **17 juegos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio, controles táctiles pensados para el celular y una **tabla de récords mundial**.
 
-Sin anuncios, sin cuentas y sin descargas. Tus récords se guardan en tu navegador.
+Sin anuncios, sin cuentas y sin descargas: solo eliges un apodo para aparecer en el salón de la fama. Se puede instalar como app y jugar sin conexión.
+
+**Juega aquí:** https://arcade-retro-cool.periwinkle-cookie.workers.dev/
 
 ## Juegos
 
 | Juego | Género | De qué trata |
 | :-- | :-- | :-- |
+| **Duelo Pong** | Versus | Contra la máquina o contra un amigo en el mismo celular. |
+| **Defensa Final** | Defensa | Toca el cielo para detonar misiles y protege tus ciudades. |
+| **Horda Nocturna** | Supervivencia | Solo te mueves: tus armas atacan solas. Sube de nivel y combínalas. |
 | **Bloques** | Puzle | Piezas que caen, con guardar pieza, pieza fantasma, T-spins y combos. |
 | **Flap Pixel** | Un botón | Aletea entre tuberías. Medallas de bronce a platino. |
 | **Cruza el Camino** | Esquiva | Avanza sin fin entre carreteras, ríos con troncos y vías de tren. |
@@ -45,14 +50,18 @@ npm run dev        # http://localhost:3000
 npm run lint
 npm run typecheck
 npm run build      # genera el sitio estático en ./out
+npx wrangler dev   # sitio + API de récords con una base D1 local (después de build)
 ```
+
+En `npm run dev` la tabla mundial no aparece porque la API vive en el Worker; para probarla usa `npx wrangler dev`.
 
 ### Estructura
 
 ```
+worker/index.ts           Worker de Cloudflare: sirve el sitio y la API /api/scores (D1)
 src/
   app/                    página única (sala + juego activo)
-  components/arcade/      sala principal, vista de juego, ajustes y récords
+  components/arcade/      sala principal, vista de juego, ajustes, récords y tabla mundial
   components/games/       un archivo por juego + piezas compartidas
     catalog.ts            lista de juegos (nombre, controles, colores)
     game-screen.tsx       escala la pantalla del juego al espacio disponible
@@ -68,6 +77,12 @@ src/
 1. Crea `src/components/games/<id>.tsx` siguiendo la estructura de cualquier juego existente (`useKeys`, `GameScreen`, `TouchPad`, overlays).
 2. Agrega su portada en `src/components/games/badges/<id>.tsx` y regístrala en `cartridge-badge.tsx`.
 3. Añade la entrada en `catalog.ts` y el import dinámico en `components/arcade/game-view.tsx`.
+
+## Tabla de récords mundial
+
+`worker/index.ts` expone `GET /api/scores` (top 3 de cada juego), `GET /api/scores?game=<id>` (top 10) y `POST /api/scores` (`{ game, name, score }`). Guarda la mejor puntuación de cada apodo por juego en Cloudflare D1. Los apodos tienen de 2 a 16 caracteres y pasan por un filtro de palabras; hay un límite de envíos por minuto por IP (guardada solo como hash). Como los juegos corren en el navegador, la tabla no es a prueba de tramposos expertos.
+
+La base (`arcade-retro-scores`) no necesita configuración: Wrangler la crea sola en el primer deploy y el Worker crea sus tablas en la primera petición. Si la base no existe, la API responde 503 y el sitio funciona igual, sin la tabla mundial.
 
 ## Despliegue
 

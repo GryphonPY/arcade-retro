@@ -149,6 +149,10 @@ const arp = (chord: string[], pat: number[]) => pat.map((i) => chord[i]).join(' 
 const pulse = (r: string) => `${r}2 . ${r}2 . ${r}2 . ${r}3 . ${r}2 . ${r}2 . ${r}2 . ${r}3 .`
 /** Bajo al galope en semicorcheas (16 pasos). */
 const gallop = (r: string) => `${r}2 ${r}2 ${r}3 ${r}2 `.repeat(4).trim()
+/** Bajo al galope de un compás (8 pasos). */
+const gal8 = (r: string) => `${r}2 ${r}2 ${r}3 ${r}2 ${r}2 ${r}2 ${r}3 ${r}2`
+/** Bajo electro con contratiempo de un compás (8 pasos). */
+const elec8 = (r: string) => `${r}2 - ${r}2 ${r}3 ${r}2 - ${r}2 ${r}3`
 
 // torre-neon: Cm – Ab – Eb – Bb
 const TN_CHORDS = [
@@ -479,6 +483,102 @@ const DEFS: Record<string, TrackDef> = {
       'D6 . . . C6 . A#5 . . . . . - - - -',
     ),
     drumsB: (TN_DB.repeat(3) + TN_FILL).repeat(2),
+  },
+  // Pong Duelo: electro minimalista y competitivo en La menor, B en Re menor
+  'pong-duelo': {
+    bpm: 132,
+    bassType: 'sawtooth',
+    bass: bars(elec8('A'), elec8('A'), elec8('F'), elec8('G'), elec8('A'), elec8('A'), elec8('F'), 'E2 - E2 E3 E2 - G#2 -'),
+    lead: bars(
+      'A4 - - A4 C5 - E5 -',
+      'A4 - - A4 C5 - D5 -',
+      'F4 - - F4 A4 - C5 -',
+      'G4 - - G4 B4 - D5 -',
+      'A4 - - A4 C5 - E5 -',
+      'E5 - D5 - C5 - A4 -',
+      'F4 - A4 - C5 - A4 -',
+      'G#4 - B4 - E5 - - -',
+    ),
+    leadType: 'square',
+    leadVol: 0.024,
+    bassVol: 0.048,
+    drums: R8.repeat(7) + 'k-s-ssss',
+    bassB: bars(elec8('D'), elec8('D'), elec8('A#'), elec8('C'), elec8('D'), elec8('G'), elec8('E'), 'E2 - E2 E3 E2 E2 G#2 B2'),
+    leadB: bars(
+      'D5 - D5 F5 A5 - F5 D5',
+      'D5 - F5 A5 D6 - A5 F5',
+      'A#4 - D5 F5 A#5 - F5 D5',
+      'C5 - E5 G5 C6 - G5 E5',
+      'D5 F5 A5 D6 - A5 F5 D5',
+      'G4 A#4 D5 G5 - D5 A#4 G4',
+      'E5 - G#5 - B5 - G#5 E5',
+      'B5 - G#5 - E5 - - -',
+    ),
+    drumsB: 'k-hks-h-'.repeat(7) + 'k-s-ssss',
+  },
+  // Defensa Final: alarma de guerra fría en Sol menor (sirena y redoble)
+  'defensa-final': {
+    bpm: 156,
+    bassType: 'sawtooth',
+    bass: bars(gal8('G'), gal8('G'), gal8('D#'), gal8('D'), gal8('G'), gal8('G'), gal8('C'), gal8('D')),
+    lead: bars(
+      'D5 - G5 - D5 - G5 -',
+      'D5 - G5 - A#5 - G5 -',
+      'D#5 - G5 - A#5 - G5 D#5',
+      'D5 - F#5 - A5 - F#5 D5',
+      'G5 - D5 - G5 - D5 -',
+      'A#5 - G5 - D5 - G5 A#5',
+      'C6 - G5 - D#5 - G5 C6',
+      'A5 - F#5 - D5 - F#5 -',
+    ),
+    leadType: 'square',
+    leadVol: 0.026,
+    bassVol: 0.048,
+    drums: 'k-s-k-s-'.repeat(7) + 'k-s-ssss',
+    bassB: bars(gal8('D#'), gal8('A#'), gal8('C'), gal8('D'), gal8('D#'), gal8('F'), gal8('D'), 'D2 D2 D3 D2 D2 D3 A2 D3'),
+    leadB: bars(
+      'G5 . . . D#5 . G5 .',
+      'F5 . . . D5 . F5 .',
+      'G5 . . . C5 . D#5 .',
+      'F#5 . A5 . D6 . . .',
+      'D#6 . . . A#5 . D#5 .',
+      'F5 . A5 . C6 . A5 F5',
+      'F#5 . A5 . D6 . A5 F#5',
+      'D6 . . . - - - -',
+    ),
+    drumsB: ('k-s-k-s-'.repeat(3) + 'k-s-ksss').repeat(2),
+  },
+  // Horda: gótico-chiptune de castillo en Re menor (arpegios rápidos, bajo al galope)
+  horda: {
+    bpm: 168,
+    bassType: 'sawtooth',
+    bass: bars(gal8('D'), gal8('D'), gal8('A#'), gal8('A'), gal8('D'), gal8('G'), gal8('A'), gal8('D')),
+    lead: bars(
+      'D5 F5 A5 D6 A5 F5 A5 F5',
+      'E5 G5 A5 C#6 D6 - A5 -',
+      'A#4 D5 F5 A#5 F5 D5 F5 D5',
+      'A4 C#5 E5 A5 G5 E5 C#5 E5',
+      'D5 F5 A5 D6 A5 F5 A5 F5',
+      'G4 A#4 D5 G5 D5 A#4 D5 A#4',
+      'A4 C#5 E5 A5 C#6 A5 E5 C#5',
+      'D6 . . . A5 . . .',
+    ),
+    leadType: 'square',
+    leadVol: 0.024,
+    bassVol: 0.048,
+    drums: R8.repeat(7) + 'k-s-ssss',
+    bassB: bars(gal8('D'), gal8('A#'), gal8('G'), gal8('A'), gal8('D'), gal8('F'), gal8('G'), gal8('A')),
+    leadB: bars(
+      'A5 . . . F5 . A5 .',
+      'D6 . . . A#5 . F5 .',
+      'D5 . G5 . A#5 . D6 .',
+      'C#6 . . . A5 . E5 .',
+      'F5 . A5 . D6 . F6 .',
+      'A5 . C6 . F6 . C6 A5',
+      'G5 . A#5 . D6 . A#5 G5',
+      'E6 . C#6 . A5 . E5 .',
+    ),
+    drumsB: 'k-hks-h-'.repeat(7) + 'k-s-ssss',
   },
 }
 

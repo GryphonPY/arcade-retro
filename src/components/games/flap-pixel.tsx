@@ -832,7 +832,7 @@ export default function FlapPixel() {
         hud={
           <Hud>
             <span style={{ color: ACCENT }}>PUNTOS {score}</span>
-            <span className="text-white/60">RÉCORD {Math.max(best, score)}</span>
+            <span className="text-white/60">RECORD {Math.max(best, score)}</span>
           </Hud>
         }
       >

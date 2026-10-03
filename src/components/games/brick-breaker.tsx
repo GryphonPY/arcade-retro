@@ -53,7 +53,7 @@ const POWERS: Record<Power, { color: string; label: string; dur: number; weight:
   wide: { color: '#4fc79e', label: 'ANCHA', dur: 12, weight: 20 },
   multi: { color: '#f2a93b', label: 'MULTIBOLA', dur: 0, weight: 18 },
   fire: { color: '#ff7a3d', label: 'FUEGO', dur: 8, weight: 12 },
-  laser: { color: '#e5484d', label: 'LÁSER', dur: 10, weight: 14 },
+  laser: { color: '#e5484d', label: 'LASER', dur: 10, weight: 14 },
   sticky: { color: '#a98bec', label: 'PEGAJOSA', dur: 12, weight: 14 },
   slow: { color: '#4fb0e8', label: 'LENTA', dur: 8, weight: 12 },
   life: { color: '#ff6f9c', label: '+1 VIDA', dur: 0, weight: 5 },
@@ -624,7 +624,7 @@ export default function BrickBreaker() {
         s.balls = [newBall(s.padCx)]
         s.speed = targetSpeed(s)
         s.autoLaunch = 1.5
-        s.banner = { text: s.lives === 1 ? 'ÚLTIMA VIDA' : `${s.lives} VIDAS`, t: 1.3 }
+        s.banner = { text: s.lives === 1 ? 'ULTIMA VIDA' : `${s.lives} VIDAS`, t: 1.3 }
       }
     }
 
@@ -1475,7 +1475,7 @@ export default function BrickBreaker() {
         hud={
           <Hud>
             <span className="text-[#E8899E]">PUNTOS {score}</span>
-            <span className="text-[#9DB8A8]">RÉCORD {Math.max(best, score)}</span>
+            <span className="text-[#9DB8A8]">RECORD {Math.max(best, score)}</span>
           </Hud>
         }
       >

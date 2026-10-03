@@ -34,7 +34,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 // zonas por distancia recorrida (px)
 const ZONE_LEN = [16000, 16000, 10000]
 const CYCLE = 42000
-const ZONE_NAMES = ['CIUDAD', 'DESIERTO', 'TÚNEL']
+const ZONE_NAMES = ['CIUDAD', 'DESIERTO', 'TUNEL']
 
 type CarKind = 'sedan' | 'truck' | 'bike' | 'police'
 
@@ -674,12 +674,12 @@ export default function TrafficRacer() {
       // ----- eventos -----
       if (s.rushT > 0) {
         s.rushT -= dt
-        if (s.rushT <= 0) banner(s, 'TRÁFICO NORMAL', 'RESPIRA', '#9be8a0', 1.6)
+        if (s.rushT <= 0) banner(s, 'TRAFICO NORMAL', 'RESPIRA', '#9be8a0', 1.6)
       }
       if (s.dist >= s.nextRush) {
         s.nextRush = s.dist + 22000 + Math.random() * 8000
         s.rushT = 9
-        banner(s, 'HORA PICO', 'MÁS TRÁFICO, MÁS MONEDAS', '#ffd23d', 2.4)
+        banner(s, 'HORA PICO', 'MAS TRAFICO, MAS MONEDAS', '#ffd23d', 2.4)
         sfx.siren()
       }
       if (s.dist >= s.nextBike) {
@@ -689,7 +689,7 @@ export default function TrafficRacer() {
       if (s.dist >= s.nextPolice) {
         s.nextPolice = s.dist + 15000 + Math.random() * 7000
         s.warns.push({ lane: laneOf(s.px, PW), t: 1.5, kind: 'police' })
-        banner(s, '¡POLICÍA!', 'APÁRTATE DEL CARRIL', '#ff5d5d', 1.8)
+        banner(s, '¡POLICIA!', 'APARTATE DEL CARRIL', '#ff5d5d', 1.8)
       }
       for (const w of s.warns) {
         const prev = w.t
@@ -1147,7 +1147,7 @@ export default function TrafficRacer() {
             ctx.fillRect(ROAD_X - 6, y - 46, ROAD_W + 12, 46)
             ctx.fillStyle = '#f2c828'
             for (let b = 0; b < 12; b++) ctx.fillRect(-40 + b * 40, y - 52, 20, 5)
-            txt('TÚNEL', W / 2, y - 24, 9, '#ffd23d', 'center')
+            txt('TUNEL', W / 2, y - 24, 9, '#ffd23d', 'center')
           } else {
             // pórtico con letrero
             ctx.fillStyle = '#20222b'
@@ -1494,7 +1494,7 @@ export default function TrafficRacer() {
           <Hud>
             <span style={{ color: ACCENT }}>PUNTOS {score.toLocaleString('es-MX')}</span>
             <span className="text-amber-300">{kmh} KM/H</span>
-            <span className="text-white/60">RÉCORD {Math.max(best, score).toLocaleString('es-MX')}</span>
+            <span className="text-white/60">RECORD {Math.max(best, score).toLocaleString('es-MX')}</span>
           </Hud>
         }
       >
@@ -1505,7 +1505,7 @@ export default function TrafficRacer() {
         />
         {phase === 'start' && (
           <StartOverlay
-            title="CARRERA DE TRÁFICO"
+            title="CARRERA DE TRAFICO"
             accent={ACCENT}
             subtitle="Zigzaguea entre el tráfico por la ciudad, el desierto y el túnel."
             hint="Pulsa ESPACIO o una flecha"

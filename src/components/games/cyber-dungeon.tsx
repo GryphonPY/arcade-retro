@@ -1041,7 +1041,7 @@ export default function CyberDungeon() {
         if (d < reach + 12 && angDiff(Math.atan2(dy, dx), aim) < arc / 2 + 0.3) {
           G.projs.splice(i, 1)
           addScore(20)
-          juice.text(pr.x, pr.y - 8, 'DESVÍO', CYAN, 8, 0.7)
+          juice.text(pr.x, pr.y - 8, 'DESVIO', CYAN, 8, 0.7)
           juice.burst(pr.x, pr.y, [CYAN, '#ffffff'], { count: 8, speed: 120, life: 0.3, size: 2.4 })
           tone({ freq: 1500, to: 2200, dur: 0.06, vol: 0.04, type: 'square' })
         }
@@ -1393,7 +1393,7 @@ export default function CyberDungeon() {
               juice.freeze(80)
               sfx.crash()
               juice.burst(e.x, e.y, ['#a78bfa', '#ffffff'], { count: 20, speed: 180, life: 0.5, size: 3 })
-              juice.text(e.x, e.y - 30, '¡ATÁCALO!', '#fde047', 9, 1)
+              juice.text(e.x, e.y - 30, '¡ATACALO!', '#fde047', 9, 1)
             }
           }
           break
@@ -1547,7 +1547,7 @@ export default function CyberDungeon() {
           } else if (it.kind === 'potion') {
             P.hp = Math.min(P.maxHp, P.hp + 2)
             sfx.potion()
-            juice.text(it.x, it.y - 10, '+1 CORAZÓN', '#4ade80', 8, 1)
+            juice.text(it.x, it.y - 10, '+1 CORAZON', '#4ade80', 8, 1)
             juice.burst(it.x, it.y, ['#4ade80', '#ffffff'], { count: 10, speed: 80, life: 0.5, size: 2.8 })
           } else {
             P.hasKey = true
@@ -1611,7 +1611,7 @@ export default function CyberDungeon() {
           juice.shake(0.6)
           juice.flash('#a78bfa', 0.3)
           tone({ freq: 90, to: 50, dur: 0.7, vol: 0.09, type: 'sawtooth' })
-          G.banner = { text: 'NÚCLEO CENTINELA', sub: 'Esquiva y golpea tras su embestida', t: 2.4 }
+          G.banner = { text: 'NUCLEO CENTINELA', sub: 'Esquiva y golpea tras su embestida', t: 2.4 }
         }
       }
     }
@@ -2363,7 +2363,7 @@ export default function CyberDungeon() {
         ctx.fillStyle = '#fdf4ff'
         ctx.font = font(6)
         ctx.textAlign = 'center'
-        ctx.fillText('NÚCLEO CENTINELA', VW / 2, VH - 30)
+        ctx.fillText('NUCLEO CENTINELA', VW / 2, VH - 30)
         ctx.textAlign = 'left'
       }
       // flecha al objetivo
@@ -2611,7 +2611,7 @@ export default function CyberDungeon() {
         )}
         {over && (
           <GameOverOverlay
-            title="HAS CAÍDO"
+            title="HAS CAIDO"
             accent={ACCENT}
             score={score}
             best={best}

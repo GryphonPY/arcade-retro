@@ -34,9 +34,52 @@ const MOVE: ControlHint = { keys: ['←', '↑', '→', '↓'], label: 'mover' }
 
 export const GAMES: GameMeta[] = [
   {
+    id: 'pong-duelo',
+    isNew: true,
+    category: 'clasicos',
+    name: 'Duelo Pong',
+    genre: 'Versus',
+    year: '1972',
+    desc: 'El primer arcade, reinventado: contra la máquina o contra un amigo en el mismo celular, cada quien en su mitad.',
+    controls: [
+      { keys: ['←', '→'], label: 'paleta azul' },
+      { keys: ['J', 'L'], label: 'paleta rosa (2J)' },
+      { keys: ['Espacio'], label: 'empezar' },
+    ],
+    accent: '#60a5fa',
+    viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(96,165,250,0.14), transparent), #070b14',
+  },
+  {
+    id: 'defensa-final',
+    isNew: true,
+    category: 'accion',
+    name: 'Defensa Final',
+    genre: 'Defensa',
+    year: '1980',
+    desc: 'Los misiles caen sobre tus ciudades. Toca o haz clic donde quieras detonar y atrapa varios en una sola explosión.',
+    controls: [
+      { keys: ['Clic', 'Toque'], label: 'disparar ahí' },
+      { keys: ['←', '↑', '→', '↓'], label: 'mira' },
+      { keys: ['Espacio'], label: 'disparar' },
+    ],
+    accent: '#fb7185',
+    viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(251,113,133,0.14), transparent), #120710',
+  },
+  {
+    id: 'horda',
+    isNew: true,
+    category: 'accion',
+    name: 'Horda Nocturna',
+    genre: 'Supervivencia',
+    year: '1991',
+    desc: 'Tu personaje ataca solo: tú solo te mueves. Sobrevive a oleadas infinitas, sube de nivel y combina armas.',
+    controls: [{ keys: ['←', '↑', '→', '↓'], label: 'moverse' }],
+    accent: '#c084fc',
+    viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(192,132,252,0.14), transparent), #0d0814',
+  },
+  {
     id: 'bloques',
     category: 'clasicos',
-    isNew: true,
     name: 'Bloques',
     genre: 'Puzle',
     year: '1984',
@@ -54,7 +97,6 @@ export const GAMES: GameMeta[] = [
   {
     id: 'flap-pixel',
     category: 'reflejos',
-    isNew: true,
     name: 'Flap Pixel',
     genre: 'Un botón',
     year: '1989',
@@ -66,7 +108,6 @@ export const GAMES: GameMeta[] = [
   {
     id: 'cruza-camino',
     category: 'reflejos',
-    isNew: true,
     name: 'Cruza el Camino',
     genre: 'Esquiva',
     year: '1981',
@@ -78,7 +119,6 @@ export const GAMES: GameMeta[] = [
   {
     id: 'torre-neon',
     category: 'reflejos',
-    isNew: true,
     name: 'Torre Neón',
     genre: 'Precisión',
     year: '1985',

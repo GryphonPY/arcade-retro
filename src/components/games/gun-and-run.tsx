@@ -47,7 +47,7 @@ const WEAPONS: Record<WId, { name: string; letter: string; cd: number; ammo: num
   pistol: { name: 'PISTOLA', letter: 'P', cd: 0.21, ammo: Infinity, color: '#ffd23d' },
   mg: { name: 'METRALLETA', letter: 'H', cd: 0.078, ammo: 150, color: '#ff5d5d' },
   shotgun: { name: 'ESCOPETA', letter: 'S', cd: 0.5, ammo: 24, color: '#ff9f43' },
-  laser: { name: 'LÁSER', letter: 'L', cd: 0.15, ammo: 70, color: '#35e0ff' },
+  laser: { name: 'LASER', letter: 'L', cd: 0.15, ammo: 70, color: '#35e0ff' },
   grenade: { name: 'GRANADAS', letter: 'G', cd: 0.5, ammo: 16, color: '#7bd36b' },
 }
 const DROP_WEAPONS: WId[] = ['mg', 'shotgun', 'laser', 'grenade', 'mg', 'shotgun']
@@ -68,7 +68,7 @@ const BIOMES = [
 ]
 type Biome = (typeof BIOMES)[number]
 
-const BOSS_NAMES = ['HELICÓPTERO ARTILLADO', 'TANQUE JEFE', 'MECA GIGANTE']
+const BOSS_NAMES = ['HELICOPTERO ARTILLADO', 'TANQUE JEFE', 'MECA GIGANTE']
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -840,7 +840,7 @@ export default function GunAndRun() {
       if (p.weapon !== 'pistol' && p.ammo <= 0) {
         p.weapon = 'pistol'
         p.ammo = Infinity
-        text(p.x, p.y - 10, 'SIN MUNICIÓN', '#ff5d5d', 9, 1)
+        text(p.x, p.y - 10, 'SIN MUNICION', '#ff5d5d', 9, 1)
         return
       }
       const w = WEAPONS[p.weapon]
@@ -969,7 +969,7 @@ export default function GunAndRun() {
           break
         case 'jeep':
           spawnEnemy('jeep', right + 20)
-          text(g.cam + W - 60, 120, '¡VEHÍCULO!', '#ff5d5d', 9, 1)
+          text(g.cam + W - 60, 120, '¡VEHICULO!', '#ff5d5d', 9, 1)
           break
         case 'turret':
           spawnEnemy('turret', ev.x, GROUND - 24, true)
@@ -1804,7 +1804,7 @@ export default function GunAndRun() {
             h.t = 0
             g.rescued++
             addScore(500)
-            text(h.x + 6, h.y - 14, '¡REHÉN LIBRE! +500', '#5df2a3', 9, 1.5)
+            text(h.x + 6, h.y - 14, '¡REHEN LIBRE! +500', '#5df2a3', 9, 1.5)
             sfx.coin()
             sfx.golden()
             juice.burst(h.x + 6, h.y, ['#ffffff', '#5df2a3'], { count: 14, speed: 120, life: 0.5, size: 3 })
@@ -2724,7 +2724,7 @@ export default function GunAndRun() {
           g.lines.forEach((ln, i) => {
             if (t > 1.8 + i * 0.6) label(ln, W / 2, 122 + i * 20, 9, '#ffffff', 'center')
           })
-          if (t > 3.2) label('PREPÁRATE...', W / 2, 170, 9, ACCENT, 'center')
+          if (t > 3.2) label('PREPARATE...', W / 2, 170, 9, ACCENT, 'center')
         }
       }
     }
@@ -2864,7 +2864,7 @@ export default function GunAndRun() {
         )}
         {phase === 'over' && (
           <GameOverOverlay
-            title="FIN DE LA MISIÓN"
+            title="FIN DE LA MISION"
             accent={ACCENT}
             score={score}
             best={best}

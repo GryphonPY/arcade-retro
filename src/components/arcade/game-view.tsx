@@ -5,12 +5,16 @@ import dynamic from 'next/dynamic'
 import { ArrowLeft, CircleHelp, Maximize, Minimize, Music, Pause, Trophy, Tv, Volume2, VolumeX, X } from 'lucide-react'
 import type { GameMeta } from '@/components/games/catalog'
 import { updateSettings, useBests, useSettings } from './store'
+import { ActiveGameContext } from './online'
 import { ControlList, IconButton } from './ui'
 
 const loading = () => <div className="flex-1" />
 
 // Cada juego se descarga solo cuando se abre.
 const GAME_COMPONENTS: Record<string, ComponentType> = {
+  'pong-duelo': dynamic(() => import('@/components/games/pong-duelo'), { ssr: false, loading }),
+  'defensa-final': dynamic(() => import('@/components/games/defensa-final'), { ssr: false, loading }),
+  horda: dynamic(() => import('@/components/games/horda'), { ssr: false, loading }),
   bloques: dynamic(() => import('@/components/games/bloques'), { ssr: false, loading }),
   'flap-pixel': dynamic(() => import('@/components/games/flap-pixel'), { ssr: false, loading }),
   'cruza-camino': dynamic(() => import('@/components/games/cruza-camino'), { ssr: false, loading }),
@@ -144,7 +148,9 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
       </header>
 
       <main className="relative flex min-h-0 flex-1 flex-col">
-        <Game key={game.id} />
+        <ActiveGameContext.Provider value={game.id}>
+          <Game key={game.id} />
+        </ActiveGameContext.Provider>
       </main>
 
       <footer className="hidden shrink-0 items-center justify-center gap-6 border-t border-white/[0.06] bg-black/30 px-4 py-2.5 [@media(pointer:fine)]:flex">

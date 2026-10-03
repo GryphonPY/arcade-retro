@@ -734,7 +734,7 @@ export default function TorreNeon() {
         hud={
           <Hud>
             <span style={{ color: ACCENT }}>ALTURA {levels}</span>
-            <span className="text-white/60">RÉCORD {Math.max(best, score)}</span>
+            <span className="text-white/60">RECORD {Math.max(best, score)}</span>
           </Hud>
         }
       >
@@ -746,7 +746,7 @@ export default function TorreNeon() {
         />
         {ui === 'menu' && (
           <StartOverlay
-            title="TORRE NEÓN"
+            title="TORRE NEON"
             accent={ACCENT}
             subtitle="Suelta cada bloque justo encima del anterior. Lo que sobresale se corta. Los encajes perfectos encadenados hacen crecer el bloque."
             hint="Pulsa ESPACIO para soltar bloques"
@@ -756,7 +756,7 @@ export default function TorreNeon() {
         )}
         {ui === 'over' && (
           <GameOverOverlay
-            title="TORRE CAÍDA"
+            title="TORRE CAIDA"
             accent={ACCENT}
             score={result.score}
             best={best}

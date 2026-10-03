@@ -552,7 +552,7 @@ export default function HitAndRun() {
         g.stats.missions++
         g.mission = null
         g.missionDelay = rand(6, 9)
-        text(W / 2, 120, 'MISIÓN CUMPLIDA', '#5df2a3', 12, 1.4)
+        text(W / 2, 120, 'MISION CUMPLIDA', '#5df2a3', 12, 1.4)
         text(W / 2, 138, `+${reward}`, '#ffd23d', 12, 1.4)
         juice.flash('#5df2a3', 0.22)
         sfx.levelUp()
@@ -632,7 +632,7 @@ export default function HitAndRun() {
         }
       }
       if (chain >= 2 && depth === 0) {
-        text(W / 2, 170, `REACCIÓN EN CADENA x${chain}`, '#ff8a3d', 10, 1.3)
+        text(W / 2, 170, `REACCION EN CADENA x${chain}`, '#ff8a3d', 10, 1.3)
         juice.shake(0.2)
         g.comboT = 4.5
       }
@@ -807,7 +807,7 @@ export default function HitAndRun() {
 
     const spawnHeli = () => {
       g.heli = { x: g.px, y: -40, sx: g.px + CW / 2, sy: g.py, spot: 0, rotor: 0, tick: 0, call: 0 }
-      text(W / 2, 110, 'HELICÓPTERO', '#ff5d5d', 11, 1.5)
+      text(W / 2, 110, 'HELICOPTERO', '#ff5d5d', 11, 1.5)
       juice.flash('#ff3b3b', 0.2)
     }
 
@@ -1106,7 +1106,7 @@ export default function HitAndRun() {
         if (g.mission) {
           g.mission.left -= dt
           if (g.mission.left <= 0) {
-            text(W / 2, 120, 'MISIÓN FALLIDA', '#ff5d5d', 10, 1.2)
+            text(W / 2, 120, 'MISION FALLIDA', '#ff5d5d', 10, 1.2)
             tone({ freq: 220, to: 110, dur: 0.3, vol: 0.05, type: 'sawtooth' })
             g.mission = null
             g.missionDelay = rand(4, 7)
@@ -1214,7 +1214,7 @@ export default function HitAndRun() {
           if (v.y > H + 100) {
             if (v.near && playing) {
               addScore(100)
-              text(W / 2, H - 70, 'POLICÍA EVADIDA +100', '#5df2a3', 9, 1.1)
+              text(W / 2, H - 70, 'POLICIA EVADIDA +100', '#5df2a3', 9, 1.1)
               sfx.coin()
             }
             v.wreck = -2
@@ -1269,7 +1269,7 @@ export default function HitAndRun() {
                 v.hit = 0.2
               }
               bumpPlayer(v, dir * 190)
-              text(v.x + v.w / 2, v.y - 6, v.kind === 'truck' ? 'CAMIÓN' : 'CIVIL', '#ff5d5d', 8, 0.9)
+              text(v.x + v.w / 2, v.y - 6, v.kind === 'truck' ? 'CAMION' : 'CIVIL', '#ff5d5d', 8, 0.9)
               if (v.kind === 'truck') g.scroll *= 0.6
             } else {
               v.cool = 0.4
@@ -1287,7 +1287,7 @@ export default function HitAndRun() {
             addScore(pts)
             g.turbo = Math.min(100, g.turbo + 10)
             g.comboT = Math.max(g.comboT, g.combo > 0 ? 2.5 : 0)
-            text(v.x + v.w / 2 + (hx > pbx ? -22 : 22), pcy, `RASPÓN +${pts}`, '#7dd8ff', 8, 0.9)
+            text(v.x + v.w / 2 + (hx > pbx ? -22 : 22), pcy, `RASPON +${pts}`, '#7dd8ff', 8, 0.9)
             sfx.nearMiss()
             missionProgress('near')
           }

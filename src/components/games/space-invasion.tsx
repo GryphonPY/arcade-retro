@@ -1641,7 +1641,7 @@ export default function SpaceInvasion() {
         />
         {ui.mode === 'title' && (
           <StartOverlay
-            title="INVASIÓN ESPACIAL"
+            title="INVASION ESPACIAL"
             accent={ACCENT}
             subtitle="Mantén pulsado el disparo para ráfaga automática. Encadena impactos sin fallar para subir el multiplicador."
             hint="Flechas / WASD mover · ESPACIO disparar (mantén)"
@@ -1651,7 +1651,7 @@ export default function SpaceInvasion() {
         )}
         {ui.mode === 'over' && (
           <GameOverOverlay
-            title="FIN DE LA MISIÓN"
+            title="FIN DE LA MISION"
             accent={ACCENT}
             score={ui.score}
             best={best}

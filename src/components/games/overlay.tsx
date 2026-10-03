@@ -1,6 +1,8 @@
 'use client'
 
 import { useSyncExternalStore, type ReactNode } from 'react'
+import { OnlineScore } from '@/components/arcade/online-score'
+import { useActiveGame } from '@/components/arcade/online'
 
 function subscribeCoarse(cb: () => void) {
   const mq = window.matchMedia('(pointer: coarse)')
@@ -22,10 +24,10 @@ const pixel = { fontFamily: 'var(--font-pixel)' }
 function Shell({ children, tint }: { children: ReactNode; tint: string }) {
   return (
     <div
-      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-5 text-center"
+      className="absolute inset-0 z-10 overflow-y-auto overscroll-contain"
       style={{ background: `radial-gradient(circle at 50% 40%, ${tint}22, transparent 70%), rgba(6,6,12,0.82)` }}
     >
-      {children}
+      <div className="flex min-h-full flex-col items-center justify-center gap-3 px-5 py-4 text-center">{children}</div>
     </div>
   )
 }
@@ -98,6 +100,7 @@ export function GameOverOverlay({
   onRestart,
   hint = 'o pulsa ESPACIO',
   touchHint = 'o toca A',
+  ranked = true,
 }: {
   title?: string
   accent: string
@@ -108,8 +111,11 @@ export function GameOverOverlay({
   onRestart: () => void
   hint?: string
   touchHint?: string
+  /** false para partidas que no van a la tabla mundial (p. ej. 2 jugadores). */
+  ranked?: boolean
 }) {
   const touch = useIsTouch()
+  const game = useActiveGame()
   return (
     <Shell tint={newBest ? '#fbbf24' : accent}>
       <p className="text-base sm:text-xl" style={{ ...pixel, color: '#fff', textShadow: '3px 3px 0 #000' }}>
@@ -117,15 +123,17 @@ export function GameOverOverlay({
       </p>
       {newBest && (
         <p className="animate-pulse text-[10px] text-amber-300" style={pixel}>
-          ¡NUEVO RÉCORD!
+          ¡NUEVO RECORD!
         </p>
       )}
       <div className="mt-1">
         <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Puntuación</p>
-        <p className="text-4xl font-semibold tabular-nums" style={{ color: accent }}>
+        <p className="text-3xl font-semibold tabular-nums sm:text-4xl" style={{ color: accent }}>
           {score.toLocaleString('es-MX')}
         </p>
-        <p className="mt-1 text-xs text-white/50 tabular-nums">Récord {Math.max(best, score).toLocaleString('es-MX')}</p>
+        {ranked && (
+          <p className="mt-1 text-xs text-white/50 tabular-nums">Récord {Math.max(best, score).toLocaleString('es-MX')}</p>
+        )}
       </div>
       {stats && stats.length > 0 && (
         <dl className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs">
@@ -137,13 +145,14 @@ export function GameOverOverlay({
           ))}
         </dl>
       )}
+      {ranked && game && <OnlineScore game={game} score={score} accent={accent} />}
       <button
         type="button"
         onClick={(e) => {
           e.currentTarget.blur()
           onRestart()
         }}
-        className="mt-2 rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200 active:scale-95"
+        className="mt-1 rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200 active:scale-95"
       >
         Jugar otra vez
       </button>

@@ -41,7 +41,7 @@ type UiPhase = 'ready' | 'playing' | 'over'
 const POWER: Record<PowerKind, { color: string; label: string; dur: number }> = {
   slow: { color: '#5cc8ff', label: 'LENTO', dur: 6 },
   ghost: { color: '#d6b3ff', label: 'FANTASMA', dur: 5 },
-  magnet: { color: '#ffb347', label: 'IMÁN', dur: 8 },
+  magnet: { color: '#ffb347', label: 'IMAN', dur: 8 },
 }
 const POWER_KINDS: PowerKind[] = ['slow', 'ghost', 'magnet']
 
@@ -1178,7 +1178,7 @@ export default function SnakeNeon() {
             <span className="text-[#22f7c5] drop-shadow-[0_0_6px_rgba(34,247,197,0.8)]">PUNTOS {score}</span>
             <span className="text-[#ffe23d]">NIVEL {level}</span>
             <span className="text-[#ff2fd6] drop-shadow-[0_0_6px_rgba(255,47,214,0.8)]">
-              RÉCORD {Math.max(best, score)}
+              RECORD {Math.max(best, score)}
             </span>
           </Hud>
         }
@@ -1197,7 +1197,7 @@ export default function SnakeNeon() {
 
         {phase === 'ready' && (
           <StartOverlay
-            title="SNAKE NEÓN"
+            title="SNAKE NEON"
             accent="#22f7c5"
             subtitle="Come orbes rápido para encadenar combos. Recoge los power-ups y esquiva obstáculos."
             hint="Pulsa una flecha o WASD para empezar"

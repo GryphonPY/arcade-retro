@@ -93,3 +93,31 @@ export function useBests(): Record<string, number> {
     return map
   }, [key])
 }
+
+// ---------- jugados recientemente ----------
+
+const RECENT_KEY = 'arcade-recent'
+
+function readRecentKey(): string {
+  try {
+    return window.localStorage.getItem(RECENT_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** Ids de los últimos juegos abiertos, del más reciente al más antiguo. */
+export function useRecent(): string[] {
+  const key = useSyncExternalStore(subscribe, readRecentKey, () => '')
+  return useMemo(() => key.split(',').filter((id) => GAMES.some((g) => g.id === id)), [key])
+}
+
+export function markPlayed(id: string) {
+  const next = [id, ...readRecentKey().split(',').filter((x) => x && x !== id)].slice(0, 6)
+  try {
+    window.localStorage.setItem(RECENT_KEY, next.join(','))
+  } catch {
+    // sin acceso a localStorage
+  }
+  emit()
+}

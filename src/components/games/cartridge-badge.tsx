@@ -2,6 +2,9 @@ import { Badge as BloquesBadge } from './badges/bloques'
 import { Badge as FlapPixelBadge } from './badges/flap-pixel'
 import { Badge as CruzaCaminoBadge } from './badges/cruza-camino'
 import { Badge as TorreNeonBadge } from './badges/torre-neon'
+import { Badge as PongDueloBadge } from './badges/pong-duelo'
+import { Badge as DefensaFinalBadge } from './badges/defensa-final'
+import { Badge as HordaBadge } from './badges/horda'
 
 export function CartridgeBadge({ gameId }: { gameId: string }) {
   switch (gameId) {
@@ -13,6 +16,12 @@ export function CartridgeBadge({ gameId }: { gameId: string }) {
       return <CruzaCaminoBadge />
     case 'torre-neon':
       return <TorreNeonBadge />
+    case 'pong-duelo':
+      return <PongDueloBadge />
+    case 'defensa-final':
+      return <DefensaFinalBadge />
+    case 'horda':
+      return <HordaBadge />
     case 'snake-neon':
       return (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
