@@ -49,9 +49,8 @@ body {
   pointer-events: none;
   z-index: 5;
   background:
-    repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.22) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse at center, transparent 60%, rgb(0 0 0 / 0.45) 100%);
-  mix-blend-mode: multiply;
+    repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 70%, rgb(0 0 0 / 0.28) 100%);
 }
 
 /* Textura sutil de barrido para paneles decorativos. */

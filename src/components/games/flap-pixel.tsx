@@ -877,7 +877,7 @@ export default function FlapPixel() {
           />
         )}
       </GameScreen>
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Aletear" />
+      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showDpad={false} showAction actionLabel="Aletear" />
     </div>
   )
 }

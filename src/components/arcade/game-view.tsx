@@ -109,7 +109,6 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
               label={settings.sfx ? 'Silenciar efectos' : 'Activar efectos'}
               active={settings.sfx}
               onClick={() => updateSettings({ sfx: !settings.sfx })}
-              className="hidden min-[400px]:inline-flex"
             >
               {settings.sfx ? <Volume2 className="size-[18px]" /> : <VolumeX className="size-[18px]" />}
             </IconButton>
@@ -117,7 +116,6 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
               label={settings.music ? 'Apagar música' : 'Encender música'}
               active={settings.music}
               onClick={() => updateSettings({ music: !settings.music })}
-              className="hidden min-[400px]:inline-flex"
             >
               <Music className="size-[18px]" />
             </IconButton>
@@ -125,7 +123,7 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
               label={settings.crt ? 'Quitar filtro CRT' : 'Poner filtro CRT'}
               active={settings.crt}
               onClick={() => updateSettings({ crt: !settings.crt })}
-              className="hidden sm:inline-flex"
+              className="max-sm:hidden"
             >
               <Tv className="size-[18px]" />
             </IconButton>
@@ -133,7 +131,11 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
               <CircleHelp className="size-[18px]" />
             </IconButton>
             {fullscreen.supported && (
-              <IconButton label={fullscreen.isFull ? 'Salir de pantalla completa' : 'Pantalla completa'} onClick={fullscreen.toggle}>
+              <IconButton
+                label={fullscreen.isFull ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                onClick={fullscreen.toggle}
+                className="max-[419px]:hidden"
+              >
                 {fullscreen.isFull ? <Minimize className="size-[18px]" /> : <Maximize className="size-[18px]" />}
               </IconButton>
             )}

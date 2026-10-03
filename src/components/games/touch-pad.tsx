@@ -90,7 +90,7 @@ function DPad({ onPress, onRelease }: { onPress: (k: LogicalKey) => void; onRele
     <div
       role="group"
       aria-label="Cruceta de dirección"
-      className="relative size-[8.5rem] shrink-0 touch-none rounded-full border border-white/10 bg-white/[0.04] shadow-[inset_0_2px_12px_rgba(0,0,0,0.5)]"
+      className="relative size-[clamp(6.75rem,17dvh,8.5rem)] shrink-0 touch-none rounded-full border border-white/10 bg-white/[0.04] shadow-[inset_0_2px_12px_rgba(0,0,0,0.5)]"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId)
         track(e)
@@ -110,7 +110,7 @@ function DPad({ onPress, onRelease }: { onPress: (k: LogicalKey) => void; onRele
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div
           ref={knob}
-          className="size-14 rounded-full border border-white/15 bg-gradient-to-b from-white/20 to-white/5 shadow-[0_6px_16px_rgba(0,0,0,0.6)] transition-transform duration-75"
+          className="size-[42%] rounded-full border border-white/15 bg-gradient-to-b from-white/20 to-white/5 shadow-[0_6px_16px_rgba(0,0,0,0.6)] transition-transform duration-75"
         />
       </div>
     </div>
@@ -134,8 +134,8 @@ function ActionButton({
 }) {
   const styles =
     tone === 'primary'
-      ? 'bg-gradient-to-b from-rose-400 to-rose-600 shadow-[0_5px_0_#881337,0_10px_24px_rgba(244,63,94,0.35)] active:shadow-[0_1px_0_#881337] size-[4.5rem]'
-      : 'bg-gradient-to-b from-sky-400 to-sky-600 shadow-[0_5px_0_#0c4a6e,0_10px_24px_rgba(14,165,233,0.3)] active:shadow-[0_1px_0_#0c4a6e] size-16'
+      ? 'bg-gradient-to-b from-rose-400 to-rose-600 shadow-[0_5px_0_#881337,0_10px_24px_rgba(244,63,94,0.35)] active:shadow-[0_1px_0_#881337] size-[clamp(3.6rem,10dvh,4.5rem)]'
+      : 'bg-gradient-to-b from-sky-400 to-sky-600 shadow-[0_5px_0_#0c4a6e,0_10px_24px_rgba(14,165,233,0.3)] active:shadow-[0_1px_0_#0c4a6e] size-[clamp(3.1rem,8.5dvh,4rem)]'
   const release = () => onRelease(gameKey)
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -174,6 +174,7 @@ export function TouchPad({
   showAction2 = false,
   action2Label = 'B',
   action2Glyph = 'B',
+  showDpad = true,
   forceVisible = false,
 }: {
   onPress: (k: LogicalKey) => void
@@ -184,6 +185,8 @@ export function TouchPad({
   showAction2?: boolean
   action2Label?: string
   action2Glyph?: string
+  /** false en juegos de un solo botón: oculta la cruceta. */
+  showDpad?: boolean
   forceVisible?: boolean
 }) {
   const isTouch = useSyncExternalStore(subscribeCoarse, isTouchDevice, () => false)
@@ -192,15 +195,15 @@ export function TouchPad({
   return (
     <nav
       aria-label="Controles táctiles"
-      className="relative z-20 flex w-full shrink-0 select-none items-center justify-between gap-4 px-5 pt-3"
-      style={{ paddingBottom: 'calc(0.9rem + env(safe-area-inset-bottom, 0px))' }}
+      className="relative z-20 flex w-full shrink-0 select-none items-center justify-between gap-4 px-5 pt-2"
+      style={{ paddingBottom: 'calc(0.6rem + env(safe-area-inset-bottom, 0px))' }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <DPad onPress={onPress} onRelease={onRelease} />
+      {showDpad ? <DPad onPress={onPress} onRelease={onRelease} /> : <span />}
       {(showAction || showAction2) && (
         <div className="flex items-end gap-4">
           {showAction2 && (
-            <div className="mb-6">
+            <div className="mb-[3dvh]">
               <ActionButton
                 gameKey="action2"
                 onPress={onPress}

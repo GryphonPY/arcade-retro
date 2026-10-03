@@ -17,7 +17,7 @@ export interface Settings {
   crt: boolean
 }
 
-const DEFAULTS: Settings = { sfx: true, music: true, crt: true }
+const DEFAULTS: Settings = { sfx: true, music: true, crt: false }
 /** Evento que también emite saveBest() al guardar un récord nuevo. */
 const CHANGE_EVENT = 'arcade-store-change'
 
@@ -25,9 +25,9 @@ let cached: Settings | null = null
 
 function readCrt(): boolean {
   try {
-    return window.localStorage.getItem('arcade-crt') !== '0'
+    return window.localStorage.getItem('arcade-crt') === '1'
   } catch {
-    return true
+    return false
   }
 }
 

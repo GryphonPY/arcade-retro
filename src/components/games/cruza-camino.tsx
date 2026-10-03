@@ -517,16 +517,6 @@ export default function CruzaCamino() {
     ctl.current = { begin, restart: begin }
 
     resetWorld()
-    // TEMPDEBUG
-    ;(window as any).__cz = { // eslint-disable-line
-      G, P, rows,
-      tp(r: number) {
-        extend(gen, rows, r + 12)
-        P.row = r; P.x = colX(4); G.maxRow = r; G.cam = r - 4; G.moved = true
-      },
-      find(kind: string, from: number) { for (let r = from; r < from + 400; r++) { extend(gen, rows, r + 12); const row = rows.get(r); if (row && row.kind === kind) return r } return -1 },
-      findLily(from: number) { for (let r = from; r < from + 600; r++) { extend(gen, rows, r + 12); const row = rows.get(r); if (row && row.lily) return r } return -1 },
-    }
 
     /* ---------------- sonidos locales ---------------- */
     const snd = {
@@ -835,7 +825,16 @@ export default function CruzaCamino() {
         } else buf = []
         return
       }
-      if (G.paused || G.dead) {
+      if (G.dead) {
+        // reinicio rápido: se puede saltar la animación de muerte
+        if (wantsAny && G.deathT > 0.55) {
+          finalize()
+          begin()
+        }
+        buf = []
+        return
+      }
+      if (G.paused) {
         buf = []
         return
       }
@@ -950,7 +949,7 @@ export default function CruzaCamino() {
       // cámara
       const d = diffAt(G.maxRow)
       const vrow = P.hopping ? lerp(P.frow, P.trow, P.hopT) : P.row
-      if (G.moved) G.cam += lerp(0.4, 0.75, d) * dt
+      if (G.moved) G.cam += lerp(0.6, 0.95, d) * dt
       const target = vrow - 4
       if (target > G.cam) G.cam += (target - G.cam) * (1 - Math.exp(-7 * dt))
 
@@ -1657,7 +1656,7 @@ export default function CruzaCamino() {
         const k = G.deathT
         if (G.cause === 'car' || G.cause === 'train') {
           const a = clamp(k / 0.08, 0, 1)
-          drawChick(x, y + TILE - 8, lerp(1, 1.7, a), lerp(1, 0.14, a), 0, P.face, false)
+          drawChick(x, y + TILE - 8, lerp(1, 1.6, a), lerp(1, 0.22, a), 0, P.face, false)
           // ojitos de X
           ctx.fillStyle = '#16161f'
           ctx.fillRect(x - 8, y + TILE - 14, 3, 1)
