@@ -98,7 +98,7 @@ export const GAMES: GameMeta[] = [
       { keys: ['←', '→'], label: 'girar' },
       { keys: ['↑'], label: 'empuje' },
       { keys: ['Espacio'], label: 'láser' },
-      { keys: ['↓'], label: 'hiperespacio' },
+      { keys: ['↓', 'Shift'], label: 'hiperespacio' },
     ],
     accent: '#38bdf8',
     viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(56,189,248,0.14), transparent), #050710',
