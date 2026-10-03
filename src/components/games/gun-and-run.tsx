@@ -187,6 +187,8 @@ interface Boss {
   burst: number
   phase2: boolean
   ground: boolean
+  mg: number
+  mgT: number
 }
 interface Tank {
   x: number
@@ -297,10 +299,13 @@ function genZone(z: number): { len: number; evs: Ev[]; hostTotal: number } {
   const len = Math.min(7000, 3900 + z * 420)
   const evs: Ev[] = []
   const add = (x: number, t: EvType, n = 1, w: WId | null = null) => evs.push({ x, t, n, w, done: false })
-  let x = 330
+  let x = 560
   let hostages = 0
   let sinceCrate = 0
-  if (z === 1) add(560, 'weapon', 1, 'mg')
+  if (z === 1) {
+    add(430, 'weapon', 1, 'mg')
+    add(500, 'grunt', 1)
+  }
   while (x < len - 650) {
     const r = Math.random()
     const lvl = Math.min(z, 6)
@@ -614,7 +619,7 @@ export default function GunAndRun() {
       if (r > 50) juice.flash('#ffd9a0', 0.2)
       if (r > 50) sfx.bomb()
       else sfx.explode()
-      for (const e of g.ents) {
+      for (const e of [...g.ents]) {
         const dx = e.x + e.w / 2 - x
         const dy = e.y + e.h / 2 - y
         if (dx * dx + dy * dy < (r + e.w * 0.4) * (r + e.w * 0.4)) dmgEnt(e, dmg, Math.sign(dx) * 200, true)
@@ -811,7 +816,6 @@ export default function GunAndRun() {
       const tx = ox + ax * 12
       const ty = oy + ay * 12
       if (tank) {
-        tank.cdv -= 0
         // cañón principal
         if (tank.cd <= 0) {
           tank.cd = 0.55
@@ -1016,7 +1020,7 @@ export default function GunAndRun() {
       const ground = kind !== 0
       g.boss = {
         kind, x: g.cam + W + 40, y: ground ? GROUND - h : 40, w, h, vx: 0, vy: 0, hp, max: hp, hit: 0, st: 0, stT: 1.8, t: 0,
-        cd: 2, cd2: 3.5, face: -1, dying: false, dieT: 0, burst: 0, phase2: false, ground,
+        cd: 2, cd2: 3.5, face: -1, dying: false, dieT: 0, burst: 0, phase2: false, ground, mg: 0, mgT: 0,
       }
       g.bossSpawned = true
       g.banner = { text: '¡ALERTA!', sub: BOSS_NAMES[kind], t: 2.4, max: 2.4 }
@@ -1460,7 +1464,10 @@ export default function GunAndRun() {
         b.y = GROUND - b.h
         if (b.st === 0) {
           b.x += (camL + W - 170 - b.x) * Math.min(1, dt * 2)
-          if (b.stT <= 0) b.st = 1
+          if (b.stT <= 0) {
+            b.st = 1
+            b.stT = 5
+          }
         } else if (b.st === 1) {
           b.face = dxp >= 0 ? 1 : -1
           const want = Math.abs(dxp) > 230 ? 1 : Math.abs(dxp) < 150 ? -1 : 0
@@ -1478,10 +1485,15 @@ export default function GunAndRun() {
           }
           if (b.cd2 <= 0 && alive) {
             b.cd2 = 1.4 / fast
-            for (let i = 0; i < 3; i++) {
-              setTimeout(() => {
-                if (g.boss === b && !b.dying) bossEnemyShot(b.x + b.w / 2 + b.face * 40, b.y + 30, 200)
-              }, i * 130)
+            b.mg = 3
+            b.mgT = 0
+          }
+          if (b.mg > 0) {
+            b.mgT -= dt
+            if (b.mgT <= 0) {
+              bossEnemyShot(b.x + b.w / 2 + b.face * 40, b.y + 30, 200)
+              b.mg--
+              b.mgT = 0.13
             }
           }
           if (b.phase2 && b.stT <= 0 && alive) {
@@ -1518,7 +1530,6 @@ export default function GunAndRun() {
             b.stT = 6
           }
         }
-        if (b.st === 1 && b.stT < -100) b.stT = 6
       } else {
         // ---------- meca ----------
         b.y = b.st === 3 ? b.y : GROUND - b.h
@@ -1596,9 +1607,8 @@ export default function GunAndRun() {
       b.x = clamp(b.x, camL - 40, camL + W + 60)
       // contacto con el jugador
       if (alive && b.st !== 0) {
-        const hurtBox = b.kind === 1 && b.st === 3 ? 1 : 0
-        if (p.inv <= 0 && !p.mounted && overlap(p.x + 2, p.y + 2, PW - 4, pw() - 4, b.x + 8, b.y + 14, b.w - 16, b.h - 14) && (b.kind !== 0 || hurtBox === 0 || true)) {
-          if (b.kind !== 0 || b.y + b.h > p.y) hurtPlayer(b.x + b.w / 2)
+        if (p.inv <= 0 && !p.mounted && overlap(p.x + 2, p.y + 2, PW - 4, pw() - 4, b.x + 8, b.y + 14, b.w - 16, b.h - 14)) {
+          hurtPlayer(b.x + b.w / 2)
         } else if (p.mounted && g.tank && overlap(g.tank.x, g.tank.y, 46, 30, b.x + 8, b.y + 14, b.w - 16, b.h - 14) && b.kind !== 0) {
           hurtPlayer(b.x + b.w / 2)
         }
@@ -1646,7 +1656,7 @@ export default function GunAndRun() {
           const hh = bu.k === 'las' ? 3 : bu.r
           if (bu.ow === 0) {
             // contra enemigos
-            for (const e of g.ents) {
+            for (const e of [...g.ents]) {
               if (bu.hits && bu.hits.includes(e.id)) continue
               if (overlap(bu.x - hw, bu.y - hh, hw * 2, hh * 2, e.x + 1, e.y + 1, e.w - 2, e.h - 2)) {
                 if (bu.k === 'gre' || bu.k === 'shell') {
@@ -1877,11 +1887,8 @@ export default function GunAndRun() {
       if (g.phase === 'play' || g.phase === 'clear') {
         const maxCam = g.len - W + 60
         const lockCam = g.bossSpawned ? g.cam : maxCam
-        if (!g.p.dead || true) {
-          const want = clamp(pcx() - W * 0.42, g.cam, lockCam)
-          g.cam += (want - g.cam) * Math.min(1, dt * 7)
-          if (want > g.cam) g.cam = Math.min(want, g.cam + 260 * dt)
-        }
+        const want = clamp(pcx() - W * 0.42, g.cam, lockCam)
+        g.cam += (want - g.cam) * Math.min(1, dt * 7)
         // eventos
         if (!g.bossSpawned) {
           for (const ev of g.evs) {
@@ -1931,7 +1938,6 @@ export default function GunAndRun() {
       sfx.start()
     }
     beginRef.current = begin
-    ;(window as unknown as { __gg?: () => G }).__gg = () => g // DEBUGTMP
 
     // ---------- dibujo ----------
     const label = (s: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left') => {

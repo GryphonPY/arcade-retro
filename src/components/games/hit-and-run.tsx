@@ -1477,7 +1477,6 @@ export default function HitAndRun() {
       g.banner = { text: 'DISTRITO 1', sub: 'Embiste taxis. Evita civiles.', t: 2.2 }
     }
     beginRef.current = begin
-    ;(window as unknown as { __g?: () => G }).__g = () => g // DEBUGTMP
 
     // ---------- dibujo ----------
     const px2 = (n: number) => Math.round(n)
