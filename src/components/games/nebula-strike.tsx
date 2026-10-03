@@ -85,7 +85,7 @@ export default function NebulaStrike() {
 
       // pausa
       const musicLevel = () => (g.mode === 'warning' || g.mode === 'warp' ? 0 : 1)
-      if (jp.has('pause') && PLAY_MODES.includes(g.mode)) {
+      if (jp.has('pause') && (g.paused || PLAY_MODES.includes(g.mode))) {
         g.paused = !g.paused
         fx.pause()
         duckMusic(g.paused ? 0.3 * musicLevel() : musicLevel())
