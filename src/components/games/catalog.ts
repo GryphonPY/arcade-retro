@@ -43,7 +43,6 @@ const MOVE: ControlHint = { keys: ['←', '↑', '→', '↓'], label: 'mover' }
 const ALL_GAMES: GameMeta[] = [
   {
     id: 'nebula-strike',
-    wip: true,
     flagship: true,
     isNew: true,
     category: 'accion',
@@ -52,10 +51,12 @@ const ALL_GAMES: GameMeta[] = [
     year: '1995',
     desc: 'Elige tu nave y atraviesa lluvias de balas neón, mejora tus armas en pleno vuelo y derriba jefes colosales sector tras sector.',
     controls: [
-      { keys: ['←', '↑', '→', '↓'], label: 'mover' },
-      { keys: ['Espacio'], label: 'disparar' },
-      { keys: ['Shift'], label: 'bomba' },
+      { keys: ['←', '↑', '→', '↓'], label: 'mover (dispara solo)' },
+      { keys: ['Espacio'], label: 'modo concentrado' },
+      { keys: ['Shift', 'X'], label: 'bomba' },
     ],
+    touchHelp:
+      'Arrastra en cualquier parte para mover la nave (dispara sola). Un segundo dedo activa el modo concentrado y el botón BOMBA limpia las balas.',
     accent: '#22d3ee',
     viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(34,211,238,0.14), transparent), #04060f',
   },

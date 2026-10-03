@@ -1,12 +1,22 @@
 # Arcade Retro
 
-Sala de juegos arcade para el navegador: **17 juegos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio, controles táctiles pensados para el celular y una **tabla de récords mundial**.
+Sala de juegos arcade para el navegador: **20 juegos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio, controles táctiles pensados para el celular y una **tabla de récords mundial**.
 
 Sin anuncios, sin cuentas y sin descargas: solo eliges un apodo para aparecer en el salón de la fama. Se puede instalar como app y jugar sin conexión.
 
 **Juega aquí:** https://arcade-retro-cool.periwinkle-cookie.workers.dev/
 
 ## Juegos
+
+### Juegos estrella
+
+| Juego | Género | De qué trata |
+| :-- | :-- | :-- |
+| **Nebula Strike** | Shooter de naves | 3 naves, 6 sectores con jefes de varias fases, mejoras a elegir tras cada jefe, graze y medallas. |
+| **Búnker 93** | FPS retro (three.js) | Primera persona estilo DOOM: 3 arenas por oleadas, 5 armas, 3 jefes y 30 mejoras. |
+| **Sunset Run** | Carreras pseudo 3D | Estilo OutRun: 3 copas contra 7 rivales, 4 coches, taller de mejoras y radio con 4 estaciones. |
+
+### Arcade
 
 | Juego | Género | De qué trata |
 | :-- | :-- | :-- |

@@ -1095,10 +1095,17 @@ export class Game {
       if (b.split > 0) {
         b.split -= dt
         if (b.split <= 0) {
+          // copiar antes de liberar: el hueco del pool se reutiliza al instante
+          const bx = b.x
+          const by = b.y
+          const sn = b.splitN
+          const sv = b.splitV / this.diff.bs
+          const ss = b.splitSpr
+          const col = BCOL[b.spr % NCOL]
           this.removeBullet(i)
           const off = Math.random() * TAU
-          for (let k = 0; k < b.splitN; k++) this.bullet(b.x, b.y, off + (k * TAU) / b.splitN, b.splitV / this.diff.bs, b.splitSpr)
-          this.puff(b.x, b.y, BCOL[b.spr % NCOL], 18, 0.25)
+          for (let k = 0; k < sn; k++) this.bullet(bx, by, off + (k * TAU) / sn, sv, ss)
+          this.puff(bx, by, col, 18, 0.25)
           continue
         }
       }
@@ -1113,8 +1120,9 @@ export class Game {
         const hr = b.r * 0.82 + HIT_R
         if (d2 < hr * hr) {
           if (p.inv <= 0 && this.bombT <= 0) {
+            // el impacto puede cancelar balas (escudo/bomba): no seguir iterando
             this.hitPlayer()
-            if (!p.alive) return
+            return
           }
         } else if (!b.grazed) {
           const gr = b.r + grazeR
@@ -1145,13 +1153,14 @@ export class Game {
     this.grazeCount++
     this.sectorGraze++
     this.grazeStreak++
-    this.grazeStreakT = 0.6
+    this.grazeStreakT = 0.9
     this.addScore(30 + this.diff.lvl * 15)
     if (this.chainT > 0) this.chainT = Math.min(this.chainT + 0.12, 1.7 * (1 + this.up('chain') * 0.4))
     const p = this.player
     const a = Math.atan2(b.y - p.y, b.x - p.x)
     this.sparks(p.x + Math.cos(a) * 6, p.y + Math.sin(a) * 6, '#e0f2fe', 2, 120, 0.25, a, 1)
     fx.graze(this.grazeStreak)
+    if (this.grazeStreak % 10 === 0) this.juice.text(p.x + 22, p.y - 12, `ROCE x${this.grazeStreak}`, '#a5f3fc', 7, 0.7)
     if (this.up('graze')) {
       this.grazeBank++
       if (this.grazeBank >= 60) {
@@ -1437,6 +1446,13 @@ export class Game {
   openUpgrades() {
     this.sectorsCleared++
     this.choices = rollUpgrades(this.sector + this.loop * 6, this.build, this.power, this.powerCap)
+    if (this.choices.length === 0) {
+      // todo al máximo: bonificación y directo al siguiente sector
+      this.addScore(500000)
+      this.juice.text(W / 2, 200, 'NAVE AL MAXIMO +500000', '#fde047', 9, 2)
+      this.nextSector()
+      return
+    }
     this.sel = 0
     this.menuLock = 0.6
     this.setMode('upgrade')
@@ -1467,7 +1483,10 @@ export class Game {
     this.shock(p.x, p.y, UP_BY_ID[u.id].color, 8, 260, 0.6, 3)
     this.juice.flash(UP_BY_ID[u.id].color, 0.25)
     this.choices = []
-    // siguiente sector
+    this.nextSector()
+  }
+
+  nextSector() {
     this.sector++
     if (this.sector >= SECTORS.length) {
       this.sector = 0
