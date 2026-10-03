@@ -486,7 +486,7 @@ export default function CyberDungeon() {
       pickLock: 0,
       pickChoices: [] as number[],
       slow: 0,
-      flowDist: new Int16Array(MW * MH),
+      flowDist: new Int16Array(MW * MH) as Int16Array,
       flowTx: -1,
       flowTy: -1,
       visT: 0,
@@ -1744,7 +1744,7 @@ export default function CyberDungeon() {
 
       // cámara y visibilidad
       const P = G.P
-      if (G.phase !== 'idle') {
+      {
         const tx = clamp(P.x - VW / 2 + Math.cos(P.face) * 14, 0, MW * TILE - VW)
         const ty = clamp(P.y - VH / 2 + Math.sin(P.face) * 14, 0, MH * TILE - VH)
         const k = Math.min(1, dtReal * 7)
@@ -1789,7 +1789,7 @@ export default function CyberDungeon() {
           const h = hash(tx, ty)
           if (lv.grid[i]) {
             const chk = (tx + ty) & 1
-            ctx.fillStyle = lit ? (tint ? (chk ? '#2a2038' : '#2f2540') : chk ? '#26233a' : '#2b2842') : tint ? '#17111f' : '#14131f'
+            ctx.fillStyle = lit ? (tint ? (chk ? '#33274a' : '#3a2d54') : chk ? '#312e4c' : '#383558') : tint ? '#1b1326' : '#191828'
             ctx.fillRect(px, py, TILE, TILE)
             ctx.fillStyle = lit ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)'
             ctx.fillRect(px, py, TILE, 1)
@@ -2306,7 +2306,7 @@ export default function CyberDungeon() {
           }
           miniCtx.putImageData(img, 0, 0)
         }
-        const s = 1.5
+        const s = 1.8
         const mx = VW - MW * s - 6
         const my = 6
         ctx.fillStyle = 'rgba(5,4,12,0.6)'
@@ -2462,7 +2462,7 @@ export default function CyberDungeon() {
       const py = G.P.y - cy
       const gr = ctx.createRadialGradient(px, py, 50, px, py, 230)
       gr.addColorStop(0, 'rgba(0,0,0,0)')
-      gr.addColorStop(1, 'rgba(2,1,8,0.62)')
+      gr.addColorStop(1, 'rgba(2,1,8,0.5)')
       ctx.fillStyle = gr
       ctx.fillRect(0, 0, VW, VH)
       if (G.P.hp <= 2 && G.phase === 'play') {
@@ -2507,6 +2507,7 @@ export default function CyberDungeon() {
       }
     }
 
+    ;(window as unknown as { __cd?: unknown }).__cd = { G, buildFloor, makeEnemy, killEnemy, updateVis, juice } // DEBUGTMP
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
