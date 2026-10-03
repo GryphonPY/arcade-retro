@@ -12,7 +12,7 @@ import { sfx, tone, noise } from './sfx'
 // ---------------------------------------------------------------------------
 // Constantes
 // ---------------------------------------------------------------------------
-const W = 400
+const W = 360
 const H = 300
 const GROUND = 252 // y de los pies sobre el suelo
 const PW = 14
@@ -26,6 +26,17 @@ const ACCENT = '#ff8a3d'
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
 const pick = <T,>(a: T[]): T => a[(Math.random() * a.length) | 0]
+const mixCache = new Map<string, string>()
+/** Aclara un color #rrggbb hacia el blanco (destello de golpe suave para jefes). */
+const mixWhite = (c: string) => {
+  let r = mixCache.get(c)
+  if (r) return r
+  const n = parseInt(c.slice(1), 16)
+  const m = (v: number) => Math.round(v + (255 - v) * 0.6)
+  r = `rgb(${m((n >> 16) & 255)},${m((n >> 8) & 255)},${m(n & 255)})`
+  mixCache.set(c, r)
+  return r
+}
 const hash01 = (n: number) => {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453
   return s - Math.floor(s)
@@ -2372,7 +2383,7 @@ export default function GunAndRun() {
       const x = Math.round(b.x - g.cam)
       const y = Math.round(b.y)
       const white = b.hit > 0
-      const col = (c: string) => (white ? '#ffffff' : c)
+      const col = (c: string) => (white ? mixWhite(c) : c)
       ctx.save()
       ctx.translate(x + b.w / 2, y + b.h / 2)
       if (b.dying) ctx.translate(Math.sin(b.dieT * 40) * 2, 0)
