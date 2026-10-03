@@ -1,5 +1,7 @@
-name: Deploy
+name: CI
 
+# El sitio lo publica Cloudflare Workers Builds (conectado al repo) en cada
+# push a main. Este workflow solo verifica que todo compile.
 on:
   push:
     branches:
@@ -23,27 +25,3 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: out
-
-  deploy:
-    name: Publicar en Cloudflare
-    needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: site
-          path: out
-
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy

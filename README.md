@@ -71,7 +71,7 @@ src/
 
 ## Despliegue
 
-El sitio es 100% estático (`output: 'export'`). El workflow de GitHub Actions corre lint, typecheck y build en cada push y pull request, y al hacer push a `main` publica `./out` en Cloudflare con Wrangler. Necesita los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`.
+El sitio es 100% estático (`output: 'export'`) y se publica en https://arcade-retro-cool.periwinkle-cookie.workers.dev/ mediante Cloudflare Workers Builds, conectado al repo: cada push a `main` se compila y publica solo. El workflow de GitHub Actions corre lint, typecheck y build en cada push y pull request.
 
 ## Autor
 

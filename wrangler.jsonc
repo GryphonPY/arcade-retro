@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "arcade-retro",
+  "name": "arcade-retro-cool",
   "compatibility_date": "2026-09-07",
   "assets": {
     "directory": "./out",
