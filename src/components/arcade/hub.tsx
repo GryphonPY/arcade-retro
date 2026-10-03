@@ -11,8 +11,13 @@ import { ControlList, GameArt, IconButton } from './ui'
 const fmt = (n: number) => n.toLocaleString('es-MX')
 const byId = (id: string) => GAMES.find((g) => g.id === id)
 const ROTATE_MS = 7000
-// Primero las novedades, luego el resto del catálogo.
-const SHOWCASE = [...GAMES.filter((g) => g.isNew), ...GAMES.filter((g) => !g.isNew)]
+// Primero los juegos estrella, luego las novedades y el resto del catálogo.
+const SHOWCASE = [
+  ...GAMES.filter((g) => g.flagship),
+  ...GAMES.filter((g) => !g.flagship && g.isNew),
+  ...GAMES.filter((g) => !g.flagship && !g.isNew),
+]
+const FLAGSHIPS = GAMES.filter((g) => g.flagship)
 
 export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
   const settings = useSettings()
@@ -20,7 +25,8 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
   const recent = useRecent()
   const world = useOnlineSummary()
   const [filter, setFilter] = useState<Category | 'todos'>('todos')
-  const visible = filter === 'todos' ? GAMES : GAMES.filter((g) => g.category === filter)
+  const catalog = GAMES.filter((g) => !g.flagship)
+  const visible = filter === 'todos' ? catalog : catalog.filter((g) => g.category === filter)
   const played = GAMES.filter((g) => bests[g.id] > 0).length
 
   return (
@@ -102,6 +108,22 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
                   </li>
                 )
               })}
+            </ul>
+          </section>
+        )}
+
+        {FLAGSHIPS.length > 0 && (
+          <section aria-labelledby="flagships" className="mt-10 sm:mt-12">
+            <h2 id="flagships" className="text-xl font-semibold tracking-tight sm:text-2xl">
+              Juegos estrella
+            </h2>
+            <p className="mt-1 text-sm text-dim">Nuestros juegos más grandes: campañas largas, jefes y mejoras en cada nivel.</p>
+            <ul className="mt-4 grid gap-4 md:grid-cols-3">
+              {FLAGSHIPS.map((g) => (
+                <li key={g.id}>
+                  <FlagshipCard game={g} best={bests[g.id] ?? 0} champion={world?.[g.id]?.[0]} onPlay={onPlay} />
+                </li>
+              ))}
             </ul>
           </section>
         )}
@@ -336,6 +358,67 @@ function Showcase({
 }
 
 // ---------- tarjetas ----------
+
+function FlagshipCard({
+  game,
+  best,
+  champion,
+  onPlay,
+}: {
+  game: GameMeta
+  best: number
+  champion?: OnlineEntry
+  onPlay: (id: string) => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPlay(game.id)}
+      className="group relative block w-full overflow-hidden rounded-3xl border border-line text-left transition duration-300 hover:-translate-y-1 hover:border-white/25"
+      style={{ background: `linear-gradient(160deg, ${game.accent}33, transparent 60%), #0f0f16` }}
+      aria-label={`Jugar ${game.name}`}
+      data-game={game.id}
+    >
+      <GameArt accent={game.accent} className="aspect-[16/10]">
+        <div className="showcase-float absolute inset-0 grid place-items-center p-[12%] transition duration-300 group-hover:scale-105">
+          <CartridgeBadge gameId={game.id} />
+        </div>
+        {game.isNew && (
+          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-black">
+            Nuevo
+          </span>
+        )}
+      </GameArt>
+      <div className="p-4">
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em]" style={{ color: game.accent }}>
+          {game.genre}
+          {game.landscape && <span className="ml-2 text-dim">· Mejor en horizontal</span>}
+        </p>
+        <h3 className="mt-1 text-lg font-semibold tracking-tight">{game.name}</h3>
+        <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{game.desc}</p>
+        <div className="mt-3 flex items-center justify-between gap-2 text-xs text-dim">
+          <span className="flex min-w-0 items-center gap-1 truncate">
+            {champion ? (
+              <>
+                <Crown className="size-3 shrink-0 text-coin" />
+                <span className="truncate">{champion.name}</span> · {fmt(champion.score)}
+              </>
+            ) : best > 0 ? (
+              <>
+                <Trophy className="size-3 text-coin" /> {fmt(best)}
+              </>
+            ) : (
+              'Sin récords todavía'
+            )}
+          </span>
+          <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-black">
+            <Play className="size-3 fill-current" /> Jugar
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}
 
 function GameCard({
   game,
