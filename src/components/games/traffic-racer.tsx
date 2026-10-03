@@ -775,7 +775,7 @@ export default function TrafficRacer() {
           return
         }
       }
-      s.cars = s.cars.filter((c) => c.y < H + 220 && c.y + c.h > -420)
+      s.cars = s.cars.filter((c) => c.y < H + 220 && c.y + c.h > -420 && !(c.boost > 0 && c.y + c.h < PLAYER_Y - 150))
 
       // sirena
       if (policeOn) {
@@ -1273,12 +1273,15 @@ export default function TrafficRacer() {
       // coches
       for (const c of s.cars) {
         if (c.y < -c.h - 20 || c.y > H + 20) continue
+        const fade = c.boost > 0 ? clamp((c.y + c.h - (PLAYER_Y - 150)) / 90, 0, 1) : 1
+        ctx.globalAlpha = fade
         drawCar(c, false, s, 0, c.plan > 0 ? c.dir : 0)
         if (c.kind === 'police') {
           ctx.save()
           drawPolice(c, s)
           ctx.restore()
         }
+        ctx.globalAlpha = 1
       }
 
       // humo / llama del jugador
