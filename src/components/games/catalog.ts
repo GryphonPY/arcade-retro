@@ -6,8 +6,17 @@ export interface ControlHint {
   label: string
 }
 
+export type Category = 'accion' | 'clasicos' | 'reflejos'
+
+export const CATEGORIES: { id: Category; label: string }[] = [
+  { id: 'accion', label: 'Acción' },
+  { id: 'clasicos', label: 'Clásicos' },
+  { id: 'reflejos', label: 'Reflejos' },
+]
+
 export interface GameMeta {
   id: string
+  category: Category
   name: string
   genre: string
   year: string
@@ -26,6 +35,7 @@ const MOVE: ControlHint = { keys: ['←', '↑', '→', '↓'], label: 'mover' }
 export const GAMES: GameMeta[] = [
   {
     id: 'bloques',
+    category: 'clasicos',
     isNew: true,
     name: 'Bloques',
     genre: 'Puzle',
@@ -43,6 +53,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'flap-pixel',
+    category: 'reflejos',
     isNew: true,
     name: 'Flap Pixel',
     genre: 'Un botón',
@@ -54,6 +65,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'cruza-camino',
+    category: 'reflejos',
     isNew: true,
     name: 'Cruza el Camino',
     genre: 'Esquiva',
@@ -65,6 +77,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'torre-neon',
+    category: 'reflejos',
     isNew: true,
     name: 'Torre Neón',
     genre: 'Precisión',
@@ -76,6 +89,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'asteroid-drift',
+    category: 'accion',
     name: 'Asteroid Drift',
     genre: 'Shooter vectorial',
     year: '1979',
@@ -91,6 +105,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'cyber-dungeon',
+    category: 'accion',
     name: 'Cyber Dungeon',
     genre: 'Mazmorra rogue',
     year: '1986',
@@ -101,6 +116,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'snake-neon',
+    category: 'clasicos',
     name: 'Snake Neón',
     genre: 'Clásico',
     year: '1976',
@@ -111,6 +127,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'space-invasion',
+    category: 'accion',
     name: 'Invasión Espacial',
     genre: 'Matamarcianos',
     year: '1978',
@@ -121,6 +138,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'desert-runner',
+    category: 'reflejos',
     name: 'Corredor del Desierto',
     genre: 'Endless runner',
     year: '1984',
@@ -131,6 +149,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'ghost-maze',
+    category: 'clasicos',
     name: 'Laberinto Fantasma',
     genre: 'Laberinto',
     year: '1980',
@@ -141,6 +160,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'traffic-racer',
+    category: 'reflejos',
     name: 'Carrera de Tráfico',
     genre: 'Carreras',
     year: '1982',
@@ -155,6 +175,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'brick-breaker',
+    category: 'clasicos',
     name: 'Rompe Ladrillos',
     genre: 'Paleta',
     year: '1976',
@@ -165,6 +186,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'hit-and-run',
+    category: 'accion',
     name: 'Hit & Run',
     genre: 'Persecución',
     year: '1988',
@@ -179,6 +201,7 @@ export const GAMES: GameMeta[] = [
   },
   {
     id: 'gun-and-run',
+    category: 'accion',
     name: 'Gun & Run',
     genre: 'Run & gun',
     year: '1987',

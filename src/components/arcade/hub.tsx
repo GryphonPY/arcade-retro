@@ -1,7 +1,8 @@
 'use client'
 
 import { Music, Play, Trophy, Tv, Volume2, VolumeX } from 'lucide-react'
-import { GAMES, type GameMeta } from '@/components/games/catalog'
+import { useState, type KeyboardEvent } from 'react'
+import { CATEGORIES, GAMES, type Category, type GameMeta } from '@/components/games/catalog'
 import { CartridgeBadge } from '@/components/games/cartridge-badge'
 import { updateSettings, useBests, useSettings } from './store'
 import { ControlList, GameArt, IconButton } from './ui'
@@ -15,15 +16,22 @@ export function Hub({ featuredId, onPlay }: { featuredId: string; onPlay: (id: s
   const bests = useBests()
   const featured = GAMES.find((g) => g.id === featuredId) ?? GAMES[0]
   const played = GAMES.filter((g) => bests[g.id] > 0).length
+  const [filter, setFilter] = useState<Category | 'todos'>('todos')
+  const visible = filter === 'todos' ? GAMES : GAMES.filter((g) => g.category === filter)
 
   return (
     <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
       <header className="sticky top-0 z-30 border-b border-line bg-ink/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <a href="/" className="flex items-center gap-2.5" aria-label="Arcade Retro, inicio">
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-2.5"
+            aria-label="Arcade Retro, volver arriba"
+          >
             <img src="/logo.svg" alt="" className="size-7 rounded-lg" />
             <span className="text-[15px] font-semibold tracking-tight">Arcade Retro</span>
-          </a>
+          </button>
           <div className="flex items-center gap-0.5">
             <IconButton
               label={settings.sfx ? 'Silenciar efectos' : 'Activar efectos'}
@@ -65,8 +73,28 @@ export function Hub({ featuredId, onPlay }: { featuredId: string; onPlay: (id: s
             </div>
           </div>
 
-          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {GAMES.map((g) => (
+          <div role="tablist" aria-label="Filtrar por categoría" className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            {[{ id: 'todos' as const, label: 'Todos' }, ...CATEGORIES].map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="tab"
+                aria-selected={filter === c.id}
+                onClick={() => setFilter(c.id)}
+                className={`h-9 shrink-0 rounded-full px-4 text-sm font-medium transition-colors ${
+                  filter === c.id ? 'bg-white text-black' : 'bg-white/[0.06] text-zinc-300 hover:bg-white/10'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <ul
+            className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            onKeyDown={moveFocus}
+          >
+            {visible.map((g) => (
               <li key={g.id}>
                 <GameCard game={g} best={bests[g.id] ?? 0} onPlay={onPlay} />
               </li>
@@ -85,6 +113,24 @@ export function Hub({ featuredId, onPlay }: { featuredId: string; onPlay: (id: s
       </footer>
     </div>
   )
+}
+
+/** Flechas del teclado para moverse entre tarjetas como en un menú arcade. */
+function moveFocus(e: KeyboardEvent<HTMLUListElement>) {
+  const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+  if (!keys.includes(e.key)) return
+  const cards = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button[data-game]'))
+  const i = cards.indexOf(document.activeElement as HTMLButtonElement)
+  if (i < 0) return
+  const top = cards[0].offsetTop
+  const cols = Math.max(1, cards.filter((c) => c.offsetTop === top).length)
+  const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.key] ?? 0
+  const next = cards[i + delta]
+  if (next) {
+    e.preventDefault()
+    next.focus()
+    next.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
 }
 
 function Featured({ game, best, onPlay }: { game: GameMeta; best: number; onPlay: (id: string) => void }) {

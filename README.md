@@ -1,104 +1,78 @@
-# 🕹️ Neo•Arcade MVS (Multi Video System)
+# Arcade Retro
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Neo--Geo-MVS%20100M-red?style=for-the-badge&logo=retroarch&logoColor=white" alt="Neo-Geo MVS" />
-  <img src="https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/TailwindCSS-v4-38bdf8?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="TailwindCSS" />
-  <img src="https://img.shields.io/badge/WebAudio-Stereo%20Chiptune-f59e0b?style=for-the-badge&logo=audio&logoColor=white" alt="WebAudio" />
-  <img src="https://img.shields.io/badge/Deploy-Cloudflare%20Pages-f97316?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare Pages" />
-</p>
+Sala de juegos arcade para el navegador: **14 juegos clásicos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio y controles táctiles pensados para el celular.
 
-<p align="center">
-  <b>Una cabina recreativa arcade completa en la web con 10 cartuchos clásicos desarrollados en Canvas 2D nativo, música chiptune procedural, audio 8-bit sintetizado y soporte táctil arcade responsivo para móviles y escritorio.</b>
-</p>
+Sin anuncios, sin cuentas y sin descargas. Tus récords se guardan en tu navegador.
 
----
+## Juegos
 
-## ✨ Características Principales
+| Juego | Género | De qué trata |
+| :-- | :-- | :-- |
+| **Bloques** | Puzle | Piezas que caen, con guardar pieza, pieza fantasma, T-spins y combos. |
+| **Flap Pixel** | Un botón | Aletea entre tuberías. Medallas de bronce a platino. |
+| **Cruza el Camino** | Esquiva | Avanza sin fin entre carreteras, ríos con troncos y vías de tren. |
+| **Torre Neón** | Precisión | Apila bloques. Los encajes perfectos encadenan combos. |
+| **Asteroid Drift** | Shooter vectorial | Física inercial en 360°, asteroides que se parten y ovnis. |
+| **Cyber Dungeon** | Mazmorra rogue | Pisos generados al azar, espada, mejoras y jefes. |
+| **Snake Neón** | Clásico | La serpiente de siempre, con combos y power-ups. |
+| **Invasión Espacial** | Matamarcianos | Oleadas, picadas, búnkers destructibles y jefes. |
+| **Corredor del Desierto** | Endless runner | Saltos, monedas, power-ups y ciclo día/noche. |
+| **Laberinto Fantasma** | Laberinto | Fantasmas con personalidad propia, como en el original. |
+| **Carrera de Tráfico** | Carreras | Esquiva coches; rozarlos llena el turbo. |
+| **Rompe Ladrillos** | Paleta | Niveles con patrones, ladrillos especiales y power-ups. |
+| **Hit & Run** | Persecución | Embiste taxis y escapa de la policía. |
+| **Gun & Run** | Run & gun | Acción lateral con armas, jefes y rehenes. |
 
-- 🎮 **10 Cartuchos Clásicos Completos**: Desde clones retro inerciales hasta mazmorras roguelike, carreras nocturnas y plataformas de acción.
-- 📺 **Filtro CRT Scanlines Auténtico**: Efecto de curvatura de tubo catódico, viñeta y líneas de barrido RGB 15kHz activables con un botón.
-- 🪙 **Monedero Arcade Realista**: Sistema interactivo con pulsador `25¢ INSERT COIN`, sonido vintage de moneda y desbloqueo de `FREE PLAY`.
-- 🕹️ **Controles Híbridos Universales**:
-  - **Teclado**: Flechas direccionales, `WASD`, `ESPACIO`, `SHIFT`, `P` (Pausa), `ESC` (Volver al menú).
-  - **Móviles**: Cruceta japonesa D-Pad y pulsadores de botón tipo Sanwa acoplados sin solapamiento ni desbordamiento de pantalla (vista *fullscreen 100dvh* sin scroll).
-- 🔊 **Sintetizador WebAudio Chiptune**: Efectos de sonido y melodías 8-bit generadas proceduralmente en tiempo real, sin archivos de audio externos pesados.
-- 💾 **Persistencia Local de Récords**: Puntuaciones máximas y preferencias guardadas automáticamente en `localStorage`.
+## Controles
 
----
+| | Teclado | Celular |
+| :-- | :-- | :-- |
+| Mover | Flechas o `WASD` | Cruceta (desliza el pulgar) |
+| Acción principal | `Espacio`, `Enter`, `Z` o `J` | Botón **A** |
+| Acción secundaria | `Shift`, `X` o `K` | Botón **B** |
+| Pausa | `P` | Botón de pausa (arriba) |
+| Salir al menú | `Esc` | Flecha atrás |
 
-## 👾 Catálogo de los 10 Cartuchos
+Cada juego explica sus controles en su pantalla de inicio y en el botón **?**. Puedes abrir un juego directo con su enlace, por ejemplo `/#bloques`.
 
-| Cartucho | Título | Género / Estilo | Controles Clave |
-| :--- | :--- | :--- | :--- |
-| **NGM-009** | **Asteroid Drift 360°** | Física Espacial Inercial Vectorial | `← →` Rotación · `↑` Empuje · `ESPACIO` / `A` Láser · `↓` / `B` Warp |
-| **NGM-010** | **Cyber Dungeon Slayer** | Mazmorra Rogue / Slash RPG | `WASD` / Flechas · `ESPACIO` / `A` Espada · `SHIFT` / `B` Poción |
-| **NGM-001** | **Snake Neón** | Synthwave Clásico | `↑ ↓ ← →` / `WASD` · `ESPACIO` / `A` Iniciar |
-| **NGM-002** | **Invasión Espacial** | Matamarcianos Clásico Pixel Art | `← →` Mover · `ESPACIO` / `A` Disparo láser · OVNI nodriza bonus |
-| **NGM-003** | **Corredor del Desierto** | Endless Runner Plataformas | `↑` / `A` Salto · `↓` / `B` Agacharse |
-| **NGM-004** | **Laberinto Fantasma** | Arcade de Laberinto Clásico | `↑ ↓ ← →` / `WASD` · Bolitas de poder y fantasmas asustados |
-| **NGM-005** | **Carrera de Tráfico** | Asfalto Nocturno / Esquiva | `← →` Carril · `↑` / `T` Turbo acelerón · `↓` Freno |
-| **NGM-006** | **Rompe Ladrillos** | Paleta y Prisma Neón | `← →` Mover paleta · `ESPACIO` / `A` / Click lanzar bola |
-| **NGM-007** | **Hit & Run** | Persecución en la Ciudad Pixel | `WASD` / Flechas · Embiste taxis · `↑` / `T` Turbo escape |
-| **NGM-008** | **Gun & Run** | Run 'n Gun / Acción Selva | `← →` Correr · `A` / `ESPACIO` Disparo · `B` / `↑` Salto |
+## Desarrollo
 
----
-
-## 🛠️ Stack Tecnológico
-
-- **Framework**: [Next.js 16](https://nextjs.org/) con App Router y exportación estática (`output: 'export'`).
-- **Lenguaje**: [TypeScript](https://www.typescriptlang.org/) con tipado estricto en todas las mecánicas de juego.
-- **Renderizado**: HTML5 Canvas 2D con ajuste adaptativo de DPI para pantallas Retina/HiDPI.
-- **Estilos**: [Tailwind CSS v4](https://tailwindcss.com/) y fuentes pixel art retro.
-- **Audio**: Web Audio API nativa con osciladores `square`, `triangle`, `sawtooth` y generador de ruido para explosiones.
-- **Despliegue**: [Cloudflare Pages](https://pages.cloudflare.com/) mediante integración continua (CI/CD) vinculada a la rama `main`.
-
----
-
-## 🚀 Instalación y Desarrollo Local
-
-Si deseas clonar y ejecutar la cabina en tu máquina:
+Requiere Node.js 22 o superior.
 
 ```bash
-# 1. Clonar el repositorio
-git clone https://github.com/GryphonPY/arcade-retro.git
-cd arcade-retro
-
-# 2. Instalar dependencias
 npm install
-
-# 3. Iniciar el servidor de desarrollo
-npm run dev
+npm run dev        # http://localhost:3000
+npm run lint
+npm run typecheck
+npm run build      # genera el sitio estático en ./out
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+### Estructura
 
-### Compilar para Producción
-
-```bash
-npm run build
+```
+src/
+  app/                    página única (sala + juego activo)
+  components/arcade/      sala principal, vista de juego, ajustes y récords
+  components/games/       un archivo por juego + piezas compartidas
+    catalog.ts            lista de juegos (nombre, controles, colores)
+    game-screen.tsx       escala la pantalla del juego al espacio disponible
+    juice.ts              temblor de cámara, hit-stop, partículas, textos flotantes
+    overlay.tsx           pantallas de inicio, fin de partida y marcador
+    touch-pad.tsx         mando táctil
+    use-keys.ts           teclado + mando táctil unificados
+    sfx.ts / music.ts     efectos y música chiptune con WebAudio
 ```
 
-Genera la versión optimizada en la carpeta `./out`, lista para alojarse en cualquier CDN o servicio estático (Cloudflare Pages, Vercel, GitHub Pages, Netlify).
+### Agregar un juego
 
----
+1. Crea `src/components/games/<id>.tsx` siguiendo la estructura de cualquier juego existente (`useKeys`, `GameScreen`, `TouchPad`, overlays).
+2. Agrega su portada en `src/components/games/badges/<id>.tsx` y regístrala en `cartridge-badge.tsx`.
+3. Añade la entrada en `catalog.ts` y el import dinámico en `components/arcade/game-view.tsx`.
 
-## 📱 Experiencia en Móviles
+## Despliegue
 
-El proyecto cuenta con un diseño responsivo especial para teléfonos inteligentes:
-- **Detección Automática de Dispositivo Táctil**: Activa el mando arcade virtual solo en pantallas táctiles (`pointer: coarse`).
-- **Pantalla Completa 100dvh**: Desactiva el desplazamiento de ventana dentro de las partidas para evitar interrupciones al tocar la cruceta.
-- **Controles Acoplados al Fondo**: El D-Pad y los botones Sanwa se anclan debajo del canvas sin superponerse a la acción ni a las pantallas de Game Over.
+El sitio es 100% estático (`output: 'export'`). El workflow de GitHub Actions corre lint, typecheck y build en cada push y pull request, y al hacer push a `main` publica `./out` en Cloudflare con Wrangler. Necesita los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`.
 
----
+## Autor
 
-## 👤 Autor
-
-- GitHub: [@GryphonPY](https://github.com/GryphonPY)
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia [MIT](LICENSE).
+[@GryphonPY](https://github.com/GryphonPY) · Licencia [MIT](LICENSE)
