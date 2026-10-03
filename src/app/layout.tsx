@@ -27,9 +27,9 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Arcade Retro — 10 juegos clásicos en tu navegador',
+  title: 'Arcade Retro — 14 juegos arcade en tu navegador',
   description:
-    'Diez juegos arcade clásicos para jugar gratis en el navegador, en computadora o celular: Snake, invasores, laberinto con fantasmas, rompe ladrillos, carreras y más. Con música chiptune y controles táctiles.',
+    'Catorce juegos arcade para jugar gratis en el navegador, en computadora o celular: Snake, invasores, laberinto con fantasmas, rompe ladrillos, carreras y más. Con música chiptune y controles táctiles.',
   keywords: ['arcade', 'juegos retro', 'snake', 'space invaders', 'pac-man', 'breakout', 'asteroids', 'chiptune'],
   icons: {
     icon: '/logo.svg',
