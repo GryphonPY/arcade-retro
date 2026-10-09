@@ -1,6 +1,6 @@
 /**
  * Worker de Arcade Retro: sirve el sitio estático (./out) y una pequeña API de
- * récords en línea sobre D1.
+ * récords en línea sobre D1, más la partida en la nube (/api/save/:codigo).
  *
  * La base D1 (binding `DB`) la crea Wrangler automáticamente en el primer
  * deploy; las tablas se crean solas en la primera petición. Si la base no
@@ -34,6 +34,13 @@ const NAME_MAX = 16
 const RATE_WINDOW_MS = 60_000
 const RATE_MAX = 12
 
+// Partida en la nube: un código compartido identifica el progreso (sin cuentas).
+const SAVE_PATH = /^\/api\/save\/([^/]+)$/
+const SAVE_CODE = /^[a-z0-9-]{4,32}$/
+const SAVE_MAX_BYTES = 512 * 1024
+const SAVE_MAX_KEYS = 64
+const SAVE_MAX_KEY_LEN = 64
+
 // Filtro básico de apodos ofensivos (comparación sin acentos ni símbolos).
 const BLOCKED = ['puto', 'puta', 'pendej', 'verga', 'culero', 'mierda', 'nazi', 'hitler', 'fuck', 'shit', 'nigg', 'maricon', 'joto', 'pinche']
 
@@ -55,6 +62,7 @@ function init(db: D1Database) {
       db.prepare('CREATE INDEX IF NOT EXISTS scores_rank ON scores (game, score DESC)'),
       db.prepare('CREATE TABLE IF NOT EXISTS submissions (ip TEXT NOT NULL, at INTEGER NOT NULL)'),
       db.prepare('CREATE INDEX IF NOT EXISTS submissions_ip ON submissions (ip, at)'),
+      db.prepare('CREATE TABLE IF NOT EXISTS saves (code TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)'),
     ])
     .then(() => undefined)
     .catch((err) => {
@@ -180,15 +188,77 @@ async function handlePost(db: D1Database, request: Request) {
   return json({ name, best: bestScore, rank: (above?.n ?? 0) + 1, improved: bestScore === score })
 }
 
+/** Valida el progreso: objeto plano con valores de texto y tamaño acotado. */
+function cleanSaveData(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const entries = Object.entries(raw)
+  if (entries.length > SAVE_MAX_KEYS) return null
+  for (const [key, value] of entries) {
+    if (key.length > SAVE_MAX_KEY_LEN || typeof value !== 'string') return null
+  }
+  return Object.fromEntries(entries) as Record<string, string>
+}
+
+async function handleSaveGet(db: D1Database, code: string) {
+  const row = await db
+    .prepare('SELECT data, updated_at AS updatedAt FROM saves WHERE code = ?')
+    .bind(code)
+    .first<{ data: string; updatedAt: number }>()
+  if (!row) return json({ error: 'no-encontrado' }, 404)
+  return json({ data: JSON.parse(row.data), updatedAt: row.updatedAt })
+}
+
+async function handleSavePut(db: D1Database, request: Request, code: string) {
+  if (Number(request.headers.get('content-length')) > SAVE_MAX_BYTES) return json({ error: 'demasiado-grande' }, 413)
+  const text = await request.text()
+  if (new TextEncoder().encode(text).byteLength > SAVE_MAX_BYTES) return json({ error: 'demasiado-grande' }, 413)
+  let body: { data?: unknown; updatedAt?: unknown }
+  try {
+    body = JSON.parse(text)
+  } catch {
+    return json({ error: 'json-invalido' }, 400)
+  }
+  const data = cleanSaveData(body.data)
+  if (!data) return json({ error: 'datos-invalidos' }, 400)
+  const updatedAt = body.updatedAt
+  if (typeof updatedAt !== 'number' || !Number.isSafeInteger(updatedAt) || updatedAt < 0) {
+    return json({ error: 'fecha-invalida' }, 400)
+  }
+
+  // Gana la última escritura: solo reemplaza si la nueva fecha no es anterior.
+  await db
+    .prepare(
+      `INSERT INTO saves (code, data, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT (code) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+       WHERE excluded.updated_at >= saves.updated_at`,
+    )
+    .bind(code, JSON.stringify(data), updatedAt)
+    .run()
+  const stored = await db
+    .prepare('SELECT updated_at AS updatedAt FROM saves WHERE code = ?')
+    .bind(code)
+    .first<{ updatedAt: number }>()
+  return json({ updatedAt: stored?.updatedAt ?? updatedAt })
+}
+
+async function handleSave(db: D1Database, request: Request, code: string) {
+  if (!SAVE_CODE.test(code)) return json({ error: 'codigo-invalido' }, 400)
+  if (request.method === 'GET') return handleSaveGet(db, code)
+  if (request.method === 'PUT') return handleSavePut(db, request, code)
+  return json({ error: 'metodo-no-permitido' }, 405)
+}
+
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request)
 
-    if (url.pathname !== '/api/scores') return json({ error: 'no-encontrado' }, 404)
+    const save = SAVE_PATH.exec(url.pathname)
+    if (url.pathname !== '/api/scores' && !save) return json({ error: 'no-encontrado' }, 404)
     if (!env.DB) return json({ error: 'sin-base' }, 503)
     try {
       await init(env.DB)
+      if (save) return await handleSave(env.DB, request, save[1])
       if (request.method === 'GET') return await handleGet(env.DB, url)
       if (request.method === 'POST') return await handlePost(env.DB, request)
       return json({ error: 'metodo-no-permitido' }, 405)

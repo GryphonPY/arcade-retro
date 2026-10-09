@@ -7,6 +7,7 @@ import { primeMusic, startMusic } from '@/components/games/music'
 import { Hub } from '@/components/arcade/hub'
 import { GameView } from '@/components/arcade/game-view'
 import { markPlayed } from '@/components/arcade/store'
+import { iniciarNube } from '@/components/arcade/nube'
 
 // El juego abierto vive en el hash (#snake-neon): se puede compartir el
 // enlace y el botón "atrás" del navegador/celular regresa a la sala.
@@ -33,6 +34,9 @@ export default function Home() {
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     }
   }, [])
+
+  // Progreso en la nube: sube y baja la partida según el código de este aparato.
+  useEffect(() => iniciarNube(), [])
 
   useEffect(() => {
     if (!activeId) enteredFromHub = false

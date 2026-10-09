@@ -6,6 +6,7 @@ import { CATEGORIES, GAMES, type Category, type GameMeta } from '@/components/ga
 import { CartridgeBadge } from '@/components/games/cartridge-badge'
 import { updateSettings, useBests, useRecent, useSettings } from './store'
 import { fetchGameTop, useNickname, useOnlineSummary, type OnlineEntry } from './online'
+import { NubeBoton } from './nube-boton'
 import { ControlList, GameArt, IconButton } from './ui'
 
 const fmt = (n: number) => n.toLocaleString('es-MX')
@@ -57,6 +58,7 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
             >
               <Music className="size-[18px]" />
             </IconButton>
+            <NubeBoton compact />
             <IconButton
               label={settings.crt ? 'Quitar filtro CRT' : 'Poner filtro CRT'}
               active={settings.crt}
