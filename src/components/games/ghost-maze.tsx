@@ -593,13 +593,17 @@ export default function GhostMaze() {
     const canvas = canvasRef.current
     if (!canvas) return
     layout()
-    const dpr = renderScale()
-    canvas.width = Math.round(W * dpr)
-    canvas.height = Math.round(H * dpr)
     const ctx0 = canvas.getContext('2d')
     if (!ctx0) return
     const ctx: CanvasRenderingContext2D = ctx0
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    // Ajusta el canvas al lienzo actual (también al girar la pantalla en partida).
+    const sizeCanvas = () => {
+      const dpr = renderScale()
+      canvas.width = Math.round(W * dpr)
+      canvas.height = Math.round(H * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    sizeCanvas()
     const pixelFont =
       getComputedStyle(canvas).getPropertyValue('--font-pixel').trim() || '"Press Start 2P", monospace'
     const font = (px: number) => `${px}px ${pixelFont}`
@@ -1472,6 +1476,14 @@ export default function GhostMaze() {
       }
     }
 
+    // El laberinto es fijo (MW x MH) y va centrado con OX/OY: basta con
+    // reajustar el lienzo y pausar para que el jugador se reacomode.
+    const relayoutLive = () => {
+      layout()
+      sizeCanvas()
+      if (w.phase !== 'idle' && w.phase !== 'over') w.paused = true
+    }
+
     let raf = 0
     let last = performance.now()
     let seenStage = stageVersion()
@@ -1481,6 +1493,7 @@ export default function GhostMaze() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (w.phase === 'idle' || w.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       update(dt)
       justPressedRef.current.clear()

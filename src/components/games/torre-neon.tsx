@@ -205,13 +205,16 @@ export default function TorreNeon() {
       const v = getComputedStyle(document.body).getPropertyValue('--font-pixel').trim()
       return `${v ? v + ', ' : ''}"Press Start 2P", monospace`
     })()
-    const dots = Array.from({ length: 46 }, (_, i) => {
-      const r = (n: number) => {
-        const s = Math.sin(n * 91.7 + 13.3) * 43758.5453
-        return s - Math.floor(s)
-      }
-      return { x: r(i * 3 + 1) * W, y: r(i * 3 + 2) * H, s: 1 + r(i * 3 + 3) * 2, k: 0.05 + r(i * 7 + 5) * 0.25 }
-    })
+    // Las motas de fondo dependen del tamaño: se vuelven a generar al reacomodar.
+    const makeDots = () =>
+      Array.from({ length: 46 }, (_, i) => {
+        const r = (n: number) => {
+          const s = Math.sin(n * 91.7 + 13.3) * 43758.5453
+          return s - Math.floor(s)
+        }
+        return { x: r(i * 3 + 1) * W, y: r(i * 3 + 2) * H, s: 1 + r(i * 3 + 3) * 2, k: 0.05 + r(i * 7 + 5) * 0.25 }
+      })
+    let dots = makeDots()
 
     let pointerDrop = false
 
@@ -719,6 +722,31 @@ export default function TorreNeon() {
       }
     }
 
+    // ---------- reacomodo al girar la pantalla durante la partida ----------
+    /** La torre se centra sola en el ancho (sxOf); aquí se corre la altura del ancla y los efectos sueltos. */
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      const oldAnchor = ANCHOR_Y
+      layout()
+      if (W === oldW && H === oldH) return
+      const dx = (W - oldW) / 2
+      const dA = ANCHOR_Y - oldAnchor
+      setupCanvas(canvas, W, H)
+      dots = makeDots()
+      g.anchor += dA
+      g.anchorTarget += dA
+      for (const pt of juice.particles) {
+        pt.x += dx
+        pt.y += dA
+      }
+      for (const t of juice.texts) {
+        t.x += dx
+        t.y += dA
+      }
+      if (g.phase === 'playing') g.paused = true
+    }
+
     let raf = 0
     let last = performance.now()
     let seenStage = stageVersion()
@@ -727,7 +755,8 @@ export default function TorreNeon() {
       last = now
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
-        if (g.phase !== 'playing' && g.phase !== 'dead') requestRemount()
+        if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       update(dt)
       justPressedRef.current.clear()

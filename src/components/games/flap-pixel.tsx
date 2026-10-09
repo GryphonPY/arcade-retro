@@ -276,8 +276,8 @@ export default function FlapPixel() {
     if (!canvas) return
     layout()
     const ctx = setupCanvas(canvas, W, H)
-    const rs = canvas.width / W
-    const sprites = makeBirdSprites(rs)
+    let rs = canvas.width / W
+    let sprites = makeBirdSprites(rs)
     const juice = new Juice(8)
     const g = newGame()
     const pf = (() => {
@@ -287,13 +287,17 @@ export default function FlapPixel() {
 
     let pointerFlap = false
 
-    const clouds: Cloud[] = Array.from({ length: 7 }, (_, i) => ({
-      x: (i / 7) * (W + 120) - 40,
-      y: 40 + hash(i + 3) * 190,
-      s: 0.7 + hash(i + 9) * 0.9,
-      v: 4 + hash(i + 5) * 6,
-    }))
-    const stars = Array.from({ length: 40 }, (_, i) => ({ x: hash(i * 3 + 1) * W, y: hash(i * 3 + 2) * 300, p: hash(i * 3 + 3) * 6 }))
+    // El cielo depende del ancho: se vuelve a generar al reacomodar (ver relayoutLive).
+    const makeClouds = (): Cloud[] =>
+      Array.from({ length: 7 }, (_, i) => ({
+        x: (i / 7) * (W + 120) - 40,
+        y: 40 + hash(i + 3) * 190,
+        s: 0.7 + hash(i + 9) * 0.9,
+        v: 4 + hash(i + 5) * 6,
+      }))
+    const makeStars = () => Array.from({ length: 40 }, (_, i) => ({ x: hash(i * 3 + 1) * W, y: hash(i * 3 + 2) * 300, p: hash(i * 3 + 3) * 6 }))
+    let clouds = makeClouds()
+    let stars = makeStars()
 
     // ---------- lógica ----------
     const speedFor = (n: number) => 112 + Math.min(58, n * 1.35)
@@ -815,6 +819,37 @@ export default function FlapPixel() {
       }
     }
 
+    // ---------- reacomodo al girar la pantalla durante la partida ----------
+    /** El suelo, el pájaro y las tuberías conservan su distancia al suelo (dy); el cielo se regenera. */
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      layout()
+      if (W === oldW && H === oldH) return
+      const dy = H - oldH
+      setupCanvas(canvas, W, H)
+      rs = canvas.width / W
+      sprites = makeBirdSprites(rs)
+      clouds = makeClouds()
+      stars = makeStars()
+
+      g.y = clamp(g.y + dy, BIRD_R, GROUND - BIRD_R)
+      g.lastCenter = clamp(g.lastCenter + dy, 60, GROUND - 60)
+      for (const p of g.pipes) {
+        const minC = 46 + p.gap / 2 + p.amp
+        const maxC = GROUND - 46 - p.gap / 2 - p.amp
+        const b0 = p.base
+        p.base = clamp(p.base + dy, minC, maxC)
+        p.cy = clamp(p.cy + p.base - b0, 0, GROUND)
+      }
+      for (const c of g.coins) c.y = clamp(c.y + dy, 40, GROUND - 40)
+      for (const pt of juice.particles) pt.y += dy
+      for (const t of juice.texts) t.y += dy
+
+      // pausa del propio juego (la misma que al perder el foco)
+      if (g.phase === 'playing') g.paused = true
+    }
+
     let raf = 0
     let last = performance.now()
     let seenStage = stageVersion()
@@ -824,6 +859,7 @@ export default function FlapPixel() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       update(dt)
       justPressedRef.current.clear()

@@ -63,26 +63,37 @@ interface PadProps {
   release: (k: LogicalKey) => void
 }
 
+/** Dirección del pulgar: 0 en el centro (zona muerta) y 1 en el borde de cada mitad. */
+const STEER_DEAD = 0.1
+const STEER_FULL = 0.5
+
 /** Zona de dirección: un solo área con dos mitades para poder deslizar el pulgar. */
-function SteerPad({ press, release }: PadProps) {
-  const cur = useRef<'left' | 'right' | null>(null)
+function SteerPad({ onSteer }: { onSteer: (v: number | null) => void }) {
+  const side = useRef(0)
   const ptr = useRef<number | null>(null)
   const leftEl = useRef<HTMLDivElement | null>(null)
   const rightEl = useRef<HTMLDivElement | null>(null)
-  const set = (d: 'left' | 'right' | null) => {
-    if (cur.current === d) return
-    if (cur.current) release(cur.current)
-    if (d) {
-      press(d)
-      haptic()
-    }
-    cur.current = d
-    leftEl.current?.classList.toggle('sr-on', d === 'left')
-    rightEl.current?.classList.toggle('sr-on', d === 'right')
-  }
   const track = (e: RPE<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
-    set(e.clientX < r.left + r.width / 2 ? 'left' : 'right')
+    const off = (e.clientX - (r.left + r.width / 2)) / (r.width / 2)
+    const a = Math.min(1, Math.max(0, (Math.abs(off) - STEER_DEAD) / (STEER_FULL - STEER_DEAD)))
+    const v = a * Math.sign(off)
+    // la vibración solo al cambiar de lado; así el dedo tembloroso no la dispara sin parar
+    const s = Math.sign(v)
+    if (s !== side.current) {
+      if (s) haptic()
+      side.current = s
+      leftEl.current?.classList.toggle('sr-on', s < 0)
+      rightEl.current?.classList.toggle('sr-on', s > 0)
+    }
+    onSteer(v)
+  }
+  const release = () => {
+    ptr.current = null
+    side.current = 0
+    leftEl.current?.classList.remove('sr-on')
+    rightEl.current?.classList.remove('sr-on')
+    onSteer(null)
   }
   return (
     <div
@@ -98,12 +109,10 @@ function SteerPad({ press, release }: PadProps) {
       }}
       onPointerUp={(e) => {
         if (ptr.current !== e.pointerId) return
-        ptr.current = null
-        set(null)
+        release()
       }}
       onPointerCancel={() => {
-        ptr.current = null
-        set(null)
+        if (ptr.current !== null) release()
       }}
     >
       <div ref={leftEl} className="sr-btn flex size-[74px] items-center justify-center rounded-full">
@@ -170,20 +179,22 @@ export function TouchControls({
   release,
   auto,
   onRadio,
-}: PadProps & { auto: boolean; onRadio: () => void }) {
+  onSteer,
+}: PadProps & { auto: boolean; onRadio: () => void; onSteer: (v: number | null) => void }) {
   // suelta todo al desmontar
   useEffect(() => {
     return () => {
-      for (const k of ['left', 'right', 'up', 'down', 'action'] as LogicalKey[]) release(k)
+      for (const k of ['up', 'down', 'action'] as LogicalKey[]) release(k)
+      onSteer(null)
     }
-  }, [release])
+  }, [release, onSteer])
   return (
     <div className="pointer-events-none absolute inset-0 z-10 select-none">
       <style>{`
         .sr-btn { background: rgba(10,8,20,0.38); border: 2px solid rgba(255,255,255,0.28); color: rgba(255,255,255,0.85); transition: transform .06s, background .06s; }
         .sr-btn.sr-on { background: var(--sr-tint, rgba(249,115,22,0.55)); transform: scale(0.94); border-color: rgba(255,255,255,0.7); }
       `}</style>
-      <SteerPad press={press} release={release} />
+      <SteerPad onSteer={onSteer} />
       <div className="absolute bottom-3 right-3 flex items-end gap-3">
         <HoldButton k="down" press={press} release={release} className="size-[64px]" tint="rgba(239,68,68,0.55)">
           <span className="text-[8px]" style={pixel}>
@@ -239,13 +250,20 @@ export async function requestTilt(): Promise<boolean> {
   }
 }
 
-/** Escribe en `out.current` la dirección analógica (-1..1) según la inclinación tipo volante. */
+/**
+ * Escribe en `out.current` la dirección analógica (-1..1) según la inclinación tipo volante.
+ * La postura de reposo es la primera lectura válida tras activarla (así sostener el celular
+ * un poco ladeado no empuja el coche), hay zona muerta y un filtro que quita el temblor del sensor.
+ */
 export function useTilt(enabled: boolean, outRef: { current: number | null }) {
   useEffect(() => {
     if (!enabled) {
       outRef.current = null
       return
     }
+    let zero: number | null = null
+    let filt = 0
+    let last = performance.now()
     const onOri = (e: DeviceOrientationEvent) => {
       if (e.beta === null || e.gamma === null) return
       const b = (e.beta * Math.PI) / 180
@@ -256,15 +274,23 @@ export function useTilt(enabled: boolean, outRef: { current: number | null }) {
       const ang = ((screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) * Math.PI) / 180
       const sx = dx * Math.cos(ang) - dy * Math.sin(ang)
       const sy = dx * Math.sin(ang) + dy * Math.cos(ang)
-      if (Math.hypot(sx, sy) < 0.25) {
-        outRef.current = 0
-        return
+      let target = 0
+      if (Math.hypot(sx, sy) >= 0.25) {
+        // girar a la derecha (horario) hace que la gravedad apunte abajo-derecha en pantalla
+        const deg = (Math.atan2(sx, -sy) * 180) / Math.PI
+        if (zero === null) zero = deg
+        let d = deg - zero
+        if (d > 180) d -= 360
+        else if (d < -180) d += 360
+        const dead = 3
+        target = Math.sign(d) * Math.min(1, Math.max(0, (Math.abs(d) - dead) / 22))
       }
-      // girar a la derecha (horario) hace que la gravedad apunte abajo-derecha en pantalla
-      const deg = (Math.atan2(sx, -sy) * 180) / Math.PI
-      const dead = 2.5
-      const v = Math.abs(deg) < dead ? 0 : (deg - Math.sign(deg) * dead) / 22
-      outRef.current = Math.max(-1, Math.min(1, v))
+      // filtro paso bajo con tiempo real (constante ~60 ms): quita el temblor sin retrasar mucho el giro
+      const now = performance.now()
+      const k = 1 - Math.exp(-Math.min(0.1, (now - last) / 1000) / 0.06)
+      last = now
+      filt += (target - filt) * k
+      outRef.current = filt
     }
     window.addEventListener('deviceorientation', onOri)
     return () => {

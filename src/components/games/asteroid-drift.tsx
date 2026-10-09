@@ -284,11 +284,13 @@ export default function AsteroidDrift() {
     const juice = new Juice(9)
     const coarse = window.matchMedia('(pointer: coarse)').matches
 
+    // Fondo pregenerado: se reconstruye si cambia el tamaño del mundo.
     const bg = document.createElement('canvas')
-    bg.width = W
-    bg.height = H
-    const bgc = bg.getContext('2d')
-    if (bgc) {
+    const drawBg = () => {
+      bg.width = W
+      bg.height = H
+      const bgc = bg.getContext('2d')
+      if (!bgc) return
       bgc.fillStyle = '#040611'
       bgc.fillRect(0, 0, W, H)
       const blob = (x: number, y: number, r: number, col: string) => {
@@ -301,6 +303,7 @@ export default function AsteroidDrift() {
       blob(110, 120, 230, 'rgba(56,120,220,0.16)')
       blob(330, 400, 250, 'rgba(120,60,200,0.12)')
     }
+    drawBg()
 
     let raf = 0
     let last = performance.now()
@@ -1265,12 +1268,40 @@ export default function AsteroidDrift() {
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('blur', onHide)
 
+    // Pantalla girada o cambiada en plena partida. El mundo es toroidal: las posiciones
+    // se escalan al área nueva (sin cortar nada) y la partida queda en pausa.
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      layout()
+      if (W === oldW && H === oldH) return
+      const sx = W / oldW
+      const sy = H / oldH
+      const dpr = renderScale()
+      canvas.width = Math.round(W * dpr)
+      canvas.height = Math.round(H * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.lineJoin = 'round'
+      ctx.lineCap = 'round'
+      drawBg()
+      const scale = (o: { x: number; y: number }) => {
+        o.x *= sx
+        o.y *= sy
+      }
+      scale(g.ship)
+      for (const st of g.stars) scale(st)
+      for (const list of [g.rocks, g.bullets, g.ebullets, g.pups, g.shards]) for (const o of list) scale(o)
+      if (g.ufo) scale(g.ufo)
+      if (g.mode === 'play' || g.mode === 'dying') g.paused = true
+    }
+
     const loop = (now: number) => {
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
       last = now
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.mode === 'title' || g.mode === 'over') requestRemount()
+        else relayoutLive()
       }
       update(dt)
       justPressedRef.current.clear()

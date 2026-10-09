@@ -1715,6 +1715,22 @@ export default function CruzaCamino() {
     }
 
     /* ---------------- bucle ---------------- */
+    // Pantalla girada o cambiada en plena partida. El tablero tiene 9 columnas fijas y las
+    // filas van ancladas abajo (rowTop usa H), así que filas, cámara y jugador se reacomodan
+    // solos. Solo hace falta que el tronco que lleva al jugador no lo deje fuera del borde
+    // nuevo (si no, moriría por "deriva"): se desplaza con él. Queda en pausa.
+    const relayoutLive = () => {
+      layout()
+      setupCanvas(canvas, W, H)
+      const row = rows.get(P.row)
+      if (!P.hopping && row && row.kind === 'river' && !row.lily && P.x > W - 4) {
+        const dx = W - 24 - P.x
+        P.x += dx
+        for (const p of row.plats) p.x += dx
+      }
+      if (G.phase === 'playing' && !G.dead) G.paused = true
+    }
+
     let raf = 0
     let last = performance.now()
     let seenStage = stageVersion()
@@ -1722,6 +1738,7 @@ export default function CruzaCamino() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (G.phase !== 'playing') requestRemount()
+        else relayoutLive()
       }
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now

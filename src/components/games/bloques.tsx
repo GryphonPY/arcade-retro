@@ -28,14 +28,21 @@ const BW = COLS * CELL
 let BX = (W0 - BW) / 2 // origen X del tablero
 let BH = 20 * CELL
 
+/** Medidas que tendría el mundo con el área actual, sin tocar el estado. */
+function measure() {
+  const f = fitStage(W0, H0)
+  const bh = Math.max(20, Math.floor((f.h - BY - 16) / CELL)) * CELL
+  return { f, bh, rows: bh / CELL + HIDDEN }
+}
+
 /** Ajusta el tablero y los paneles laterales al área de la pantalla. */
 function layout() {
-  const f = fitStage(W0, H0)
+  const { f, bh, rows } = measure()
   W = f.w
   H = f.h
   BX = (W - BW) / 2
-  BH = Math.max(20, Math.floor((H - BY - 16) / CELL)) * CELL
-  ROWS = BH / CELL + HIDDEN
+  BH = bh
+  ROWS = rows
   publishLogical(f)
 }
 
@@ -363,10 +370,11 @@ export default function Bloques() {
     setBest(loadBest('bloques'))
 
     /* ---------- capa estática ---------- */
-    const stat = document.createElement('canvas')
-    stat.width = Math.round(W * dpr)
-    stat.height = Math.round(H * dpr)
-    {
+    // Depende de las medidas del tablero: se vuelve a dibujar al reacomodar.
+    const buildStat = (): HTMLCanvasElement => {
+      const stat = document.createElement('canvas')
+      stat.width = Math.round(W * dpr)
+      stat.height = Math.round(H * dpr)
       const s = stat.getContext('2d')!
       s.scale(dpr, dpr)
       const bg = s.createLinearGradient(0, 0, 0, H)
@@ -418,7 +426,9 @@ export default function Bloques() {
       s.strokeStyle = 'rgba(255,255,255,0.25)'
       s.lineWidth = 1
       s.strokeRect(BX - 3.5, BY - 3.5, BW + 7, BH + 7)
+      return stat
     }
+    let stat = buildStat()
 
     /* ---------- utilidades ---------- */
     const txt = (
@@ -1233,6 +1243,60 @@ export default function Bloques() {
       juice.drawFlash(ctx, W, H)
     }
 
+    /**
+     * Reacomodo en vivo. El pozo se mide en filas: si la pantalla da más o menos filas, el contenido
+     * se queda pegado al fondo y las filas nuevas van arriba. Si al quitar filas se perdería un bloque
+     * o la pieza en juego, esta partida conserva su tamaño (no se llama a layout) y el marco sigue
+     * mostrando bandas hasta el siguiente inicio.
+     */
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      const oldRows = ROWS
+      const dRows = measure().rows - oldRows
+      const cut = Math.max(0, -dRows)
+      if (cut > 0) {
+        for (let i = 0; i < cut * COLS; i++) if (g.board[i]) return
+        const c = g.cur
+        if (c && SHAPES[c.t][c.rot].some(([, cy]) => c.y + cy - cut < 0)) return
+      }
+
+      layout()
+      if (W === oldW && H === oldH) return
+      const dx = (W - oldW) / 2
+      const dy = dRows * CELL
+      setupCanvas(canvas, W, H)
+      stat = buildStat()
+
+      if (dRows !== 0) {
+        const nb = new Uint8Array(COLS * ROWS)
+        if (dRows > 0) nb.set(g.board, dRows * COLS)
+        else nb.set(g.board.subarray(cut * COLS))
+        g.board = nb
+        if (g.cur) g.cur.y += dRows
+        g.lowest += dRows
+        g.clearRows = g.clearRows.map((r) => r + dRows)
+        g.landCells = g.landCells.map(([x, y]): [number, number] => [x, y + dRows])
+      }
+      computeTop(g)
+      for (const tr of g.trails) {
+        tr.x += dx
+        tr.y1 += dy
+        tr.y2 += dy
+      }
+      for (const pt of juice.particles) {
+        pt.x += dx
+        pt.y += dy
+      }
+      for (const t of juice.texts) {
+        t.x += dx
+        t.y += dy
+      }
+
+      // pausa del propio juego (la misma que al perder el foco)
+      autoPause()
+    }
+
     let last = performance.now()
     let seenStage = stageVersion()
     const loop = (now: number) => {
@@ -1242,6 +1306,7 @@ export default function Bloques() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'ready' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       step(dt)
       render()

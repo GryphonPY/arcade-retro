@@ -22,7 +22,7 @@ const SW_L = 40 // inicio de la banqueta izquierda
 const ROAD_W = 236
 let ROAD_L = (W0 - ROAD_W) / 2
 let ROAD_R = ROAD_L + ROAD_W
-const SW_R = 320
+let SW_R = W0 - SW_L // banqueta derecha: espejo de la izquierda
 const LANE_W = (ROAD_R - ROAD_L) / 4
 const CW = 24
 const CH = 36
@@ -37,6 +37,7 @@ function layout() {
   H = f.h
   ROAD_L = (W - ROAD_W) / 2
   ROAD_R = ROAD_L + ROAD_W
+  SW_R = W - SW_L
   PY_MIN = H - 270
   PY_MAX = H - 64 - CH
   publishLogical(f)
@@ -1989,11 +1990,67 @@ export default function HitAndRun() {
       }
     }
 
+    // ---------- cambio de tamaño en partida ----------
+    // La carretera va centrada (todo lo horizontal se corre dx = mitad del cambio
+    // de ancho) y el auto va anclado abajo (todo lo vertical se corre dy). Las
+    // banquetas y el espejo del límite del auto se recalculan en layout().
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      layout()
+      const dx = (W - oldW) / 2
+      const dy = H - oldH
+      for (const v of g.vehs) {
+        v.x += dx
+        v.tx += dx
+        v.y += dy
+      }
+      for (const p of g.props) {
+        p.x += dx
+        p.y += dy
+      }
+      for (const p of g.picks) {
+        p.x += dx
+        p.y += dy
+      }
+      for (const b of g.blocks) {
+        b.gx0 += dx
+        b.gx1 += dx
+        b.y += dy
+      }
+      for (const f of g.fount) {
+        f.x += dx
+        f.y += dy
+      }
+      for (const r of g.rings) {
+        r.x += dx
+        r.y += dy
+      }
+      for (const d of g.decals) {
+        d.x += dx
+        d.y += dy
+      }
+      if (g.heli) {
+        const h = g.heli
+        h.x += dx
+        h.sx += dx
+        h.y += dy
+        h.sy += dy
+      }
+      g.px = clamp(g.px + dx, SW_L - 2, SW_R - CW + 2)
+      g.py = clamp(g.py + dy, PY_MIN, PY_MAX)
+      // las texturas de banqueta y viñeta dependen del ancho de la carretera
+      spr = makeSprites(districtIdx)
+      setupCanvas(canvas, W, H)
+      if (g.phase === 'play' || g.phase === 'dying') g.paused = true
+    }
+
     // ---------- bucle ----------
     const frame = (now: number) => {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'ready' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       const real = Math.min(0.05, (now - last) / 1000)
       last = now

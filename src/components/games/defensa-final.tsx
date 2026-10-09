@@ -308,8 +308,13 @@ export default function DefensaFinal() {
       s: seeded(i * 3 + 3) > 0.85 ? 2 : 1,
       p: seeded(i * 5 + 7) * 6,
     }))
+    // Horizonte de montañas: depende del ancho y del suelo, se rehace al girar.
     const mtn: number[] = []
-    for (let x = 0; x <= W + 20; x += 20) mtn.push(GY - 8 - seeded(x * 0.3 + 4) * 26 - Math.abs(Math.sin(x * 0.02)) * 10)
+    const buildMtn = () => {
+      mtn.length = 0
+      for (let x = 0; x <= W + 20; x += 20) mtn.push(GY - 8 - seeded(x * 0.3 + 4) * 26 - Math.abs(Math.sin(x * 0.02)) * 10)
+    }
+    buildMtn()
 
     let lastScore = -1
     const pushScore = () => {
@@ -1387,6 +1392,55 @@ export default function DefensaFinal() {
       ctx.textBaseline = 'alphabetic'
     }
 
+    // Pantalla girada o cambiada en plena partida. Ciudades y baterías se reparten desde el
+    // centro igual que `spread`; lo de la altura se escala con el suelo (GY). Queda en pausa.
+    const relayoutLive = () => {
+      const oldW = W
+      const oldGY = GY
+      layout()
+      if (W === oldW && GY === oldGY) return
+      const mx = (x: number) => W / 2 + (x - oldW / 2) * (W / oldW)
+      const my = (y: number) => y * (GY / oldGY)
+      const mp = (o: { x: number; y: number }) => {
+        o.x = mx(o.x)
+        o.y = my(o.y)
+      }
+      // Rutas y estelas: pares x,y planos.
+      const remapFlat = (a: number[]) => {
+        for (let i = 0; i < a.length; i += 2) {
+          a[i] = mx(a[i])
+          a[i + 1] = my(a[i + 1])
+        }
+      }
+      setupCanvas(canvas, W, H)
+      buildMtn()
+      for (const s of stars) mp(s)
+      for (const c of g.cities) c.x = mx(c.x)
+      for (const b of g.batts) b.x = mx(b.x)
+      for (const e of g.enemies) {
+        mp(e)
+        e.sx = mx(e.sx)
+        e.sy = my(e.sy)
+        e.tx = mx(e.tx)
+        e.ty = my(e.ty)
+        if (e.kind === 'mirv') e.splitY = my(e.splitY)
+        remapFlat(e.path)
+      }
+      for (const m of g.pms) {
+        m.sx = mx(m.sx)
+        m.sy = my(m.sy)
+        m.tx = mx(m.tx)
+        m.ty = my(m.ty)
+        mp(m)
+      }
+      for (const b of g.booms) mp(b)
+      for (const p of g.planes) mp(p)
+      for (const f of g.fades) remapFlat(f.pts)
+      g.aimX = clamp(mx(g.aimX), 4, W - 4)
+      g.aimY = clamp(my(g.aimY), 8, GY - 24)
+      g.paused = true
+    }
+
     let raf = 0
     let last = performance.now()
     let seenStage = stageVersion()
@@ -1396,6 +1450,7 @@ export default function DefensaFinal() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       update(dt)
       justPressedRef.current.clear()

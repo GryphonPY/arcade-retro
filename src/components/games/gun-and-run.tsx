@@ -2792,11 +2792,38 @@ export default function GunAndRun() {
       }
     }
 
+    // ---------- cambio de tamaño en partida ----------
+    // El suelo va pegado al fondo: todo el mundo se corre dy. La cámara es
+    // horizontal y ya usa W; solo se vuelve a limitar al nuevo final del nivel.
+    const relayoutLive = () => {
+      const oldH = H
+      layout()
+      const dy = H - oldH
+      g.p.y = Math.max(0, g.p.y + dy)
+      for (const e of g.ents) {
+        e.y = Math.max(0, e.y + dy)
+      }
+      for (const o of [...g.props, ...g.items, ...g.hostages, ...g.plats, ...g.bullets, ...g.corpses, ...g.rings]) {
+        o.y += dy
+      }
+      if (g.boss) g.boss.y += dy
+      if (g.tank) g.tank.y += dy
+      if (g.phase === 'play' || g.phase === 'clear') {
+        const maxCam = g.len - W + 60
+        if (!g.bossSpawned) g.cam = Math.max(0, Math.min(g.cam, maxCam))
+      }
+      // el cielo y las siluetas se recortan al nuevo alto y ancho
+      skyCache.clear()
+      setupCanvas(canvas, W, H)
+      if (g.phase === 'play' || g.phase === 'clear') g.paused = true
+    }
+
     // ---------- bucle ----------
     const frame = (now: number) => {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'ready' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       const real = Math.min(0.05, (now - last) / 1000)
       last = now

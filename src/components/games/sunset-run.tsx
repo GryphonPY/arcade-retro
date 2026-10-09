@@ -122,6 +122,11 @@ export default function SunsetRun() {
   }, [])
   const tiltRef = useRef<number | null>(null)
   useTilt(tilt, tiltRef)
+  // dirección analógica del pulgar en el pad táctil (null si no hay dedo)
+  const touchSteerRef = useRef<number | null>(null)
+  const setTouchSteer = useCallback((v: number | null) => {
+    touchSteerRef.current = v
+  }, [])
   const autoRef = useRef(auto)
   autoRef.current = auto
   const touchRef = useRef(touch)
@@ -552,15 +557,15 @@ export default function SunsetRun() {
       if (race) {
         if (scr === 'race' && !isPaused) {
           const p = pressedRef.current
-          const tiltV = tiltRef.current
-          const steering = p.has('left') || p.has('right')
+          const keySteer = p.has('left') || p.has('right')
+          // prioridad: teclas, luego el dedo en el pad, luego la inclinación
           const input: Input = {
             up: p.has('up'),
             down: p.has('down'),
             left: p.has('left'),
             right: p.has('right'),
             nitro: p.has('action') || p.has('action2'),
-            steer: !steering && tiltV !== null ? tiltV : null,
+            steer: keySteer ? null : (touchSteerRef.current ?? tiltRef.current),
             auto: touchRef.current && autoRef.current,
           }
           stepRace(race, input, gdt, fx)
@@ -689,7 +694,7 @@ export default function SunsetRun() {
             />
           )}
           {screen === 'race' && !paused && touch && (
-            <TouchControls press={virtualPress} release={virtualRelease} auto={auto} onRadio={() => A.radio()} />
+            <TouchControls press={virtualPress} release={virtualRelease} auto={auto} onRadio={() => A.radio()} onSteer={setTouchSteer} />
           )}
           {over && (
             <GameOverOverlay

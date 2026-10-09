@@ -23,11 +23,17 @@ let ROWS = 20
 let W = W0
 let H = H0
 
+/** Cuadrícula que tendría el área actual, sin tocar el estado. */
+function measure() {
+  const f = fitStage(W0, H0)
+  return { cols: Math.max(20, Math.round(f.w / CELL)), rows: Math.max(20, Math.round(f.h / CELL)) }
+}
+
 /** Ajusta la cuadrícula al área de la pantalla: más filas o columnas si sobra espacio. */
 function layout() {
-  const f = fitStage(W0, H0)
-  COLS = Math.max(20, Math.round(f.w / CELL))
-  ROWS = Math.max(20, Math.round(f.h / CELL))
+  const { cols, rows } = measure()
+  COLS = cols
+  ROWS = rows
   W = COLS * CELL
   H = ROWS * CELL
   publishLogical({ w: W, h: H, stretch: true })
@@ -1043,6 +1049,76 @@ export default function SnakeNeon() {
 
     // ---- bucle -----------------------------------------------------------
 
+    // ---- reacomodo al girar la pantalla durante la partida -----------------
+
+    /**
+     * La cuadrícula crece o encoge a ambos lados y el contenido se centra con ella. Si al encoger
+     * quedarían serpiente, comida o rocas fuera del tablero, esta partida conserva su tamaño.
+     */
+    const relayoutLive = () => {
+      const s = stateRef.current
+      const oldCols = COLS
+      const oldRows = ROWS
+      const next = measure()
+      if (next.cols === oldCols && next.rows === oldRows) return
+      const ox = Math.floor((next.cols - oldCols) / 2)
+      const oy = Math.floor((next.rows - oldRows) / 2)
+      const inside = (p: Pt) => p.x + ox >= 0 && p.x + ox < next.cols && p.y + oy >= 0 && p.y + oy < next.rows
+      const pts = ([...s.snake, ...s.prev, s.food, s.gold, s.item, ...s.rocks] as (Pt | null)[]).filter((p): p is Pt => p !== null)
+      if (!pts.every(inside)) return
+
+      layout()
+      canvas.width = Math.round(W * dpr)
+      canvas.height = Math.round(H * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      bgs.fill(null)
+
+      // arrays nuevos: snake y prev comparten celdas, no hay que desplazarlas dos veces
+      const sh = (p: Pt): Pt => ({ x: p.x + ox, y: p.y + oy })
+      s.snake = s.snake.map(sh)
+      s.prev = s.prev.map(sh)
+      s.food.x += ox
+      s.food.y += oy
+      s.food.vx += ox
+      s.food.vy += oy
+      if (s.gold) {
+        s.gold.x += ox
+        s.gold.y += oy
+        s.gold.vx += ox
+        s.gold.vy += oy
+      }
+      if (s.item) {
+        s.item.x += ox
+        s.item.y += oy
+      }
+      for (const r of s.rocks) {
+        r.x += ox
+        r.y += oy
+      }
+      if (s.death) {
+        // la celda de un choque con el muro queda justo fuera del tablero nuevo
+        const c = s.death.cell
+        s.death = {
+          ...s.death,
+          cell: {
+            x: c.x < 0 ? -1 : c.x >= oldCols ? next.cols : c.x + ox,
+            y: c.y < 0 ? -1 : c.y >= oldRows ? next.rows : c.y + oy,
+          },
+        }
+      }
+      for (const pt of juice.particles) {
+        pt.x += ox * CELL
+        pt.y += oy * CELL
+      }
+      for (const t of juice.texts) {
+        t.x += ox * CELL
+        t.y += oy * CELL
+      }
+
+      // pausa del propio juego (la misma que al perder el foco)
+      autoPause()
+    }
+
     const loop = (now: number) => {
       const rawDt = Math.min(0.05, (now - last) / 1000)
       last = now
@@ -1050,6 +1126,7 @@ export default function SnakeNeon() {
         seenStage = stageVersion()
         const ph = stateRef.current.phase
         if (ph === 'ready' || ph === 'over') requestRemount()
+        else relayoutLive()
       }
       const s = stateRef.current
       const jp = justPressedRef.current

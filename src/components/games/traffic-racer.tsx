@@ -410,8 +410,9 @@ export default function TrafficRacer() {
       }
       return c
     }
-    const vigDark = makeVignette('rgba(0,0,0,0.55)')
-    const vigTurbo = makeVignette('rgba(90,220,255,0.55)')
+    // Viñetas a tamaño de pantalla: se rehacen al girar (ver relayoutLive).
+    let vigDark = makeVignette('rgba(0,0,0,0.55)')
+    let vigTurbo = makeVignette('rgba(90,220,255,0.55)')
 
     // ------------------ lógica ------------------
     const scoreOf = (s: Race) => Math.floor(s.dist / 8) + s.bonus
@@ -1508,6 +1509,48 @@ export default function TrafficRacer() {
       drawUi(s)
     }
 
+    // Pantalla girada o cambiada en plena partida. La carretera va centrada: todo lo de
+    // la carretera se desplaza con ROAD_X; coches, monedas y latas se mueven con el fondo
+    // (PLAYER_Y) para conservar la distancia al jugador. Queda en pausa.
+    const relayoutLive = () => {
+      const s = R.current
+      const oldW = W
+      const oldH = H
+      const oldRoadX = ROAD_X
+      const oldPY = PLAYER_Y
+      layout()
+      if (W === oldW && H === oldH) return
+      const dx = ROAD_X - oldRoadX
+      const dy = PLAYER_Y - oldPY
+      const dpr = renderScale()
+      canvas.width = Math.round(W * dpr)
+      canvas.height = Math.round(H * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      vigDark = makeVignette('rgba(0,0,0,0.55)')
+      vigTurbo = makeVignette('rgba(90,220,255,0.55)')
+      s.px += dx
+      for (const c of s.cars) {
+        c.x += dx
+        c.fromX += dx
+        c.toX += dx
+        c.y += dy
+      }
+      // el coche que chocó puede salir de la lista durante la animación de choque
+      if (s.hitCar && !s.cars.includes(s.hitCar)) {
+        s.hitCar.x += dx
+        s.hitCar.y += dy
+      }
+      for (const it of s.items) {
+        it.x += dx
+        it.y += dy
+      }
+      for (const st of s.streaks) {
+        st.x *= W / oldW
+        st.y *= H / oldH
+      }
+      if (s.started && !s.dead) s.paused = true
+    }
+
     const loop = (now: number) => {
       follow.tick()
       const real = Math.min(0.05, (now - last) / 1000)
@@ -1515,6 +1558,7 @@ export default function TrafficRacer() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (phaseRef.current !== 'play') requestRemount()
+        else relayoutLive()
       }
       step(real)
       justPressedRef.current.clear()

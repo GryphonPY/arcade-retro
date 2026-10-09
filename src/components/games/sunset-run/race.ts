@@ -85,6 +85,8 @@ export interface PlayerState {
   driftDir: number
   driftT: number
   driftLoose: number
+  /** 0 = agarre normal, 1 = derrapando; se mueve suave para no dar saltos de giro. */
+  driftMix: number
   accelOff: number
   brakeHeld: boolean
   brakeTap: number
@@ -175,7 +177,7 @@ export interface Input {
   left: boolean
   right: boolean
   nitro: boolean
-  /** Dirección analógica (-1..1) del giroscopio; null si no se usa. */
+  /** Dirección analógica (-1..1) del dedo en el pad o del giroscopio; null si no se usa. */
   steer: number | null
   auto: boolean
 }
@@ -254,6 +256,7 @@ export function newRace(track: Track, model: CarModel, up: Upgrades, grid: numbe
     driftDir: 0,
     driftT: 0,
     driftLoose: 0,
+    driftMix: 0,
     accelOff: 1,
     brakeHeld: false,
     brakeTap: 0,
@@ -404,6 +407,7 @@ export function stepRace(race: Race, input: Input, dt: number, fx: Fx) {
 
   const steerIn = inp.steer !== null && control ? clamp(inp.steer, -1, 1) : (inp.right ? 1 : 0) - (inp.left ? 1 : 0)
   const growing = Math.abs(steerIn) > Math.abs(pl.steer) && Math.sign(steerIn) === Math.sign(pl.steer || steerIn)
+  const steerOld = pl.steer
   pl.steer = approach(pl.steer, steerIn, dt * (growing ? 6.5 : 10))
   const accel = inp.up || (inp.auto && !inp.down)
   const brake = inp.down
@@ -435,11 +439,13 @@ export function stepRace(race: Race, input: Input, dt: number, fx: Fx) {
       pl.nitro = Math.min(st.nitroCap, pl.nitro + dt * 0.22 * spc * st.rebufo)
     }
   }
+  // el derrape entra y sale poco a poco (antes el giro y la centrífuga cambiaban de golpe)
+  pl.driftMix = approach(pl.driftMix, pl.drift ? 1 : 0, dt * 5)
 
-  // giro y fuerza centrífuga
+  // giro y fuerza centrífuga; el giro usa el promedio del paso (no depende de los FPS)
   const authority = Math.min(1, spc * 1.8)
-  P.x += pl.steer * dt * st.steer * authority * (pl.drift ? 1.3 : 1)
-  const cent = st.centrifugal * (pl.drift ? 0.42 : 1)
+  P.x += ((steerOld + pl.steer) * 0.5) * dt * st.steer * authority * (1 + 0.3 * pl.driftMix)
+  const cent = st.centrifugal * (1 - 0.58 * pl.driftMix)
   P.x -= dt * 2 * sp * sp * seg.curve * cent
   pl.hardTurn = Math.abs(pl.steer) * spc * (Math.abs(seg.curve) > 2 ? 1 : 0.4)
   if (pl.bounceV !== 0) {

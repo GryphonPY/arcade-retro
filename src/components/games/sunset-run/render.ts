@@ -137,7 +137,8 @@ export class Renderer {
     const pSeg = findSeg(t, follow.z)
     const pPct = (follow.z % SEG_LEN) / SEG_LEN
     const playerY = lerp(pSeg.wy1, pSeg.wy2, pPct)
-    const offBump = pl.offroad && follow.player ? (Math.random() - 0.5) * 60 * Math.min(1, follow.speed / 6000) : 0
+    // traqueteo de la arena: suave (senoidal) para que no se vea entrecortado
+    const offBump = pl.offroad && follow.player ? (Math.sin(o.time * 37) + Math.sin(o.time * 23)) * 15 * Math.min(1, follow.speed / 6000) : 0
     const camY = playerY + CAM_H + offBump
     const camXw = (follow.player ? pl.camX : follow.x) * ROAD_W
     const sp = follow.speed / Math.max(1, race.stats.top)
@@ -596,7 +597,7 @@ export class Renderer {
     const sp = car.speed / Math.max(1, race.stats.top)
     let x = roadX + k * car.x * ROAD_W * P
     let y = lerp(seg.sy1, seg.sy2, pct)
-    const bounce = Math.sin(o.time * 31) * Math.min(1, sp) * 0.8 + (pl.offroad && car.player ? (Math.random() - 0.5) * 3 : 0)
+    const bounce = Math.sin(o.time * 31) * Math.min(1, sp) * 0.8 + (pl.offroad && car.player ? Math.sin(o.time * 41) * 1.5 : 0)
     y += bounce
     if (car.player && pl.drift) x += pl.driftDir * -w * 0.03 * Math.sin(o.time * 18)
     this.px = x

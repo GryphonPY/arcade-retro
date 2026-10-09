@@ -480,12 +480,13 @@ export default function SpaceInvasion() {
     const g = stateRef.current
     const juice = new Juice(9)
 
-    // fondo de nebulosa pre-renderizado
+    // fondo de nebulosa pre-renderizado (se rehace si cambia el tamaño, ver relayoutLive)
     const bg = document.createElement('canvas')
-    bg.width = W
-    bg.height = H
-    const bgc = bg.getContext('2d')
-    if (bgc) {
+    const drawBg = () => {
+      bg.width = W
+      bg.height = H
+      const bgc = bg.getContext('2d')
+      if (!bgc) return
       bgc.fillStyle = '#050510'
       bgc.fillRect(0, 0, W, H)
       const blob = (x: number, y: number, r: number, col: string) => {
@@ -499,6 +500,7 @@ export default function SpaceInvasion() {
       blob(340, 330, 240, 'rgba(40,120,200,0.16)')
       blob(200, 540, 260, 'rgba(255,90,160,0.10)')
     }
+    drawBg()
 
     let raf = 0
     let last = performance.now()
@@ -1616,12 +1618,71 @@ export default function SpaceInvasion() {
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('blur', onHide)
 
+    // Pantalla girada o cambiada en plena partida. Búnkeres, nave y línea de invasión se
+    // leen de las constantes globales (ya reancladas por layout). La formación se mueve
+    // centrada (dx) y se mantiene dentro de los bordes; nave y balas se escalan a lo ancho
+    // y la altura sigue al fondo. Queda en pausa.
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      layout()
+      if (W === oldW && H === oldH) return
+      const dx = (W - oldW) / 2
+      const sx = W / oldW
+      const sy = H / oldH
+      const mx = (x: number) => W / 2 + (x - oldW / 2) * sx
+      const my = (y: number) => y * sy
+      const dpr = renderScale()
+      canvas.width = Math.round(W * dpr)
+      canvas.height = Math.round(H * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.imageSmoothingEnabled = false
+      drawBg()
+      g.ship.x = mx(g.ship.x)
+      g.ship.y = clamp(g.ship.y + (H - oldH), SHIP_Y_MIN, SHIP_Y_MAX)
+      g.formX += dx
+      const formed = g.enemies.filter((e) => e.st === 'form')
+      if (formed.length) {
+        const minRel = Math.min(...formed.map((e) => e.sx - e.w / 2))
+        const maxRel = Math.max(...formed.map((e) => e.sx + e.w / 2))
+        g.formX = clamp(g.formX, 10 - minRel, W - 10 - maxRel)
+      }
+      for (const e of g.enemies) {
+        e.x += dx
+        e.x0 += dx
+      }
+      for (const p of g.pb) {
+        p.x = mx(p.x)
+        p.px = mx(p.px)
+        p.y = my(p.y)
+        p.py = my(p.py)
+      }
+      for (const b of g.eb) {
+        b.x = mx(b.x)
+        b.y = my(b.y)
+      }
+      for (const p of g.pups) {
+        p.x = mx(p.x)
+        p.y = my(p.y)
+      }
+      if (g.ufo) {
+        g.ufo.x = mx(g.ufo.x)
+        g.ufo.y = my(g.ufo.y)
+      }
+      for (const st of g.stars) {
+        st.x *= sx
+        st.y *= sy
+      }
+      g.paused = true
+    }
+
     const loop = (now: number) => {
       follow.tick()
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         const m = stateRef.current.mode
         if (m === 'title' || m === 'over') requestRemount()
+        else relayoutLive()
       }
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
       last = now

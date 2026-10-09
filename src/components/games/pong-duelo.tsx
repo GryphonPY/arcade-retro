@@ -688,6 +688,35 @@ export default function PongDuelo() {
     }
 
     // ---------- bucle ----------
+    // ---------- reacomodo al girar la pantalla durante la partida ----------
+    /** Las paletas y la bola se corren al centro nuevo; la paleta de abajo y la de arriba van pegadas a sus bordes. */
+    const relayoutLive = () => {
+      const oldW = W
+      const oldH = H
+      layout()
+      if (W === oldW && H === oldH) return
+      const dx = (W - oldW) / 2
+      setupCanvas(canvas, W, H)
+
+      for (const p of g.pads) {
+        const half = p.w / 2 + 4
+        p.x = clamp(p.x + dx, half, W - half)
+        if (p.target !== null) p.target = clamp(p.target + dx, half, W - half)
+      }
+      g.cpu.aim = clamp(g.cpu.aim + dx, 0, W)
+      g.bx = clamp(g.bx + dx, BR, W - BR)
+      // la bola sigue entre las dos paletas, que ahora están en otra posición vertical
+      g.by = clamp(g.by, PAD_TOP + BR, PAD_BOT - BR)
+      for (const t of g.trail) {
+        t.x = clamp(t.x + dx, 0, W)
+        t.y = clamp(t.y, 0, H)
+      }
+      for (const pt of juice.particles) pt.x += dx
+      for (const t of juice.texts) t.x += dx
+
+      pauseIfPlaying()
+    }
+
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
       const dt = Math.min(0.05, (now - last) / 1000)
@@ -695,6 +724,7 @@ export default function PongDuelo() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       const jp = justPressedRef.current
       if (jp.has('pause') && (g.phase === 'serve' || g.phase === 'playing' || g.phase === 'point')) {

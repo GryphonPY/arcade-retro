@@ -475,7 +475,7 @@ export default function BrickBreaker() {
     const font = (px: number) => `${px}px ${pixelFont}`
 
     const juice = new Juice(6)
-    const bg = buildBg()
+    let bg = buildBg()
     stateRef.current = initial()
 
     let raf = 0
@@ -1398,6 +1398,57 @@ export default function BrickBreaker() {
       }
     }
 
+    // ---- reacomodo al girar la pantalla durante la partida ----------------
+
+    /** Reajusta el mundo sin perder la partida: la paleta baja con el suelo y el muro se corre al centro. */
+    const relayoutLive = () => {
+      const s = stateRef.current
+      const oldW = W
+      const oldH = H
+      layout()
+      if (W === oldW && H === oldH) return
+      const dx = (W - oldW) / 2
+      const dy = H - oldH
+      setupCanvas(canvas, W, H)
+      bg = buildBg()
+
+      // muro (centrado): solo se corre a lo ancho
+      for (const k of s.bricks) {
+        k.x += dx
+        k.cx += dx
+      }
+      for (const bm of s.booms) bm.x += dx
+      for (const r of s.rings) r.x += dx
+      for (const c of s.capsules) c.x = Math.max(17, Math.min(W - 17, c.x + dx))
+      for (const l of s.lasers) l.x = Math.max(0, Math.min(W, l.x + dx))
+
+      // paleta (anclada abajo y centrada)
+      const half = s.padW / 2
+      s.padCx = Math.max(half + 4, Math.min(W - half - 4, s.padCx + dx))
+      s.padTx = Math.max(half + 4, Math.min(W - half - 4, s.padTx + dx))
+      if (dragRef.current) dragRef.current.cx += dx
+
+      // bolas: las pegadas siguen a la paleta; las libres conservan su posición en el campo
+      for (const b of s.balls) {
+        const oy = b.stuck ? dy : 0
+        b.x += dx
+        b.y += oy
+        for (const t of b.trail) {
+          t.x += dx
+          t.y += oy
+        }
+        if (!b.stuck) {
+          b.x = Math.max(R, Math.min(W - R, b.x))
+          b.y = Math.min(H - R, b.y)
+        }
+      }
+      for (const p of juice.particles) p.x += dx
+      for (const t of juice.texts) t.x += dx
+
+      // pausa para que el jugador se reacomode (en "muriendo" la animación termina sola)
+      autoPause()
+    }
+
     // ---- bucle -----------------------------------------------------------
 
     const loop = (now: number) => {
@@ -1407,6 +1458,7 @@ export default function BrickBreaker() {
         seenStage = stageVersion()
         const ph = stateRef.current.phase
         if (ph === 'ready' || ph === 'over') requestRemount()
+        else relayoutLive()
       }
       const s = stateRef.current
       const jp = justPressedRef.current

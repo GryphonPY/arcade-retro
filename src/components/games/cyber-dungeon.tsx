@@ -414,14 +414,18 @@ export default function CyberDungeon() {
     const canvas = canvasRef.current
     if (!canvas) return
     layout()
-    const dpr = renderScale()
-    canvas.width = Math.round(VW * dpr)
-    canvas.height = Math.round(VH * dpr)
     const ctx0 = canvas.getContext('2d')
     if (!ctx0) return
     const ctx: CanvasRenderingContext2D = ctx0
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.imageSmoothingEnabled = false
+    // Ajusta el canvas a la vista actual (también al girar la pantalla en partida).
+    const sizeCanvas = () => {
+      const dpr = renderScale()
+      canvas.width = Math.round(VW * dpr)
+      canvas.height = Math.round(VH * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.imageSmoothingEnabled = false
+    }
+    sizeCanvas()
     const pixelFont =
       getComputedStyle(canvas).getPropertyValue('--font-pixel').trim() || '"Press Start 2P", monospace'
     const font = (px: number) => `${px}px ${pixelFont}`
@@ -2520,6 +2524,16 @@ export default function CyberDungeon() {
       }
     }
 
+    // El mapa no cambia: solo se reajusta el canvas y la cámara a la nueva vista.
+    // En 'pick' el menú de mejoras ya detiene la partida, así que no se pausa.
+    const relayoutLive = () => {
+      layout()
+      sizeCanvas()
+      G.camX = clamp(G.P.x - VW / 2, 0, MW * TILE - VW)
+      G.camY = clamp(G.P.y - VH / 2, 0, MH * TILE - VH)
+      if (G.phase !== 'pick') G.paused = true
+    }
+
     let raf = 0
     let last = performance.now()
     let seenStage = stageVersion()
@@ -2527,6 +2541,7 @@ export default function CyberDungeon() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (G.phase === 'idle' || G.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now

@@ -1593,11 +1593,42 @@ export default function DesertRunner() {
       drawUi(g)
     }
 
+    // Pista girada o cambiada en plena partida. Lo pegado al suelo (corredor, obstáculos,
+    // monedas) sube o baja con GROUND_Y para conservar su altura; nubes y estrellas se
+    // escalan a lo ancho. No hay cachés de tamaño: cielo y suelo se dibujan cada frame.
+    const relayoutLive = () => {
+      const g = G.current
+      const oldW = W
+      const oldGY = GROUND_Y
+      layout()
+      if (W === oldW && GROUND_Y === oldGY) return
+      const dy = GROUND_Y - oldGY
+      const sx = W / oldW
+      const dpr = renderScale()
+      canvas.width = Math.round(W * dpr)
+      canvas.height = Math.round(H * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      g.y += dy
+      for (const o of g.obstacles) {
+        o.y += dy
+        o.baseY += dy
+      }
+      if (g.hitObs && !g.obstacles.includes(g.hitObs)) {
+        g.hitObs.y += dy
+        g.hitObs.baseY += dy
+      }
+      for (const it of g.items) it.y += dy
+      for (const c of g.clouds) c.x *= sx
+      for (const s of g.stars) s.x *= sx
+      if (g.started && !g.dead) g.paused = true
+    }
+
     // ------------------------------ bucle ------------------------------
     const loop = (now: number) => {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (phaseRef.current !== 'play') requestRemount()
+        else relayoutLive()
       }
       const real = Math.min(0.05, (now - last) / 1000)
       last = now

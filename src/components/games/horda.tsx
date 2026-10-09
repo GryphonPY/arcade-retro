@@ -7,7 +7,7 @@ import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { TouchPad } from './touch-pad'
 import { Juice } from './juice'
-import { loadBest, saveBest, setupCanvas } from './game-utils'
+import { loadBest, renderScale, saveBest, setupCanvas } from './game-utils'
 import { noise, tone } from './sfx'
 
 const GAME_ID = 'horda'
@@ -430,6 +430,22 @@ interface Sprites {
 
 const FLOOR = 256
 
+/** Viñeta oscura del tamaño actual de la arena (depende de W y H). */
+function buildVignette(rs: number): HTMLCanvasElement {
+  const vignette = document.createElement('canvas')
+  vignette.width = Math.round(W * rs)
+  vignette.height = Math.round(H * rs)
+  const x = vignette.getContext('2d')
+  if (x) {
+    const g = x.createRadialGradient(vignette.width / 2, vignette.height / 2, vignette.height * 0.25, vignette.width / 2, vignette.height / 2, vignette.height * 0.62)
+    g.addColorStop(0, 'rgba(5,2,12,0)')
+    g.addColorStop(1, 'rgba(5,2,12,0.72)')
+    x.fillStyle = g
+    x.fillRect(0, 0, vignette.width, vignette.height)
+  }
+  return vignette
+}
+
 function buildSprites(rs: number): Sprites {
   const player = makeSpr([PLAYER_A, PLAYER_B], PLAYER_PAL, 1.9, rs)
   const enemy: Spr[] = [
@@ -442,20 +458,7 @@ function buildSprites(rs: number): Sprites {
   ]
   const boss = BOSS_PALS.map((p) => makeSpr([BOSS_A, BOSS_B], p, 2.7, rs))
 
-  // viñeta
-  const vignette = document.createElement('canvas')
-  vignette.width = Math.round(W * rs)
-  vignette.height = Math.round(H * rs)
-  {
-    const x = vignette.getContext('2d')
-    if (x) {
-      const g = x.createRadialGradient(vignette.width / 2, vignette.height / 2, vignette.height * 0.25, vignette.width / 2, vignette.height / 2, vignette.height * 0.62)
-      g.addColorStop(0, 'rgba(5,2,12,0)')
-      g.addColorStop(1, 'rgba(5,2,12,0.72)')
-      x.fillStyle = g
-      x.fillRect(0, 0, vignette.width, vignette.height)
-    }
-  }
+  const vignette = buildVignette(rs)
   // resplandor de antorcha
   const glow = document.createElement('canvas')
   glow.width = glow.height = 64
@@ -958,6 +961,18 @@ export default function Horda() {
       g.iframes = Math.max(g.iframes, 0.8)
       if (g.choiceKind === 'level') g.pending = Math.max(0, g.pending - 1)
       g.choiceKind = 'level'
+    }
+
+    // ---------- cambio de tamaño en partida ----------
+    // La arena es relativa al jugador: solo cambian el canvas, la viñeta y el
+    // centro de cámara. Se pausa para que el jugador se reacomode.
+    const relayoutLive = () => {
+      layout()
+      setupCanvas(canvas, W, H)
+      spr.vignette = buildVignette(renderScale())
+      g.camx = g.px - W / 2
+      g.camy = g.py - H / 2
+      if (!g.choosing) g.paused = true
     }
 
     // ---------- inicio / pausa ----------
@@ -1979,6 +1994,7 @@ export default function Horda() {
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+        else relayoutLive()
       }
       update(dt)
       justPressedRef.current.clear()
