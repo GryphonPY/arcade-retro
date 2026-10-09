@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { useKeys } from './use-keys'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { GameScreen } from './game-screen'
-import { TouchPad } from './touch-pad'
 import { Juice } from './juice'
 import { loadBest, saveBest, setupCanvas, rr } from './game-utils'
 import { noise, sfx, tone } from './sfx'
@@ -1730,7 +1729,10 @@ export default function CruzaCamino() {
     }
   }, [])
 
-  /* ---------------- gestos sobre el canvas ---------------- */
+  /* ---------------- gestos sobre el canvas (tipo Subway Surfers) ---------------- */
+  // Deslizar izq/der = cambiar de carril, arriba = avanzar, abajo = retroceder, toque = avanzar.
+  // Cada gesto manda UN movimiento en cuanto pasa el umbral (sin esperar a soltar el dedo).
+  const SWIPE_PX = 22
   const fireDir = (d: Dir4) => {
     virtualPress(d)
     virtualRelease(d)
@@ -1742,21 +1744,18 @@ export default function CruzaCamino() {
   }
   const onPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     const t = touch.current
-    if (!t || t.id !== e.pointerId) return
+    if (!t || t.id !== e.pointerId || t.fired) return
     const dx = e.clientX - t.sx
     const dy = e.clientY - t.sy
-    if (Math.hypot(dx, dy) > 26) {
-      fireDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up')
-      t.sx = e.clientX
-      t.sy = e.clientY
-      t.fired = true
-    }
+    if (Math.hypot(dx, dy) < SWIPE_PX) return
+    fireDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up')
+    t.fired = true
   }
   const onPointerUp = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     const t = touch.current
     if (!t || t.id !== e.pointerId) return
     touch.current = null
-    if (!t.fired && Math.hypot(e.clientX - t.sx, e.clientY - t.sy) < 14) fireDir('up')
+    if (!t.fired) fireDir('up')
   }
 
   return (
@@ -1790,7 +1789,7 @@ export default function CruzaCamino() {
             accent={ACCENT}
             subtitle="Cruza carreteras, ríos y vías del tren. Junta monedas y no te quedes quieto: ¡el águila vigila!"
             hint="Flechas / WASD para saltar"
-            touchHint="Toca o desliza para saltar"
+            touchHint="Desliza sobre el juego: ← → cambias de carril, ↑ avanzas. Toca para avanzar"
             onStart={() => ctl.current.begin()}
           />
         )}
@@ -1812,7 +1811,6 @@ export default function CruzaCamino() {
           />
         )}
       </GameScreen>
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Avanzar" actionGlyph="↑" />
     </div>
   )
 }
