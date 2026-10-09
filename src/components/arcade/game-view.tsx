@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore, type ComponentType } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from 'react'
 import dynamic from 'next/dynamic'
 import { ArrowLeft, CircleHelp, Maximize, Minimize, Music, Pause, Trophy, Tv, Volume2, VolumeX, X } from 'lucide-react'
 import type { GameMeta } from '@/components/games/catalog'
@@ -39,9 +39,14 @@ function subscribeFullscreen(cb: () => void) {
   return () => document.removeEventListener('fullscreenchange', cb)
 }
 
+// Ya instalada como app (pantalla de inicio): no hay barras del navegador que quitar.
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
+}
+
 function useFullscreen() {
   const isFull = useSyncExternalStore(subscribeFullscreen, () => !!document.fullscreenElement, () => false)
-  const supported = useSyncExternalStore(subscribeFullscreen, () => !!document.fullscreenEnabled, () => false)
+  const supported = useSyncExternalStore(subscribeFullscreen, () => !!document.fullscreenEnabled && !isStandalone(), () => false)
   const toggle = () => {
     if (document.fullscreenElement) void document.exitFullscreen()
     else void document.documentElement.requestFullscreen().catch(() => {})
@@ -81,8 +86,34 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
     }
   }, [])
 
+  // Un deslizamiento sobre el juego no debe desplazar la página: el navegador cancela el gesto
+  // del juego (pointercancel) y en iPad hasta sale de pantalla completa. Solo se permite desplazar
+  // paneles con scroll propio (p. ej. la pantalla de fin).
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = rootRef.current
+    const html = document.documentElement
+    const prevHtml = html.style.overscrollBehavior
+    const prevBody = document.body.style.overscrollBehavior
+    html.style.overscrollBehavior = 'none'
+    document.body.style.overscrollBehavior = 'none'
+    const block = (e: TouchEvent) => {
+      for (let n = e.target as HTMLElement | null; n && n !== el; n = n.parentElement) {
+        if (getComputedStyle(n).overflowY === 'auto' && n.scrollHeight > n.clientHeight) return
+      }
+      if (e.cancelable) e.preventDefault()
+    }
+    el?.addEventListener('touchmove', block, { passive: false })
+    return () => {
+      el?.removeEventListener('touchmove', block)
+      html.style.overscrollBehavior = prevHtml
+      document.body.style.overscrollBehavior = prevBody
+    }
+  }, [])
+
   return (
     <div
+      ref={rootRef}
       className="fixed inset-0 z-40 flex h-dvh flex-col overflow-hidden select-none"
       style={{ background: game.viewBg }}
     >
@@ -199,6 +230,11 @@ function HelpSheet({ game, onClose }: { game: GameMeta; onClose: () => void }) {
         <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-dim">Celular</h3>
         <p className="mt-1 text-sm text-zinc-400">
           {game.touchHelp ?? 'Usa la cruceta y los botones A / B en la parte de abajo de la pantalla.'}
+        </p>
+
+        <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-dim">Pantalla completa en iPad</h3>
+        <p className="mt-1 text-sm text-zinc-400">
+          Para jugar sin las barras del navegador: abre la página en Safari, toca Compartir y elige Agregar a pantalla de inicio.
         </p>
 
         <button
