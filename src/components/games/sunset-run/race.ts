@@ -5,6 +5,14 @@ import { approach, clamp, rng, type Rng } from './util'
 
 export const MAX_SPEED = 11000
 export const KMH = 238 / MAX_SPEED
+/**
+ * Empuje centrífugo base (sin derrape). Con 0.27 el empuje a velocidad punta en una curva de 4.2
+ * era ~2.1 u/s, más que el giro máximo (~1.8 u/s): el coche salía de la pista sin tocar nada.
+ * Con 0.064 sin entrada se sale poco a poco en curvas duras, y un giro suave (0.3) mantiene el carril.
+ */
+export const CENTRIFUGAL = 0.064
+/** Valor anterior, que usa el piloto automático para decidir cuándo levantar el acelerador (demo y vuelta de honor). */
+const AUTO_CENTRIFUGAL = 0.27
 export const CAR_HALF = 0.19
 export const CAR_LEN = 280
 const START_Z = START_SEG * SEG_LEN
@@ -34,7 +42,7 @@ export function computeStats(m: CarModel, up: Upgrades): Stats {
     decel: top / 5.5,
     offLimit: top * (0.34 + 0.05 * up.llantas),
     offDecel: top * (0.95 - 0.09 * up.llantas),
-    centrifugal: (0.27 / m.grip) * (1 - 0.075 * up.llantas),
+    centrifugal: (CENTRIFUGAL / m.grip) * (1 - 0.075 * up.llantas),
     steer: 1.8 * (0.94 + m.grip * 0.06),
     nitroCap: 3.2 * m.nitro * (1 + 0.2 * up.turbo),
     nitroMul: 1.22 + 0.025 * up.turbo,
@@ -352,7 +360,7 @@ export function autoInput(race: Race, c: Car): Input {
   }
   const desired = clamp((target - c.x) * 3 + s.curve * 0.22, -1, 1)
   const sp = c.speed / race.stats.top
-  const tooFast = Math.abs(ahead) * race.stats.centrifugal * sp > 0.95
+  const tooFast = Math.abs(ahead) * race.stats.centrifugal * (AUTO_CENTRIFUGAL / CENTRIFUGAL) * sp > 0.95
   return { up: !tooFast || sp < 0.6, down: false, left: desired < -0.15, right: desired > 0.15, nitro: false, steer: desired, auto: false }
 }
 

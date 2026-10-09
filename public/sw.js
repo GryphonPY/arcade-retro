@@ -3,7 +3,7 @@
 // - Archivos con hash de Next (/_next/static): caché primero, nunca cambian.
 // - Resto de estáticos: caché y actualización en segundo plano.
 // - La API de récords nunca se guarda en caché.
-const CACHE = 'arcade-retro-v1'
+const CACHE = 'arcade-retro-v2'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/logo.svg'])))
