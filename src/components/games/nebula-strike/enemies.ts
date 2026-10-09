@@ -22,7 +22,7 @@ const sprAlt = (id: string, def: ShapeDef) => (g: Game): Sprite => {
 
 /** El enemigo dispara solo si está en pantalla y no encima del jugador. */
 function canFire(g: Game, e: Enemy, minDist = 70): boolean {
-  const p = g.player
+  const p = g.nearest(e.x, e.y)
   if (!p.alive || g.mode === 'dead' || e.y < 6 || e.y > H - 40 || e.x < 4 || e.x > W - 4) return false
   const dx = p.x - e.x
   const dy = p.y - e.y
@@ -259,7 +259,7 @@ export const zako: EnemyDef = {
       else {
         if (e.fireN === 0) {
           e.fireN = 1
-          e.ang = Math.atan2(g.player.y - e.y, g.player.x - e.x)
+          e.ang = Math.atan2(g.nearest(e.x, e.y).y - e.y, g.nearest(e.x, e.y).x - e.x)
           e.ang = clamp(e.ang, 0.5, Math.PI - 0.5)
         }
         const sp = 210 + lvl * 10
@@ -270,7 +270,7 @@ export const zako: EnemyDef = {
     e.fireT -= dt * g.diff.rate
     if (e.fireT <= 0) {
       e.fireT = rand(1.4, 2.8)
-      if (canFire(g, e, 90) && e.y < g.player.y - 60 && Math.random() < 0.35 + lvl * 0.1) {
+      if (canFire(g, e, 90) && e.y < g.nearest(e.x, e.y).y - 60 && Math.random() < 0.35 + lvl * 0.1) {
         const a = g.aim(e.x, e.y)
         if (lvl >= 3) g.fan(e.x, e.y, 2, 0.16, 120, a, bs(SMALL, PINK))
         else g.bullet(e.x, e.y, a, 120, bs(SMALL, PINK))
@@ -289,7 +289,7 @@ export const dart: EnemyDef = {
   sprite: sprOf('dart', DART),
   update(g, e, dt) {
     const sp = 230 + g.diff.lvl * 12
-    if (e.t < 0.5) e.x += clamp(g.player.x - e.x, -60, 60) * dt * 1.2
+    if (e.t < 0.5) e.x += clamp(g.nearest(e.x, e.y).x - e.x, -60, 60) * dt * 1.2
     e.y += sp * dt
     if (e.fireN === 0 && e.y > 70 && g.diff.lvl >= 1) {
       e.fireN = 1
@@ -554,7 +554,7 @@ export const blade: EnemyDef = {
       const cyc = (e.t - 2) % 4
       if (cyc < 0.1 && e.b === 0) {
         e.b = 1
-        e.c = clamp(g.player.x + rand(-60, 60), 60, W - 60)
+        e.c = clamp(g.nearest(e.x, e.y).x + rand(-60, 60), 60, W - 60)
       }
       if (cyc > 0.1) e.b = 0
       e.x += (e.c - e.x) * Math.min(1, dt * 2.5)

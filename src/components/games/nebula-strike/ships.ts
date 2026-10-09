@@ -1,5 +1,5 @@
 /** Las tres naves seleccionables y su armamento. */
-import type { Game } from './game'
+import type { Game, Player } from './game'
 import { missileSprite, needle, shapeSprite, tintFrom, type ShapeDef, type Sprite } from './sprites'
 import { TAU } from './util'
 
@@ -110,9 +110,27 @@ export const SHIPS: ShipDef[] = [
   },
 ]
 
-export function shipSprite(id: number): Sprite {
+/** Color de J2 cuando ambos jugadores eligen la misma nave (para distinguirlas). */
+const ALT_COLOR = '#facc15'
+const ALT_ACCENT = '#fef9c3'
+
+/** En cooperativo, J2 con la misma nave que J1 se dibuja en dorado. */
+export function shipAlt(g: Game, p: Player): boolean {
+  return g.coop && p.idx === 1 && p.shipId === g.player.shipId
+}
+
+export function shipColorOf(g: Game, p: Player): string {
+  return shipAlt(g, p) ? ALT_COLOR : SHIPS[p.shipId].color
+}
+
+export function shipSprite(id: number, alt = false): Sprite {
   const s = SHIPS[id]
+  if (alt) return shapeSprite('ship' + id + 'alt', s.shape, tintFrom(ALT_COLOR, ALT_ACCENT, '#101028'))
   return shapeSprite('ship' + id, s.shape, tintFrom(s.color, s.accent, '#101028'))
+}
+
+export function shipSpriteOf(g: Game, p: Player): Sprite {
+  return shipSprite(p.shipId, shipAlt(g, p))
 }
 
 /** Velocidad base de los disparos principales. */
@@ -141,27 +159,25 @@ function rateMul(g: Game): number {
 }
 
 /**
- * Dispara las armas del jugador (principal, misiles, drones y trasero).
- * `focus` = modo concentrado.
+ * Dispara las armas de una nave (principal, misiles, sus drones y trasero).
+ * `p.focus` = modo concentrado.
  */
-export function fireWeapons(g: Game, dt: number) {
-  const p = g.player
-  const s = SHIPS[g.shipId]
-  const L = g.power
+export function fireWeapons(g: Game, p: Player, dt: number) {
+  const L = p.power
   const focus = p.focus
   const rate = rateMul(g)
   const dm = dmgMul(g)
   const gold = g.up('fury') > 0 && g.mult >= 8
-  const col = gold ? '#fde047' : s.color
+  const col = gold ? '#fde047' : shipColorOf(g, p)
 
   p.fireT -= dt * rate
   p.laser = false
-  if (g.shipId === 1 && focus) {
+  if (p.shipId === 1 && focus) {
     // TITAN: láser continuo
     p.laser = true
     p.fireT = Math.min(p.fireT, 0.05)
   } else if (p.fireT <= 0) {
-    if (g.shipId === 0) {
+    if (p.shipId === 0) {
       p.fireT += 0.07
       const spr = needle(col, 4, 15)
       const k = focus ? 0.22 : 1
@@ -174,7 +190,7 @@ export function fireWeapons(g: Game, dt: number) {
         g.shot(p.x - 6, p.y - 6, -Math.PI / 2 - a, v, d, spr, 0)
         g.shot(p.x + 6, p.y - 6, -Math.PI / 2 + a, v, d, spr, 0)
       }
-    } else if (g.shipId === 1) {
+    } else if (p.shipId === 1) {
       p.fireT += 0.085
       const n = L <= 2 ? 2 : L <= 4 ? 3 : L <= 6 ? 4 : 5
       const spr = needle(col, 7, 20)
@@ -199,12 +215,12 @@ export function fireWeapons(g: Game, dt: number) {
         g.shot(p.x + 5, p.y - 6, -Math.PI / 2 + a, SHOT_V, d, spr, 0)
       }
     }
-    g.sfxShot()
+    g.sfxShot(p.shipId)
   }
 
   // Misiles (VEGA de serie + mejora "Lanzamisiles" para todas)
   const mUp = g.up('missiles')
-  const vegaM = g.shipId === 2
+  const vegaM = p.shipId === 2
   if (vegaM || mUp > 0) {
     p.missileT -= dt * rate
     if (p.missileT <= 0) {
@@ -222,14 +238,16 @@ export function fireWeapons(g: Game, dt: number) {
     }
   }
 
-  // Drones
-  const nd = g.drones.length
+  // Drones de esta nave (los que la sostienen ahora)
+  let nd = 0
+  for (const dr of g.drones) if (dr.host === p.idx) nd++
   if (nd > 0) {
     p.droneT -= dt * rate
     if (p.droneT <= 0) {
       p.droneT += 0.11
       const spr = needle(gold ? '#fde047' : '#e0f2fe', 3, 11)
       for (const dr of g.drones) {
+        if (dr.host !== p.idx) continue
         let ang = -Math.PI / 2
         if (focus) ang += (p.x - dr.x) * 0.006
         g.shot(dr.x, dr.y - 4, ang, SHOT_V * 0.95, 1.05 * dm, spr, 2)
@@ -253,23 +271,39 @@ export function fireWeapons(g: Game, dt: number) {
   }
 }
 
-/** Posiciones de los drones: orbitan o se alinean en modo concentrado. */
+/**
+ * Posiciones de los drones. Cada dron sigue a la nave que lo eligió; si esa
+ * nave cae, lo sostiene la otra. Orbitan o se alinean en modo concentrado.
+ */
 export function updateDrones(g: Game, dt: number) {
-  const p = g.player
-  const n = g.drones.length
-  p.droneAng += dt * 2.6
-  for (let i = 0; i < n; i++) {
-    const d = g.drones[i]
+  const ships = g.ships
+  for (const s of ships) s.droneAng += dt * 2.6
+  if (g.drones.length === 0) return
+  const alive = ships.filter((s) => s.alive)
+  if (alive.length === 0) return
+
+  const count = [0, 0]
+  for (const d of g.drones) {
+    const o = ships[d.owner]
+    const h = o && o.alive ? o : alive[0]
+    d.host = h.idx
+    count[h.idx]++
+  }
+  const seen = [0, 0]
+  for (const d of g.drones) {
+    const h = ships[d.host]
+    const i = seen[h.idx]++
+    const n = count[h.idx]
     let tx: number
     let ty: number
-    if (p.focus) {
-      const slot = [-16, 16, -30, 30][i]
-      tx = p.x + slot
-      ty = p.y + 8 + Math.abs(slot) * 0.25
+    if (h.focus) {
+      const slot = [-16, 16, -30, 30][i] ?? 0
+      tx = h.x + slot
+      ty = h.y + 8 + Math.abs(slot) * 0.25
     } else {
-      const a = p.droneAng + (i * TAU) / n
-      tx = p.x + Math.cos(a) * 28
-      ty = p.y + Math.sin(a) * 22 + 2
+      const a = h.droneAng + (i * TAU) / n
+      tx = h.x + Math.cos(a) * 28
+      ty = h.y + Math.sin(a) * 22 + 2
     }
     const k = Math.min(1, dt * 14)
     d.x += (tx - d.x) * k

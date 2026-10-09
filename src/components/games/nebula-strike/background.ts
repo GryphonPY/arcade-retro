@@ -238,18 +238,48 @@ export class Background {
     }
   }
 
+  /** Tesela del sector y bucle (cacheada al ancho actual de `W`). */
+  private tileFor(s: number, loop: number): HTMLCanvasElement {
+    const key = `${s}|${loop}`
+    let t = this.tiles.get(key)
+    if (!t) {
+      const base = sectorFor(s).pal
+      const pal = loop > 0 ? { ...base, base: mix(base.base, '#200008', 0.5), neb: base.neb.map((c) => mix(c, '#ff2050', 0.25)) } : base
+      t = nebulaTile(pal, 1000 + s * 77 + loop * 13)
+      this.tiles.set(key, t)
+    }
+    return t
+  }
+
+  /**
+   * Tras girar la pantalla: las teselas se rehacen al nuevo ancho, y estrellas y
+   * decorado se reescalan para seguir repartidos por todo el lienzo.
+   */
+  resize(oldW: number, oldH: number) {
+    const sx = W / oldW
+    const sy = H / oldH
+    for (const a of this.stars) {
+      for (let i = 0; i < a.length; i += 2) {
+        a[i] *= sx
+        a[i + 1] *= sy
+      }
+    }
+    for (const d of this.decor) {
+      d.x *= sx
+      d.y *= sy
+    }
+    this.tiles.clear()
+    this.tile = this.tileFor(this.sector, this.loop)
+    this.prevTile = null
+    this.fade = 1
+  }
+
   setSector(s: number, loop: number) {
     if (s === this.sector && loop === this.loop && this.tile) return
     this.sector = s
     this.loop = loop
     this.pal = sectorFor(s).pal
-    const key = `${s}|${loop}`
-    let t = this.tiles.get(key)
-    if (!t) {
-      const pal = loop > 0 ? { ...this.pal, base: mix(this.pal.base, '#200008', 0.5), neb: this.pal.neb.map((c) => mix(c, '#ff2050', 0.25)) } : this.pal
-      t = nebulaTile(pal, 1000 + s * 77 + loop * 13)
-      this.tiles.set(key, t)
-    }
+    const t = this.tileFor(s, loop)
     this.prevTile = this.tile
     this.tile = t
     this.fade = this.prevTile ? 0 : 1

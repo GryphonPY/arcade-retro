@@ -5,7 +5,7 @@
  */
 import type { Game } from './game'
 import { fx } from './audio'
-import { SHIPS, shipSprite } from './ships'
+import { SHIPS, shipColorOf, shipSprite } from './ships'
 import { RARITY_COLOR, RARITY_NAME, UP_BY_ID, type UpgradeDef } from './upgrades'
 import { cached, drawSprite, type Sprite } from './sprites'
 import { ACCENT, H, TAU, UI_FONT, W, clamp, easeOut, fmt, pixelFont, rgba } from './util'
@@ -30,13 +30,37 @@ export const BTN = {
 export const UP_Y = (i: number) => 112 + i * 106
 export const UP_H = 96
 
+/** Botones "1 JUGADOR" y "2 JUGADORES" del título (función: W cambia con el tamaño). */
+export function modeBtn(i: number) {
+  return { x: i === 0 ? W / 2 - 150 : W / 2 + 6, y: 130, w: 144, h: 18 }
+}
+
 const inRect = (x: number, y: number, rx: number, ry: number, rw: number, rh: number) => x >= rx && x <= rx + rw && y >= ry && y <= ry + rh
 
 /** Procesa toques/clics en la pantalla de título. Devuelve true si hay que despegar. */
 export function titleTap(g: Game, x: number, y: number): boolean {
+  for (let i = 0; i < 2; i++) {
+    const m = modeBtn(i)
+    if (inRect(x, y, m.x, m.y, m.w, m.h)) {
+      const mode = i === 0 ? 1 : 2
+      if (g.titleMode !== mode) {
+        g.titleMode = mode
+        g.coop = mode === 2
+        g.titlePick = 0
+        fx.menu()
+      }
+      return false
+    }
+  }
   for (let i = 0; i < 3; i++) {
     if (inRect(x, y, cardX(i), CARD_Y, CARD_W, CARD_H)) {
-      if (g.titleSel !== i) {
+      if (g.coop) {
+        // dos jugadores: cada toque elige la nave de J1 y luego la de J2
+        if (g.titlePick === 0) g.titleSel = i
+        else g.titleSel2 = i
+        g.titlePick = 1 - g.titlePick
+        fx.menu()
+      } else if (g.titleSel !== i) {
         g.titleSel = i
         fx.menu()
       }
@@ -44,8 +68,8 @@ export function titleTap(g: Game, x: number, y: number): boolean {
     }
   }
   if (inRect(x, y, BTN.x - 10, BTN.y - 8, BTN.w + 20, BTN.h + 16)) return true
-  // tocar la zona de vista previa también despega
-  return y > 140 && y < 300
+  // tocar la zona de vista previa también despega (en dos jugadores no: ahí se elige con las tarjetas)
+  return !g.coop && y > 152 && y < 300
 }
 
 /** Toque en la pantalla de mejoras. */
@@ -164,15 +188,30 @@ function logoSprite(): Sprite {
 export function drawTitle(ctx: CanvasRenderingContext2D, g: Game, best: number, touch: boolean) {
   const t = g.time
   const logo = logoSprite()
-  const ly = 62 + Math.sin(t * 1.4) * 3
+  const ly = 56 + Math.sin(t * 1.4) * 3
   drawSprite(ctx, logo, W / 2, ly)
-  ptext(ctx, `RECORD ${fmt(best)}`, W / 2, 124, 8, '#fde68a')
+  ptext(ctx, `RECORD ${fmt(best)}`, W / 2, 116, 8, '#fde68a')
+
+  // modo de juego: 1 o 2 jugadores
+  for (let i = 0; i < 2; i++) {
+    const m = modeBtn(i)
+    const on = g.titleMode === i + 1
+    ctx.save()
+    rr(ctx, m.x, m.y, m.w, m.h, 9)
+    ctx.fillStyle = on ? rgba(ACCENT, 0.22) : 'rgba(10,12,28,0.72)'
+    ctx.fill()
+    ctx.strokeStyle = on ? ACCENT : 'rgba(255,255,255,0.18)'
+    ctx.lineWidth = on ? 1.5 : 1
+    ctx.stroke()
+    ctx.restore()
+    ptext(ctx, i === 0 ? '1 JUGADOR' : '2 JUGADORES', m.x + m.w / 2, m.y + m.h / 2 + 1, 7, on ? '#ffffff' : 'rgba(255,255,255,0.55)', 'center', false)
+  }
 
   // marco de la vista previa
   ctx.strokeStyle = rgba(ACCENT, 0.22)
   ctx.lineWidth = 1
-  const fy = 138
-  const fh = 166
+  const fy = 156
+  const fh = 144
   for (const [x, y, dx, dy] of [
     [24, fy, 1, 1],
     [W - 24, fy, -1, 1],
@@ -186,14 +225,17 @@ export function drawTitle(ctx: CanvasRenderingContext2D, g: Game, best: number, 
     ctx.stroke()
   }
   const s = SHIPS[g.titleSel]
-  ptext(ctx, s.name, W / 2, fy + 12, 10, s.color)
+  if (g.coop) {
+    ptext(ctx, `J1 ${s.name}`, W / 2 - 62, fy + 12, 8, shipColorOf(g, g.player))
+    ptext(ctx, `J2 ${SHIPS[g.titleSel2].name}`, W / 2 + 62, fy + 12, 8, shipColorOf(g, g.p2))
+  } else ptext(ctx, s.name, W / 2, fy + 12, 10, s.color)
   utext(ctx, g.player.focus ? 'MODO CONCENTRADO' : 'DISPARO NORMAL', W / 2, fy + fh - 10, 9, 'rgba(255,255,255,0.45)', 'center', 600)
 
   // tarjetas
   for (let i = 0; i < 3; i++) {
     const sh = SHIPS[i]
     const x = cardX(i)
-    const sel = g.titleSel === i
+    const sel = g.titleSel === i || (g.coop && g.titleSel2 === i)
     const y = CARD_Y - (sel ? 4 : 0)
     ctx.save()
     rr(ctx, x, y, CARD_W, CARD_H, 10)
@@ -209,6 +251,10 @@ export function drawTitle(ctx: CanvasRenderingContext2D, g: Game, best: number, 
     ctx.restore()
     const bob = sel ? Math.sin(t * 4) * 2 : 0
     drawSprite(ctx, shipSprite(i), x + CARD_W / 2, y + 28 + bob, sel ? 1.15 : 1)
+    if (g.coop) {
+      if (g.titleSel === i) ptext(ctx, 'J1', x + 12, y + 10, 6, '#ffffff', 'left')
+      if (g.titleSel2 === i) ptext(ctx, 'J2', x + CARD_W - 12, y + 10, 6, '#facc15', 'right')
+    }
     ptext(ctx, sh.name, x + CARD_W / 2, y + 56, 9, sel ? '#ffffff' : 'rgba(255,255,255,0.75)')
     utext(ctx, sh.role, x + CARD_W / 2, y + 68, 10, sel ? sh.color : 'rgba(255,255,255,0.5)', 'center', 600)
     for (let k = 0; k < sh.stats.length; k++) {
@@ -236,7 +282,14 @@ export function drawTitle(ctx: CanvasRenderingContext2D, g: Game, best: number, 
   ctx.fill()
   ctx.restore()
   ptext(ctx, 'DESPEGAR', W / 2, BTN.y + BTN.h / 2 + 1, 11, '#05060f', 'center', false)
-  utext(ctx, touch ? 'Toca una nave y luego DESPEGAR' : '← → elegir nave  ·  ESPACIO despegar', W / 2, 532, 10, 'rgba(255,255,255,0.5)')
+  const hint = g.coop
+    ? touch
+      ? `Toca una nave para J${g.titlePick + 1} y luego DESPEGAR`
+      : '←→ J1  ·  A D J2  ·  ↑↓ modo  ·  ESPACIO'
+    : touch
+      ? 'Toca una nave y luego DESPEGAR'
+      : '← → elegir nave  ·  ↑ ↓ modo  ·  ESPACIO'
+  utext(ctx, hint, W / 2, 532, 10, 'rgba(255,255,255,0.5)')
 }
 
 // ===================== Mejoras =====================
@@ -425,7 +478,7 @@ export function drawUpgrade(ctx: CanvasRenderingContext2D, g: Game, touch: boole
   ctx.fillStyle = `rgba(3,3,14,${0.78 * k})`
   ctx.fillRect(0, 0, W, H)
   ptext(ctx, 'ELIGE UNA MEJORA', W / 2, 62 - (1 - k) * 20, 13, ACCENT)
-  utext(ctx, `Sector ${g.sectorLabel} despejado. Tu nave evoluciona.`, W / 2, 86, 12, 'rgba(255,255,255,0.7)')
+  utext(ctx, g.coop ? `Turno de J${g.chooser + 1}  ·  sector ${g.sectorLabel} despejado` : `Sector ${g.sectorLabel} despejado. Tu nave evoluciona.`, W / 2, 86, 12, 'rgba(255,255,255,0.7)')
   for (let i = 0; i < g.choices.length; i++) {
     const u = g.choices[i]
     const sel = g.sel === i
@@ -467,7 +520,7 @@ export function drawUpgrade(ctx: CanvasRenderingContext2D, g: Game, touch: boole
 
 /** Fila de chips con la build actual (nivel de arma + mejoras). */
 export function drawBuild(ctx: CanvasRenderingContext2D, g: Game, x: number, y: number, align: 'left' | 'right' | 'center', alpha = 1) {
-  const chips: { tag: string; n: number; col: string }[] = [{ tag: 'LV', n: g.power, col: SHIPS[g.shipId].color }]
+  const chips: { tag: string; n: number | string; col: string }[] = [{ tag: 'LV', n: g.coop ? `${g.player.power}/${g.p2.power}` : g.player.power, col: SHIPS[g.player.shipId].color }]
   for (const id of g.buildOrder) {
     if (id === 'core') continue
     const u = UP_BY_ID[id]

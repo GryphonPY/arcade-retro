@@ -1,6 +1,6 @@
 /** Dibujo del mundo, la nave, efectos y HUD de Nebula Strike. */
-import type { Game } from './game'
-import { SHIPS, laserStats, shipSprite } from './ships'
+import type { Game, Player } from './game'
+import { SHIPS, laserStats, shipColorOf, shipSprite, shipSpriteOf } from './ships'
 import { BCOL, NCOL, baseTransform, bulletSprite, cached, drawAt, drawRot, drawSprite, flashOf, glow, origin, type Sprite } from './sprites'
 import { drawBuild, drawPause, drawTally, drawTitle, drawUpgrade, ptext, utext } from './screens'
 import { ACCENT, H, RS, TAU, W, clamp, easeOut, fmt, mix, pixelFont, rgba } from './util'
@@ -272,17 +272,20 @@ function drawBeams(ctx: CanvasRenderingContext2D, g: Game) {
   }
 }
 
-function drawPlayer(ctx: CanvasRenderingContext2D, g: Game) {
-  const p = g.player
+function drawPlayers(ctx: CanvasRenderingContext2D, g: Game) {
+  for (const p of g.ships) drawShip(ctx, g, p)
+}
+
+function drawShip(ctx: CanvasRenderingContext2D, g: Game, p: Player) {
   if (!p.alive) return
-  const s = SHIPS[g.shipId]
+  const color = shipColorOf(g, p)
   const t = g.time
   if (p.inv > 0 && g.mode !== 'title' && Math.floor(t * 16) % 2 === 0 && g.bombT <= 0) return
 
   // estela
   const trail = g.up('speed')
   if (trail > 0 || p.focus) {
-    const gs = glow(trail > 0 ? '#34d399' : s.color, 8)
+    const gs = glow(trail > 0 ? '#34d399' : color, 8)
     ctx.globalCompositeOperation = 'lighter'
     const n = p.trailX.length
     for (let i = 1; i < n; i++) {
@@ -298,17 +301,17 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Game) {
 
   // motor
   const flick = 0.8 + Math.sin(t * 60) * 0.2
-  const fl = glow(s.color, 12, 0.25)
+  const fl = glow(color, 12, 0.25)
   ctx.globalCompositeOperation = 'lighter'
   const len = (p.focus ? 10 : 16) * flick
   ctx.drawImage(fl.c, p.x - 5, p.y + 8, 10, len)
-  if (g.shipId === 1)
+  if (p.shipId === 1)
     for (const dx of [-9.5, 9.5]) ctx.drawImage(fl.c, p.x + dx - 3.5, p.y + 11, 7, len * 0.7)
   ctx.globalCompositeOperation = 'source-over'
 
   // cañones extra según nivel
-  const L = g.power
-  const pod = gunPod(g.up('fury') && g.mult >= 8 ? '#fde047' : s.color)
+  const L = p.power
+  const pod = gunPod(g.up('fury') && g.mult >= 8 ? '#fde047' : color)
   const sx = 1 - Math.abs(p.bank) * 0.22
   if (L >= 3) for (const d of [-1, 1]) drawSprite(ctx, pod, p.x + d * 13 * sx, p.y + 1)
   if (L >= 5) for (const d of [-1, 1]) drawSprite(ctx, pod, p.x + d * 18 * sx, p.y + 6)
@@ -318,12 +321,12 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Game) {
     for (const d of [-1, 1]) ctx.fillRect(p.x + d * 9 * sx - 2, p.y + 4, 4, 7)
   }
   if (g.up('rear')) {
-    ctx.fillStyle = s.color
+    ctx.fillStyle = color
     for (const d of [-1, 1]) ctx.fillRect(p.x + d * 5 - 1.5, p.y + 11, 3, 5)
   }
 
   // nave con alabeo
-  drawRot(ctx, shipSprite(g.shipId), p.x, p.y, 0, 1, sx)
+  drawRot(ctx, shipSpriteOf(g, p), p.x, p.y, 0, 1, sx)
 
   // escudo
   if (p.shield > 0 && g.mode !== 'title') {
@@ -342,16 +345,19 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Game) {
 }
 
 function drawDrones(ctx: CanvasRenderingContext2D, g: Game) {
-  if (!g.player.alive) return
+  if (!g.ships.some((s) => s.alive)) return
   const ds = droneSprite()
   for (const d of g.drones) drawSprite(ctx, ds, d.x, d.y)
 }
 
-function drawLaser(ctx: CanvasRenderingContext2D, g: Game) {
-  const p = g.player
+function drawLasers(ctx: CanvasRenderingContext2D, g: Game) {
+  for (const p of g.ships) drawLaser(ctx, g, p)
+}
+
+function drawLaser(ctx: CanvasRenderingContext2D, g: Game, p: Player) {
   if (!p.laser || !p.alive) return
-  const ls = laserStats(g.power)
-  const col = g.up('fury') && g.mult >= 8 ? '#fde047' : SHIPS[1].color
+  const ls = laserStats(p.power)
+  const col = g.up('fury') && g.mult >= 8 ? '#fde047' : shipColorOf(g, p)
   const s = laserStrip(col)
   const top = Math.max(-10, p.laserTop)
   const y0 = p.y - 14
@@ -362,14 +368,17 @@ function drawLaser(ctx: CanvasRenderingContext2D, g: Game) {
   ctx.drawImage(s.c, p.x - wv * 0.45, top, wv * 0.9, y0 - top)
   ctx.globalAlpha = 1
   drawSprite(ctx, glow(col, 16, 0.25), p.x, y0, 1 + Math.sin(g.time * 40) * 0.1)
-  if (g.laserHitting) drawSprite(ctx, glow('#ffffff', 16, 0.3), p.x, top + 4, 1.2 + Math.random() * 0.4)
+  if (p.hitting) drawSprite(ctx, glow('#ffffff', 16, 0.3), p.x, top + 4, 1.2 + Math.random() * 0.4)
   ctx.globalCompositeOperation = 'source-over'
 }
 
-function drawHitbox(ctx: CanvasRenderingContext2D, g: Game) {
-  const p = g.player
+function drawHitboxes(ctx: CanvasRenderingContext2D, g: Game) {
+  for (const p of g.ships) drawHitbox(ctx, g, p)
+}
+
+function drawHitbox(ctx: CanvasRenderingContext2D, g: Game, p: Player) {
   if (!p.alive || g.mode === 'title' || p.entering > 0) return
-  const col = SHIPS[g.shipId].color
+  const col = shipColorOf(g, p)
   if (p.focus) {
     ctx.strokeStyle = rgba(col, 0.55)
     ctx.lineWidth = 1
@@ -388,6 +397,8 @@ function drawHitbox(ctx: CanvasRenderingContext2D, g: Game) {
   ctx.beginPath()
   ctx.arc(p.x, p.y, 2.2, 0, TAU)
   ctx.fill()
+  // en cooperativo, cada nave lleva su etiqueta
+  if (g.coop) ptext(ctx, p.idx ? 'J2' : 'J1', p.x, p.y - 22, 6, col)
 }
 
 // ===================== HUD =====================
@@ -472,7 +483,7 @@ function drawHud(ctx: CanvasRenderingContext2D, g: Game, best: number) {
   }
   // inferior derecha: build
   drawBuild(ctx, g, W - 6, H - 11, 'right', 0.85)
-  if (g.player.shield > 0) ptext(ctx, 'ESC', W - 8, H - 26, 6, '#93c5fd', 'right')
+  if (g.ships.some((q) => q.shield > 0)) ptext(ctx, 'ESC', W - 8, H - 26, 6, '#93c5fd', 'right')
   void s
 }
 
@@ -534,7 +545,19 @@ function drawControls(ctx: CanvasRenderingContext2D, g: Game, touch: boolean) {
   const a = Math.min(1, (g.modeT - 0.6) / 0.4, (4 - g.modeT) / 0.4)
   if (a <= 0) return
   ctx.globalAlpha = a
-  const rows = touch
+  const rows = g.coop
+    ? touch
+      ? [
+          ['ARRASTRA', 'cada dedo mueve su nave'],
+          ['2 DEDOS', 'concentrado en esa nave'],
+          ['BOMBA', 'compartida · botón de abajo'],
+        ]
+      : [
+          ['J1 FLECHAS', 'mover · ESPACIO concentra'],
+          ['J1 SHIFT/X', 'bomba'],
+          ['J2 WASD', 'mover · J concentra · K bomba'],
+        ]
+    : touch
     ? [
         ['ARRASTRA', 'mover (en cualquier parte)'],
         ['2 DEDOS', 'modo concentrado'],
@@ -580,12 +603,12 @@ export function renderFrame(ctx: CanvasRenderingContext2D, g: Game, best: number
   if (g.mode === 'title') {
     ctx.save()
     ctx.beginPath()
-    ctx.rect(24, 138, W - 48, 166)
+    ctx.rect(24, 152, W - 48, 148)
     ctx.clip()
     drawShots(ctx, g)
-    drawLaser(ctx, g)
+    drawLasers(ctx, g)
     drawDrones(ctx, g)
-    drawPlayer(ctx, g)
+    drawPlayers(ctx, g)
     ctx.restore()
     drawParticles(ctx, g)
     origin.x = origin.y = 0
@@ -597,13 +620,13 @@ export function renderFrame(ctx: CanvasRenderingContext2D, g: Game, best: number
   drawItems(ctx, g)
   drawEnemies(ctx, g)
   drawShots(ctx, g)
-  drawLaser(ctx, g)
-  drawPlayer(ctx, g)
+  drawLasers(ctx, g)
+  drawPlayers(ctx, g)
   drawDrones(ctx, g)
   drawParticles(ctx, g)
   drawBeams(ctx, g)
   drawBullets(ctx, g)
-  drawHitbox(ctx, g)
+  drawHitboxes(ctx, g)
   g.juice.drawTexts(ctx, pixelFont())
 
   // bomba: tinte de pantalla
@@ -611,7 +634,7 @@ export function renderFrame(ctx: CanvasRenderingContext2D, g: Game, best: number
     const k = g.bombT / g.bombDur
     ctx.globalCompositeOperation = 'lighter'
     ctx.globalAlpha = 0.12 * k
-    ctx.fillStyle = SHIPS[g.shipId].color
+    ctx.fillStyle = shipColorOf(g, g.player)
     ctx.fillRect(-20, -20, W + 40, H + 40)
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'

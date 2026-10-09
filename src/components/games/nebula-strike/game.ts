@@ -1,6 +1,10 @@
 /**
  * Motor de Nebula Strike: estado de la partida, pools de entidades,
  * colisiones, puntuación, progresión y flujo de sectores.
+ *
+ * Dos jugadores (`coop`): las naves son `player` (J1) y `p2` (J2). Son del
+ * equipo: vidas, bombas, mejoras, puntuación y cadena. Por nave: nivel de
+ * arma, estado de vida y los drones que eligió (ver `Drone`).
  */
 import { Juice } from '../juice'
 import { fx, laserHum } from './audio'
@@ -8,7 +12,7 @@ import { playSong, duckMusic } from './soundtrack'
 import { Background } from './background'
 import { SECTORS, sectorFor } from './sectors'
 import { bossUpdate, spawnBoss, bossPartDestroyed } from './bosses'
-import { SHIPS, fireWeapons, laserStats, updateDrones } from './ships'
+import { SHIPS, fireWeapons, laserStats, shipColorOf, updateDrones } from './ships'
 import { rollUpgrades, UP_BY_ID, type UpId, type UpgradeDef } from './upgrades'
 import { BCOL, SHAPE_R, SHAPE_ROT, NCOL, glow, type Sprite } from './sprites'
 import type { Beam, Boss, Bullet, Drop, Enemy, EnemyDef, Item, Particle, Shot } from './types'
@@ -16,7 +20,8 @@ import { H, TAU, W, angDiff, clamp, rand } from './util'
 
 export type Mode = 'title' | 'intro' | 'play' | 'warning' | 'boss' | 'bossdeath' | 'clear' | 'upgrade' | 'warp' | 'dead' | 'over'
 
-export interface Input {
+/** Controles de un jugador en un frame. */
+export interface Pad {
   /** Dirección por teclado (-1..1). */
   mx: number
   my: number
@@ -27,19 +32,38 @@ export interface Input {
   follow: boolean
   fx: number
   fy: number
+  /** Modo concentrado (mantenido). */
   focus: boolean
+  /** Bomba pedida en este frame. */
   bomb: boolean
-  confirm: boolean
-  back: boolean
+  /** Pulsaciones de menú en este frame. */
   left: boolean
   right: boolean
   up: boolean
   down: boolean
+  confirm: boolean
+}
+
+export function emptyPad(): Pad {
+  return { mx: 0, my: 0, dx: 0, dy: 0, follow: false, fx: 0, fy: 0, focus: false, bomb: false, left: false, right: false, up: false, down: false, confirm: false }
+}
+
+export interface Input {
+  /** Controles de J1 (0) y J2 (1; solo en cooperativo). */
+  pads: [Pad, Pad]
+  /** Alguna acción de menú (para avanzar en resúmenes). */
+  confirm: boolean
+  back: boolean
   /** Toques/clics en coordenadas lógicas (menús). */
   taps: { x: number; y: number }[]
 }
 
 export interface Player {
+  /** 0 = J1, 1 = J2. */
+  idx: number
+  shipId: number
+  /** Nivel de arma de esta nave. */
+  power: number
   x: number
   y: number
   vx: number
@@ -47,6 +71,8 @@ export interface Player {
   alive: boolean
   inv: number
   respawnT: number
+  /** Sin vidas para revivir (solo cooperativo): fuera del resto del run. */
+  out: boolean
   focus: boolean
   fireT: number
   missileT: number
@@ -54,12 +80,22 @@ export interface Player {
   rearT: number
   laser: boolean
   laserTop: number
+  /** Golpea un enemigo con el láser en este frame. */
+  hitting: boolean
   droneAng: number
   shield: number
   trailX: Float32Array
   trailY: Float32Array
   trailI: number
   entering: number
+}
+
+/** Dron de apoyo. `owner` es quien lo eligió; `host`, quien lo sostiene ahora. */
+export interface Drone {
+  x: number
+  y: number
+  owner: number
+  host: number
 }
 
 export interface Diff {
@@ -88,8 +124,11 @@ export interface RunResult {
   sector: string
   kills: number
   graze: number
+  /** Nombre de la nave, o "ARCO + TITAN" en cooperativo. */
   ship: string
   maxChain: number
+  /** Partida de 2 jugadores: no se guarda como récord ni va al ranking. */
+  coop: boolean
 }
 
 const MAX_BULLETS = 1600
@@ -101,6 +140,11 @@ const MEDAL_VALUES = [100, 200, 300, 500, 800, 1000, 2000, 3000, 5000, 8000, 100
 const EXTENDS = [1_000_000, 3_000_000, 6_000_000, 10_000_000]
 const HIT_R = 2.2
 
+/** Cooperativo: vidas compartidas, revivir a los 3 s, enemigos y jefes +40% de vida. */
+export const COOP_LIVES = 4
+const COOP_RESPAWN = 3
+const COOP_HP = 1.4
+
 function newBullet(): Bullet {
   return { x: 0, y: 0, vx: 0, vy: 0, r: 2, spr: 0, rot: false, acc: 0, turn: 0, minV: 0, maxV: 0, life: 0, delay: 0, grazed: false, split: 0, splitN: 0, splitSpr: 0, splitV: 0 }
 }
@@ -109,6 +153,35 @@ function newShot(): Shot {
 }
 function newPart(): Particle {
   return { x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, size: 1, kind: 0, color: '#fff', spr: null, drag: 0, grow: 0, rot: 0 }
+}
+function newPlayer(idx: number): Player {
+  return {
+    idx,
+    shipId: idx,
+    power: 1,
+    x: W / 2,
+    y: H - 70,
+    vx: 0,
+    bank: 0,
+    alive: idx === 0,
+    inv: 0,
+    respawnT: 0,
+    out: false,
+    focus: false,
+    fireT: 0,
+    missileT: 0,
+    droneT: 0,
+    rearT: 0,
+    laser: false,
+    laserTop: 0,
+    hitting: false,
+    droneAng: 0,
+    shield: 0,
+    trailX: new Float32Array(14),
+    trailY: new Float32Array(14),
+    trailI: 0,
+    entering: 0,
+  }
 }
 const NULL_DEF: EnemyDef = {
   id: 'none',
@@ -144,8 +217,14 @@ export class Game {
   paused = false
   time = 0
 
-  shipId = 0
+  /** Partida o pantalla de título en modo de 2 jugadores. */
+  coop = false
+  /** Modo elegido en el título: 1 o 2 jugadores. */
+  titleMode: 1 | 2 = 1
+  /** Modo táctil del título en 2 jugadores: qué jugador elige con el siguiente toque. */
+  titlePick = 0
   titleSel = 0
+  titleSel2 = 1
   sector = 0
   loop = 0
   diff: Diff = makeDiff(0, 0)
@@ -153,10 +232,11 @@ export class Game {
   score = 0
   scoreShown = 0
   hi = 0
+  /** Vidas del equipo. */
   lives = 3
+  /** Bombas del equipo. */
   bombs = 3
   bombMax = 3
-  power = 1
   powerCap = 4
   chain = 0
   chainT = 0
@@ -174,32 +254,17 @@ export class Game {
   sectorGraze = 0
   sectorsCleared = 0
   bossTime = 0
+  /** Mejoras del equipo (el efecto es compartido). */
   build: Record<string, number> = {}
   buildOrder: UpId[] = []
 
-  player: Player = {
-    x: W / 2,
-    y: H - 70,
-    vx: 0,
-    bank: 0,
-    alive: true,
-    inv: 0,
-    respawnT: 0,
-    focus: false,
-    fireT: 0,
-    missileT: 0,
-    droneT: 0,
-    rearT: 0,
-    laser: false,
-    laserTop: 0,
-    droneAng: 0,
-    shield: 0,
-    trailX: new Float32Array(14),
-    trailY: new Float32Array(14),
-    trailI: 0,
-    entering: 0,
-  }
-  drones: { x: number; y: number }[] = []
+  /** J1. */
+  player: Player = newPlayer(0)
+  /** J2 (solo en cooperativo). */
+  p2: Player = newPlayer(1)
+  private solo: Player[] = []
+  private pair: Player[] = []
+  drones: Drone[] = []
 
   bullets: Bullet[] = Array.from({ length: MAX_BULLETS }, newBullet)
   nb = 0
@@ -229,6 +294,8 @@ export class Game {
 
   choices: UpgradeDef[] = []
   sel = 0
+  /** Jugador que elige en la pantalla de mejoras (0 = J1, 1 = J2). */
+  chooser = 0
   menuLock = 0
   tally: { label: string; value: number }[] = []
   bannerT = 0
@@ -241,7 +308,57 @@ export class Game {
   onModeChange: ((m: Mode) => void) | null = null
 
   constructor() {
+    this.solo = [this.player]
+    this.pair = [this.player, this.p2]
     this.bg.setSector(0, 0)
+  }
+
+  // ===================== Naves =====================
+
+  /** Naves en juego: una, o dos en cooperativo. */
+  get ships(): Player[] {
+    return this.coop ? this.pair : this.solo
+  }
+
+  /** Nave de J1 (compatibilidad con el código de un jugador). */
+  get shipId(): number {
+    return this.player.shipId
+  }
+
+  firstAlive(): Player | null {
+    for (const s of this.ships) if (s.alive) return s
+    return null
+  }
+
+  /** Nave viva más cercana a un punto, o null si no hay ninguna. */
+  nearestAlive(x: number, y: number): Player | null {
+    let best: Player | null = null
+    let bd = Infinity
+    for (const s of this.ships) {
+      if (!s.alive) continue
+      const d = (s.x - x) * (s.x - x) + (s.y - y) * (s.y - y)
+      if (d < bd) {
+        bd = d
+        best = s
+      }
+    }
+    return best
+  }
+
+  /** Nave más cercana a un punto (J1 si no hay ninguna viva). */
+  nearest(x: number, y: number): Player {
+    return this.nearestAlive(x, y) ?? this.player
+  }
+
+  /** Índice de la nave que recibe un toque en (x, y), para el control táctil. */
+  pickShip(x: number, y: number): number {
+    if (!this.coop) return 0
+    return this.nearestAlive(x, y)?.idx ?? 0
+  }
+
+  /** Multiplicador de vida de enemigos y jefes. */
+  hpK(): number {
+    return this.coop ? COOP_HP : 1
   }
 
   // ===================== Utilidades =====================
@@ -266,7 +383,8 @@ export class Game {
   }
 
   aim(x: number, y: number): number {
-    return Math.atan2(this.player.y - y, this.player.x - x)
+    const p = this.nearest(x, y)
+    return Math.atan2(p.y - y, p.x - x)
   }
 
   later(t: number, fn: () => void) {
@@ -277,11 +395,21 @@ export class Game {
 
   toTitle() {
     this.clearWorld()
-    this.player.x = W / 2
-    this.player.y = 300
-    this.player.alive = true
-    this.shipId = this.titleSel
-    this.power = 2
+    this.coop = this.titleMode === 2
+    const p = this.player
+    p.shipId = this.titleSel
+    p.x = W / 2 - (this.coop ? 62 : 0)
+    p.y = 300
+    p.alive = true
+    p.out = false
+    p.power = 2
+    const q = this.p2
+    q.shipId = this.titleSel2
+    q.x = W / 2 + 62
+    q.y = 300
+    q.alive = this.coop
+    q.out = false
+    q.power = 2
     this.build = {}
     this.drones = []
     this.bg.setSector(0, 0)
@@ -306,17 +434,38 @@ export class Game {
     laserHum(false)
   }
 
+  private initShip(p: Player, shipId: number, x: number, alive: boolean) {
+    p.shipId = shipId
+    p.power = 1
+    p.alive = alive
+    p.out = false
+    p.x = x
+    p.y = H + 30
+    p.inv = 0
+    p.shield = 0
+    p.fireT = p.missileT = p.droneT = p.rearT = 0
+    p.laser = false
+    p.hitting = false
+    p.focus = false
+    p.respawnT = 0
+    p.entering = 1.2
+    for (let i = 0; i < p.trailX.length; i++) {
+      p.trailX[i] = p.x
+      p.trailY[i] = p.y
+    }
+  }
+
   startRun(ship: number) {
     this.clearWorld()
-    this.shipId = ship
+    this.coop = this.titleMode === 2
     this.titleSel = ship
     const s = SHIPS[ship]
+    const s2 = SHIPS[this.titleSel2]
     this.score = 0
     this.scoreShown = 0
-    this.lives = 3
-    this.bombMax = s.bombs
-    this.bombs = s.bombs
-    this.power = 1
+    this.lives = this.coop ? COOP_LIVES : 3
+    this.bombMax = this.coop ? Math.max(s.bombs, s2.bombs) + 1 : s.bombs
+    this.bombs = this.bombMax
     this.powerCap = 4
     this.chain = 0
     this.chainT = 0
@@ -333,18 +482,9 @@ export class Game {
     this.sector = 0
     this.loop = 0
     this.sectorsCleared = 0
-    const p = this.player
-    p.x = W / 2
-    p.y = H + 30
-    p.alive = true
-    p.inv = 0
-    p.shield = 0
-    p.fireT = p.missileT = p.droneT = p.rearT = 0
-    p.entering = 1.2
-    for (let i = 0; i < p.trailX.length; i++) {
-      p.trailX[i] = p.x
-      p.trailY[i] = p.y
-    }
+    this.chooser = 0
+    this.initShip(this.player, ship, this.coop ? W / 2 - 40 : W / 2, true)
+    this.initShip(this.p2, this.titleSel2, W / 2 + 40, this.coop)
     fx.launch()
     this.startSector()
   }
@@ -358,7 +498,7 @@ export class Game {
     this.sectorHit = false
     this.sectorKills = 0
     this.sectorGraze = 0
-    this.player.shield = this.up('shield')
+    for (const s of this.ships) s.shield = this.up('shield')
     const def = SECTORS[this.sector]
     this.showBanner(`SECTOR ${this.sectorLabel}`, def.name, 3)
     this.setMode('intro')
@@ -388,7 +528,7 @@ export class Game {
     e.vx = 0
     e.vy = 0
     e.t = 0
-    e.maxHp = e.hp = def.hp * this.diff.hp
+    e.maxHp = e.hp = def.hp * this.diff.hp * this.hpK()
     e.r = def.r
     e.flash = 0
     e.score = def.score
@@ -616,9 +756,9 @@ export class Game {
     }
   }
 
-  /** Cancela todas las balas enemigas convirtiéndolas en puntos. */
-  cancelBullets(points = true, radius = 0) {
-    const p = this.player
+  /** Cancela las balas enemigas (en un radio alrededor de `from`, si se indica) convirtiéndolas en puntos. */
+  cancelBullets(points = true, radius = 0, from: Player = this.player) {
+    const p = from
     let n = 0
     for (let i = this.nb - 1; i >= 0; i--) {
       const b = this.bullets[i]
@@ -679,7 +819,7 @@ export class Game {
     this.addScore(pts)
     if (d.size >= 1) this.juice.text(e.x, e.y - 6, `${Math.round(pts)}`, d.size >= 2 ? '#fde047' : '#ffffff', d.size >= 2 ? 11 : 8, 0.8)
     this.dropItems(e.drop, e.x, e.y)
-    if (this.diff.revenge && d.size === 0 && this.player.alive) {
+    if (this.diff.revenge && d.size === 0 && this.firstAlive()) {
       const a = this.aim(e.x, e.y)
       this.fan(e.x, e.y, 3, 0.3, 90, a, 0 * NCOL + 7)
     }
@@ -687,13 +827,13 @@ export class Game {
     if (e === this.midboss) this.midboss = null
   }
 
-  hitPlayer() {
-    const p = this.player
+  /** Impacto contra una nave: escudo, bomba de emergencia o muerte. */
+  hitPlayer(p: Player) {
     if (!p.alive || p.inv > 0 || this.bombT > 0 || this.mode === 'title') return
     if (p.shield > 0) {
       p.shield--
       p.inv = 1.6
-      this.cancelBullets(false, 90)
+      this.cancelBullets(false, 90, p)
       this.shock(p.x, p.y, '#60a5fa', 10, 260, 0.5, 4)
       this.juice.flash('#60a5fa', 0.3)
       this.juice.shake(0.3)
@@ -703,16 +843,17 @@ export class Game {
     }
     if (this.up('autobomb') && this.bombs > 0) {
       this.juice.text(p.x, p.y - 24, 'EMERGENCIA', '#fca5a5', 9, 0.9)
-      this.useBomb()
+      this.useBomb(p)
       return
     }
     // muerte
     this.sectorHit = true
     p.alive = false
-    p.respawnT = 1.4
+    p.respawnT = this.coop ? COOP_RESPAWN : 1.4
     p.laser = false
-    laserHum(false)
-    const col = SHIPS[this.shipId].color
+    p.hitting = false
+    if (!this.coop) laserHum(false)
+    const col = shipColorOf(this, p)
     this.explode(p.x, p.y, 2, col)
     this.debris(p.x, p.y, '#ffffff', 10, 260)
     this.shock(p.x, p.y, col, 4, 420, 0.8, 5)
@@ -725,34 +866,59 @@ export class Game {
     this.mult = 1
     this.cancelBullets(false)
     for (const b of this.beams) b.dur = Math.min(b.dur, b.t)
-    if (this.power > 1) {
-      this.power--
+    if (p.power > 1) {
+      p.power--
       this.item('P', p.x, p.y)
     }
+    // En cooperativo las vidas se gastan al revivir (ver tryRevive).
+    if (this.coop) return
     this.lives--
     if (this.lives < 0) {
       this.lives = 0
-      this.slowT = 2.2
-      this.slowK = 0.35
-      this.setMode('dead')
-      duckMusic(0)
-      fx.gameOver()
+      this.endRun()
     }
   }
 
-  useBomb() {
-    const p = this.player
+  /** Fin de la partida: se lleva a la pantalla de resultados. */
+  private endRun() {
+    this.slowT = 2.2
+    this.slowK = 0.35
+    this.setMode('dead')
+    duckMusic(0)
+    fx.gameOver()
+  }
+
+  /** Revive una nave caída. En cooperativo cuesta una vida del equipo; sin vidas queda fuera. */
+  private tryRevive(p: Player) {
+    if (this.coop) {
+      if (this.lives <= 0) {
+        p.out = true
+        if (this.ships.every((s) => !s.alive && s.out)) this.endRun()
+        return
+      }
+      this.lives--
+    }
+    p.alive = true
+    p.x = this.coop ? W / 2 + (p.idx ? 40 : -40) : W / 2
+    p.y = H + 24
+    p.entering = 0.9
+    p.inv = 3.2
+    if (!this.coop) this.bombs = Math.max(this.bombs, this.bombMax)
+  }
+
+  /** Bomba desde una nave (las bombas son del equipo). */
+  useBomb(p: Player = this.player) {
     if (this.bombs <= 0 || this.bombT > 0 || !p.alive) return
     this.bombs--
     const nova = this.up('nova') > 0
-    this.bombDur = (this.shipId === 1 ? 2.5 : 2.0) * (nova ? 1.6 : 1)
+    this.bombDur = (p.shipId === 1 ? 2.5 : 2.0) * (nova ? 1.6 : 1)
     this.bombT = this.bombDur
     this.bombX = p.x
     this.bombY = p.y
     p.inv = Math.max(p.inv, this.bombDur + 0.4)
     this.cancelBullets(true)
     for (const b of this.beams) b.dur = Math.min(b.dur, b.t)
-    const col = SHIPS[this.shipId].color
+    const col = shipColorOf(this, p)
     this.shock(p.x, p.y, '#ffffff', 10, 700, 0.6, 6)
     this.shock(p.x, p.y, col, 10, 500, 0.9, 8)
     this.shock(p.x, p.y, '#f0abfc', 10, 320, 1.1, 5)
@@ -766,8 +932,8 @@ export class Game {
     return sectorFor(this.sector)
   }
 
-  sfxShot() {
-    fx.shot(this.shipId)
+  sfxShot(shipId: number) {
+    fx.shot(shipId)
   }
   sfxMissile() {
     fx.missile()
@@ -775,18 +941,20 @@ export class Game {
 
   // ===================== Mejoras =====================
 
-  applyUpgrade(u: UpgradeDef) {
+  applyUpgrade(u: UpgradeDef, who = 0) {
     const id = u.id
     this.build[id] = (this.build[id] ?? 0) + 1
     if (!this.buildOrder.includes(id)) this.buildOrder.push(id)
     switch (id) {
       case 'core':
         this.powerCap = Math.min(8, this.powerCap + 1)
-        this.power = Math.min(this.powerCap, this.power + 1)
+        for (const s of this.ships) s.power = Math.min(this.powerCap, s.power + 1)
         break
-      case 'drone':
-        this.drones.push({ x: this.player.x, y: this.player.y + 20 })
+      case 'drone': {
+        const s = this.ships[who] ?? this.player
+        this.drones.push({ x: s.x, y: s.y + 20, owner: who, host: who })
         break
+      }
       case 'bombs':
         this.bombMax++
         this.bombs = this.bombMax
@@ -841,7 +1009,8 @@ export class Game {
       }
     }
 
-    this.updatePlayer(dt, inp)
+    this.updatePlayers(dt, inp)
+    updateDrones(this, dt)
     this.updateFlow(dt, inp)
     this.updateEnemies(dt)
     if (this.boss) bossUpdate(this, this.boss, dt)
@@ -866,58 +1035,101 @@ export class Game {
     if (this.bombT > 0) this.updateBomb(dt)
   }
 
+  /** Pantalla de título: modo (1 o 2 jugadores), naves y vista previa. */
   updateTitle(dt: number, inp: Input) {
-    const p = this.player
-    if (inp.left) {
+    const [a, b] = inp.pads
+    if (a.up || a.down || b.up || b.down) {
+      this.titleMode = this.titleMode === 1 ? 2 : 1
+      fx.menu()
+    }
+    this.coop = this.titleMode === 2
+    this.p2.alive = this.coop
+    if (a.left) {
       this.titleSel = (this.titleSel + 2) % 3
       fx.menu()
     }
-    if (inp.right) {
+    if (a.right) {
       this.titleSel = (this.titleSel + 1) % 3
       fx.menu()
     }
-    if (this.shipId !== this.titleSel) {
-      this.shipId = this.titleSel
+    if (this.coop) {
+      if (b.left) {
+        this.titleSel2 = (this.titleSel2 + 2) % 3
+        fx.menu()
+      }
+      if (b.right) {
+        this.titleSel2 = (this.titleSel2 + 1) % 3
+        fx.menu()
+      }
+    }
+    const p = this.player
+    const q = this.p2
+    if (p.shipId !== this.titleSel) {
+      p.shipId = this.titleSel
       this.ns = 0
     }
-    p.x = W / 2 + Math.sin(this.time * 0.9) * 46
-    p.y = 262 + Math.sin(this.time * 1.7) * 6
-    p.bank = Math.cos(this.time * 0.9) * 0.6
-    p.focus = Math.sin(this.time * 0.5) > 0.55
-    this.power = 3 + Math.floor((this.time * 0.25) % 3)
+    if (q.shipId !== this.titleSel2) {
+      q.shipId = this.titleSel2
+      this.ns = 0
+    }
+    const t = this.time
+    const sway = this.coop ? 30 : 46
+    p.x = (this.coop ? W / 2 - 62 : W / 2) + Math.sin(t * 0.9) * sway
+    p.y = 262 + Math.sin(t * 1.7) * 6
+    p.bank = Math.cos(t * 0.9) * 0.6
+    p.focus = Math.sin(t * 0.5) > 0.55
+    p.power = 3 + Math.floor((t * 0.25) % 3)
+    if (this.coop) {
+      q.x = W / 2 + 62 + Math.sin(t * 0.9 + 2) * sway
+      q.y = 262 + Math.sin(t * 1.7 + 1) * 6
+      q.bank = Math.cos(t * 0.9 + 2) * 0.6
+      q.focus = Math.sin(t * 0.5 + 1.5) > 0.55
+      q.power = 3 + Math.floor((t * 0.25 + 1) % 3)
+    }
     if (this.drones.length !== 0) this.drones = []
-    fireWeapons(this, dt)
-    p.laser = this.shipId === 1 && p.focus
-    p.laserTop = 132
+    for (const s of this.ships) {
+      fireWeapons(this, s, dt)
+      s.laser = s.shipId === 1 && s.focus
+      s.laserTop = 150
+    }
     // los disparos del menú no deben pasar de la zona de vista previa
     for (let i = this.ns - 1; i >= 0; i--) {
       const s = this.shots[i]
-      if (s.y < 132 || s.x < 30 || s.x > W - 30) this.removeShot(i)
+      if (s.y < 152 || s.x < 30 || s.x > W - 30) this.removeShot(i)
       else if (s.kind === 1) {
         s.vy -= 600 * dt
       }
     }
   }
 
-  updatePlayer(dt: number, inp: Input) {
-    const p = this.player
-    const s = SHIPS[this.shipId]
+  /** Movimiento, disparo y bombas de las naves vivas. */
+  private updatePlayers(dt: number, inp: Input) {
+    const canAct = this.mode !== 'clear' && this.mode !== 'warp'
+    if (canAct) {
+      if (inp.pads[0].bomb) {
+        const o = this.firstAlive()
+        if (o) this.useBomb(o)
+      }
+      if (this.coop && inp.pads[1].bomb && this.p2.alive) this.useBomb(this.p2)
+    }
+    let laserPower = 0
+    for (const p of this.ships) {
+      this.updatePlayer(p, dt, inp.pads[p.idx], canAct)
+      if (p.alive && p.laser && p.power > laserPower) laserPower = p.power
+    }
+    laserHum(laserPower > 0, Math.max(1, laserPower))
+  }
+
+  private updatePlayer(p: Player, dt: number, pad: Pad, canAct: boolean) {
+    const s = SHIPS[p.shipId]
     if (p.inv > 0) p.inv -= dt
     if (!p.alive) {
-      if (this.mode === 'dead' || this.mode === 'over') return
+      if (this.mode === 'dead' || this.mode === 'over' || p.out) return
       p.respawnT -= dt
-      if (p.respawnT <= 0) {
-        p.alive = true
-        p.x = W / 2
-        p.y = H + 24
-        p.entering = 0.9
-        p.inv = 3.2
-        this.bombs = Math.max(this.bombs, this.bombMax)
-      }
+      if (p.respawnT <= 0) this.tryRevive(p)
       return
     }
-    const canAct = this.mode !== 'clear' && this.mode !== 'warp'
-    p.focus = inp.focus && canAct
+    p.focus = pad.focus && canAct
     const spd = (p.focus ? s.focusSpeed : s.speed) * (1 + this.up('speed') * 0.14)
     const ox = p.x
     if (p.entering > 0) {
@@ -927,8 +1139,8 @@ export class Game {
       p.x += (W / 2 - p.x) * Math.min(1, dt * 2.5)
       p.y += (H - 110 - p.y) * Math.min(1, dt * 2.5)
     } else {
-      let mx = inp.mx
-      let my = inp.my
+      let mx = pad.mx
+      let my = pad.my
       const len = Math.hypot(mx, my)
       if (len > 1) {
         mx /= len
@@ -936,15 +1148,15 @@ export class Game {
       }
       p.x += mx * spd * dt
       p.y += my * spd * dt
-      if (inp.dx || inp.dy) {
+      if (pad.dx || pad.dy) {
         // táctil relativo: más fino en modo concentrado
         const k = p.focus ? 0.75 : 1.25
-        p.x += inp.dx * k
-        p.y += inp.dy * k
+        p.x += pad.dx * k
+        p.y += pad.dy * k
       }
-      if (inp.follow) {
-        const dx = inp.fx - p.x
-        const dy = inp.fy - p.y
+      if (pad.follow) {
+        const dx = pad.fx - p.x
+        const dy = pad.fy - p.y
         const dl = Math.hypot(dx, dy)
         const max = spd * 1.9 * dt
         if (dl > 0.5) {
@@ -962,12 +1174,9 @@ export class Game {
     p.trailX[p.trailI] = p.x
     p.trailY[p.trailI] = p.y
 
-    if (inp.bomb && canAct) this.useBomb()
-    updateDrones(this, dt)
     const firing = canAct && this.mode !== 'dead' && p.entering <= 0
-    if (firing) fireWeapons(this, dt)
+    if (firing) fireWeapons(this, p, dt)
     else p.laser = false
-    laserHum(p.laser, this.power)
   }
 
   updateFlow(dt: number, inp: Input) {
@@ -997,13 +1206,15 @@ export class Game {
     if (m === 'dead') {
       if (this.modeT > 2.4) {
         this.setMode('over')
+        const names = this.coop ? `${SHIPS[this.player.shipId].name} + ${SHIPS[this.p2.shipId].name}` : SHIPS[this.player.shipId].name
         this.onOver?.({
           score: this.score,
           sector: this.sectorLabel,
           kills: this.kills,
           graze: this.grazeCount,
-          ship: SHIPS[this.shipId].name,
+          ship: names,
           maxChain: this.maxChain,
+          coop: this.coop,
         })
       }
     }
@@ -1055,21 +1266,21 @@ export class Game {
         e.alive = false
         if (e === this.midboss) this.midboss = null
       }
-      // choque con la nave
-      const p = this.player
-      if (p.alive && p.inv <= 0 && e.seen && e.armor > 0) {
-        const dx = e.x - p.x
-        const dy = e.y - p.y
-        const rr = e.r * 0.7 + HIT_R
-        if (dx * dx + dy * dy < rr * rr) this.hitPlayer()
+      // choque con las naves
+      for (const p of this.ships) {
+        if (p.alive && p.inv <= 0 && e.seen && e.armor > 0) {
+          const dx = e.x - p.x
+          const dy = e.y - p.y
+          const rr = e.r * 0.7 + HIT_R
+          if (dx * dx + dy * dy < rr * rr) this.hitPlayer(p)
+        }
       }
     }
   }
 
   updateBullets(dt: number) {
-    const p = this.player
     const grazeR = 15 + this.up('graze') * 9
-    const pa = p.alive && p.entering <= 0 && this.mode !== 'dead'
+    const ships = this.ships
     for (let i = this.nb - 1; i >= 0; i--) {
       const b = this.bullets[i]
       if (b.delay > 0) {
@@ -1113,7 +1324,8 @@ export class Game {
         this.removeBullet(i)
         continue
       }
-      if (pa) {
+      for (const p of ships) {
+        if (!p.alive || p.entering > 0 || this.mode === 'dead') continue
         const dx = b.x - p.x
         const dy = b.y - p.y
         const d2 = dx * dx + dy * dy
@@ -1121,14 +1333,14 @@ export class Game {
         if (d2 < hr * hr) {
           if (p.inv <= 0 && this.bombT <= 0) {
             // el impacto puede cancelar balas (escudo/bomba): no seguir iterando
-            this.hitPlayer()
+            this.hitPlayer(p)
             return
           }
         } else if (!b.grazed) {
           const gr = b.r + grazeR
           if (d2 < gr * gr) {
             b.grazed = true
-            this.graze(b)
+            this.graze(b, p)
           }
         }
       }
@@ -1149,14 +1361,13 @@ export class Game {
     this.ns--
   }
 
-  graze(b: Bullet) {
+  graze(b: Bullet, p: Player) {
     this.grazeCount++
     this.sectorGraze++
     this.grazeStreak++
     this.grazeStreakT = 0.9
     this.addScore(30 + this.diff.lvl * 15)
     if (this.chainT > 0) this.chainT = Math.min(this.chainT + 0.12, 1.7 * (1 + this.up('chain') * 0.4))
-    const p = this.player
     const a = Math.atan2(b.y - p.y, b.x - p.x)
     this.sparks(p.x + Math.cos(a) * 6, p.y + Math.sin(a) * 6, '#e0f2fe', 2, 120, 0.25, a, 1)
     fx.graze(this.grazeStreak)
@@ -1223,7 +1434,7 @@ export class Game {
         const dy = e.y - s.y
         const rr = e.r + s.r
         if (dx * dx + dy * dy < rr * rr) {
-          const weak = e.maxHp < 14 * this.diff.hp
+          const weak = e.maxHp < 14 * this.diff.hp * this.hpK()
           this.damage(e, s.dmg)
           if (e.armor > 0) {
             if ((i & 3) === 0) this.sparks(s.x, s.y + 2, s.kind === 1 ? '#fdba74' : '#ffffff', 1, 120, 0.15, Math.PI / 2, 1.8)
@@ -1242,36 +1453,38 @@ export class Game {
   }
 
   updateLaser(dt: number) {
-    const p = this.player
     this.laserHitting = false
-    if (!p.laser || !p.alive) return
-    const ls = laserStats(this.power)
-    const half = ls.w / 2
-    let best: Enemy | null = null
-    let by = -20
-    for (const e of this.enemies) {
-      if (!e.alive || e.y > p.y || e.y < -e.r * 0.4) continue
-      if (Math.abs(e.x - p.x) > e.r + half) continue
-      const hitY = e.y + e.r * 0.6
-      if (hitY > by) {
-        by = hitY
-        best = e
+    for (const p of this.ships) {
+      p.hitting = false
+      if (!p.laser || !p.alive) continue
+      const ls = laserStats(p.power)
+      const half = ls.w / 2
+      let best: Enemy | null = null
+      let by = -20
+      for (const e of this.enemies) {
+        if (!e.alive || e.y > p.y || e.y < -e.r * 0.4) continue
+        if (Math.abs(e.x - p.x) > e.r + half) continue
+        const hitY = e.y + e.r * 0.6
+        if (hitY > by) {
+          by = hitY
+          best = e
+        }
       }
-    }
-    p.laserTop = by
-    this.laserHitY = by
-    if (best) {
-      this.laserHitting = true
-      let m = 1 + this.up('pierce') * 0.15
-      if (this.up('fury') && this.mult >= 8) m *= 1.3
-      this.damage(best, ls.dps * dt * m)
-      if (Math.random() < 0.5) this.sparks(p.x + rand(-half, half), by, '#fbcfe8', 1, 200, 0.25, -Math.PI / 2, 2.2)
-      if (Math.random() < 0.15) fx.hit()
+      p.laserTop = by
+      this.laserHitY = by
+      if (best) {
+        p.hitting = true
+        this.laserHitting = true
+        let m = 1 + this.up('pierce') * 0.15
+        if (this.up('fury') && this.mult >= 8) m *= 1.3
+        this.damage(best, ls.dps * dt * m)
+        if (Math.random() < 0.5) this.sparks(p.x + rand(-half, half), by, '#fbcfe8', 1, 200, 0.25, -Math.PI / 2, 2.2)
+        if (Math.random() < 0.15) fx.hit()
+      }
     }
   }
 
   updateBeams(dt: number) {
-    const p = this.player
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const b = this.beams[i]
       b.t += dt
@@ -1288,28 +1501,31 @@ export class Game {
         this.beams.splice(i, 1)
         continue
       }
-      if (b.t > b.warn + 0.06 && p.alive && p.inv <= 0) {
-        const dx = p.x - b.x
-        const dy = p.y - b.y
-        const along = dx * Math.cos(b.ang) + dy * Math.sin(b.ang)
-        const perp = Math.abs(-dx * Math.sin(b.ang) + dy * Math.cos(b.ang))
-        if (along > 0 && perp < b.w * 0.38) this.hitPlayer()
+      if (b.t > b.warn + 0.06) {
+        for (const p of this.ships) {
+          if (!p.alive || p.inv > 0) continue
+          const dx = p.x - b.x
+          const dy = p.y - b.y
+          const along = dx * Math.cos(b.ang) + dy * Math.sin(b.ang)
+          const perp = Math.abs(-dx * Math.sin(b.ang) + dy * Math.cos(b.ang))
+          if (along > 0 && perp < b.w * 0.38) this.hitPlayer(p)
+        }
       }
     }
   }
 
   updateItems(dt: number) {
-    const p = this.player
     const mag = this.up('magnet')
     const pullR = mag >= 2 ? 9999 : mag === 1 ? 130 : 40
     for (const it of this.items) {
       if (!it.alive) continue
       it.t += dt
-      const dx = p.x - it.x
-      const dy = p.y - it.y
+      const t = this.nearestAlive(it.x, it.y)
+      const dx = t ? t.x - it.x : 0
+      const dy = t ? t.y - it.y : 0
       const d = Math.hypot(dx, dy)
-      if (p.alive && (d < pullR || p.y < 130 || this.mode === 'bossdeath' || this.mode === 'clear')) it.pull = true
-      if (it.pull && p.alive) {
+      if (t && (d < pullR || t.y < 130 || this.mode === 'bossdeath' || this.mode === 'clear')) it.pull = true
+      if (it.pull && t) {
         const v = 420 + it.t * 60
         it.x += (dx / (d || 1)) * v * dt
         it.y += (dy / (d || 1)) * v * dt
@@ -1325,9 +1541,16 @@ export class Game {
         it.y += it.vy * dt
         it.x = clamp(it.x, 8, W - 8)
       }
-      if (p.alive && d < 16) {
+      let taken: Player | null = null
+      for (const p of this.ships) {
+        if (p.alive && Math.hypot(p.x - it.x, p.y - it.y) < 16) {
+          taken = p
+          break
+        }
+      }
+      if (taken) {
         it.alive = false
-        this.collect(it)
+        this.collect(it, taken)
       } else if (it.y > H + 16) {
         it.alive = false
         if (it.kind === 'M' && this.medalIdx > 0) {
@@ -1339,13 +1562,13 @@ export class Game {
     }
   }
 
-  collect(it: Item) {
-    const p = this.player
+  /** Recoge un objeto con la nave `p`. */
+  collect(it: Item, p: Player) {
     if (it.kind === 'P') {
-      if (this.power < this.powerCap) {
-        this.power++
+      if (p.power < this.powerCap) {
+        p.power++
         fx.power()
-        this.juice.text(p.x, p.y - 26, this.power === this.powerCap ? 'NIVEL MAX' : 'NIVEL UP', '#67e8f9', 9, 0.9)
+        this.juice.text(p.x, p.y - 26, p.power === this.powerCap ? 'NIVEL MAX' : 'NIVEL UP', '#67e8f9', 9, 0.9)
         this.shock(p.x, p.y, '#67e8f9', 8, 140, 0.4, 2)
       } else {
         const v = 10000 * (1 + this.sector)
@@ -1412,7 +1635,7 @@ export class Game {
     }
     const t = this.bombDur - this.bombT
     if (Math.floor(t / 0.18) !== Math.floor((t - dt) / 0.18)) {
-      const col = SHIPS[this.shipId].color
+      const col = shipColorOf(this, this.player)
       this.puff(rand(30, W - 30), rand(40, H - 60), col, 70, 0.6, 0, 0, 0.6)
       this.shock(this.bombX, this.bombY, col, 20, 380, 0.6, 3)
     }
@@ -1438,14 +1661,15 @@ export class Game {
 
   startTally() {
     this.setMode('clear')
-    this.player.inv = Math.max(this.player.inv, 1)
+    for (const s of this.ships) s.inv = Math.max(s.inv, 1)
     for (const it of this.items) if (it.alive) it.pull = true
     fx.clear()
   }
 
   openUpgrades() {
     this.sectorsCleared++
-    this.choices = rollUpgrades(this.sector + this.loop * 6, this.build, this.power, this.powerCap)
+    const topPower = Math.max(...this.ships.map((s) => s.power))
+    this.choices = rollUpgrades(this.sector + this.loop * 6, this.build, topPower, this.powerCap)
     if (this.choices.length === 0) {
       // todo al máximo: bonificación y directo al siguiente sector
       this.addScore(500000)
@@ -1454,6 +1678,7 @@ export class Game {
       return
     }
     this.sel = 0
+    this.chooser = 0
     this.menuLock = 0.6
     this.setMode('upgrade')
     laserHum(false)
@@ -1462,27 +1687,40 @@ export class Game {
 
   updateUpgradeMenu(inp: Input) {
     if (this.menuLock > 0) return
+    const pad = inp.pads[this.chooser]
     const n = this.choices.length
-    if (inp.up || inp.left) {
+    if (pad.up || pad.left) {
       this.sel = (this.sel + n - 1) % n
       fx.menu()
     }
-    if (inp.down || inp.right) {
+    if (pad.down || pad.right) {
       this.sel = (this.sel + 1) % n
       fx.menu()
     }
-    if (inp.confirm) this.chooseUpgrade(this.sel)
+    if (pad.confirm) this.chooseUpgrade(this.sel)
   }
 
+  /** El jugador `chooser` elige la mejora i. En cooperativo, J2 elige después entre las que quedan. */
   chooseUpgrade(i: number) {
     const u = this.choices[i]
     if (!u) return
-    this.applyUpgrade(u)
+    const who = this.chooser
+    this.applyUpgrade(u, who)
     fx.upgrade()
-    const p = this.player
+    const p = this.ships[who] ?? this.player
     this.shock(p.x, p.y, UP_BY_ID[u.id].color, 8, 260, 0.6, 3)
     this.juice.flash(UP_BY_ID[u.id].color, 0.25)
+    if (this.coop && who === 0) {
+      this.choices = this.choices.filter((_, k) => k !== i)
+      if (this.choices.length > 0) {
+        this.chooser = 1
+        this.sel = 0
+        this.menuLock = 0.6
+        return
+      }
+    }
     this.choices = []
+    this.chooser = 0
     this.nextSector()
   }
 

@@ -355,7 +355,7 @@ export const MANTIS: BossDef = {
       until: 0,
       update(g, b, dt) {
         if (every(g, b, 2, dt, 2.2)) {
-          b.tx = clamp(g.player.x, 70, W - 70)
+          b.tx = clamp(g.nearest(cx(b), cy(b)).x, 70, W - 70)
           b.ty = rand(90, 140)
         }
         glide(b, b.tx || W / 2, b.ty || 110, dt, 2.5)
@@ -456,7 +456,7 @@ export const LEVIATAN: BossDef = {
         }
         if (every(g, b, 1, dt, 2.3)) {
           // andanada horizontal con hueco
-          const gap = clamp(g.player.x + rand(-50, 50), 40, W - 40)
+          const gap = clamp(g.nearest(cx(b), cy(b)).x + rand(-50, 50), 40, W - 40)
           const n = g.n(16)
           for (let r = 0; r < 2; r++)
             for (let i = 0; i < n; i++) {
@@ -636,7 +636,7 @@ export const NEXO: BossDef = {
           for (const s of [-0.5, 0, 0.5]) g.bullet(cx(b), cy(b), a + s, 75, bs(BIG, VIOLET), { split: 1.0, splitN: g.n(12), splitSpr: bs(RICE, PINK), splitV: 100 })
         }
         if (every(g, b, 1, dt, 2.4)) {
-          const gap = clamp(g.player.x + rand(-60, 60), 40, W - 40)
+          const gap = clamp(g.nearest(cx(b), cy(b)).x + rand(-60, 60), 40, W - 40)
           const n = g.n(18)
           for (let i = 0; i < n; i++) {
             const x = (i + 0.5) * (W / n)
@@ -697,7 +697,7 @@ const coreDef: EnemyDef = { ...bossPiece, id: 'bosscore', size: 2 }
 
 
 export function spawnBoss(g: Game, def: BossDef, mid: boolean): Boss {
-  const hpMul = 1 + g.diff.lvl * 0.45
+  const hpMul = (1 + g.diff.lvl * 0.45) * g.hpK()
   const core = g.spawn(coreDef, W / 2, -120, { armor: 0 }) as Enemy
   core.maxHp = core.hp = def.hp * hpMul
   core.r = def.r
@@ -835,7 +835,7 @@ export function bossPartDestroyed(g: Game, e: Enemy) {
     g.slowK = 0.3
     g.chainT = Math.max(g.chainT, 4)
     g.setMode('bossdeath')
-    g.player.inv = Math.max(g.player.inv, 6)
+    for (const s of g.ships) s.inv = Math.max(s.inv, 6)
     fx.bigBoom()
     return
   }
