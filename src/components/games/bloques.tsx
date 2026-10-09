@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { TouchPad } from './touch-pad'
 import { GameOverOverlay, Hud, StartOverlay, useIsTouch } from './overlay'
 import { Juice } from './juice'
@@ -15,15 +16,29 @@ import { noise, sfx, tone } from './sfx'
 
 const ACCENT = '#a78bfa'
 const COLS = 10
-const ROWS = 22 // 20 visibles + 2 ocultas
 const HIDDEN = 2
 const CELL = 24
-const W = 360
-const H = 520
-const BX = 60 // origen X del tablero
+const W0 = 360
+const H0 = 520
 const BY = 24 // origen Y del tablero (fila visible 0)
+// Medidas lógicas: el tablero se centra a lo ancho y gana filas si sobra alto (ver layout).
+let W = W0
+let H = H0
+let ROWS = 22 // 20 visibles + 2 ocultas
 const BW = COLS * CELL
-const BH = (ROWS - HIDDEN) * CELL
+let BX = (W0 - BW) / 2 // origen X del tablero
+let BH = 20 * CELL
+
+/** Ajusta el tablero y los paneles laterales al área de la pantalla. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  BX = (W - BW) / 2
+  BH = Math.max(20, Math.floor((H - BY - 16) / CELL)) * CELL
+  ROWS = BH / CELL + HIDDEN
+  publishLogical(f)
+}
 
 const DAS = 0.15
 const ARR = 0.04
@@ -334,6 +349,7 @@ export default function Bloques() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const dpr = renderScale()
     const juice = new Juice(7)
@@ -370,7 +386,7 @@ export default function Bloques() {
       }
       panel(4, BY, 52, 66)
       panel(4, BY + 74, 52, 58)
-      panel(304, BY, 52, 218)
+      panel(BX + BW + 4, BY, W - BX - BW - 8, 218)
       // zona de aparición
       s.fillStyle = 'rgba(167,139,250,0.05)'
       s.fillRect(BX, 0, BW, BY)
@@ -1017,17 +1033,17 @@ export default function Bloques() {
       ctx.drawImage(stat, 0, 0, W, H)
 
       // paneles laterales
-      txt(ctx, 'GUARDAR', 30, BY + 9, 6, 'rgba(221,214,254,0.75)')
-      txt(ctx, 'PROX.', 330, BY + 9, 6, 'rgba(221,214,254,0.75)')
-      if (g.hold >= 0) drawMini(g.hold, 30, BY + 40, 10, g.holdUsed ? 0.3 : 1)
+      txt(ctx, 'GUARDAR', BX / 2, BY + 9, 6, 'rgba(221,214,254,0.75)')
+      txt(ctx, 'PROX.', W - BX / 2, BY + 9, 6, 'rgba(221,214,254,0.75)')
+      if (g.hold >= 0) drawMini(g.hold, BX / 2, BY + 40, 10, g.holdUsed ? 0.3 : 1)
       for (let i = 0; i < 5; i++) {
         const t = g.queue[i]
         if (t === undefined) continue
-        drawMini(t, 330, BY + 36 + i * 36, i === 0 ? 11 : 10, i === 0 ? 1 : 0.85)
+        drawMini(t, W - BX / 2, BY + 36 + i * 36, i === 0 ? 11 : 10, i === 0 ? 1 : 0.85)
       }
       // progreso de nivel
-      txt(ctx, 'NIVEL', 30, BY + 74 + 11, 6, 'rgba(221,214,254,0.75)')
-      txt(ctx, String(g.level), 30, BY + 74 + 29, 14, '#ffffff')
+      txt(ctx, 'NIVEL', BX / 2, BY + 74 + 11, 6, 'rgba(221,214,254,0.75)')
+      txt(ctx, String(g.level), BX / 2, BY + 74 + 29, 14, '#ffffff')
       const prog = (g.lines % 10) / 10
       ctx.fillStyle = 'rgba(255,255,255,0.1)'
       ctx.fillRect(12, BY + 74 + 44, 36, 5)
@@ -1042,8 +1058,8 @@ export default function Bloques() {
         ctx.strokeStyle = 'rgba(103,232,249,0.6)'
         ctx.lineWidth = 1
         ctx.stroke()
-        txt(ctx, 'COMBO', 30, chipY + 8, 6, '#67e8f9')
-        txt(ctx, `x${g.combo + 1}`, 30, chipY + 20, 10, '#ffffff')
+        txt(ctx, 'COMBO', BX / 2, chipY + 8, 6, '#67e8f9')
+        txt(ctx, `x${g.combo + 1}`, BX / 2, chipY + 20, 10, '#ffffff')
         chipY += 34
       }
       if (g.b2b && g.phase !== 'over') {
@@ -1053,7 +1069,7 @@ export default function Bloques() {
         ctx.strokeStyle = 'rgba(251,146,60,0.6)'
         ctx.lineWidth = 1
         ctx.stroke()
-        txt(ctx, 'B2B', 30, chipY + 10, 9, '#fb923c')
+        txt(ctx, 'B2B', BX / 2, chipY + 10, 9, '#fb923c')
       }
 
       // peligro
@@ -1219,10 +1235,15 @@ export default function Bloques() {
     }
 
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
       if (!alive) return
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'ready' || g.phase === 'over') requestRemount()
+      }
       step(dt)
       render()
       raf = requestAnimationFrame(loop)

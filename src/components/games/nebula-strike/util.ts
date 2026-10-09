@@ -4,8 +4,20 @@ export const GAME_ID = 'nebula-strike'
 export const ACCENT = '#22d3ee'
 
 /** Resolución lógica (vertical). */
-export const W = 360
-export const H = 540
+import { fitStage, publishLogical } from '../stage'
+
+export const W0 = 360
+export const H0 = 540
+// Mundo lógico (live bindings): `layoutWorld` lo ajusta a la pantalla al abrir el juego.
+export let W = W0
+export let H = H0
+
+export function layoutWorld() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  publishLogical(f)
+}
 /** Factor del lienzo interno (backing store) respecto a la resolución lógica. */
 export const RS = 2
 

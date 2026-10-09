@@ -5,14 +5,18 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, renderScale, aabb, rr } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { Hud, StartOverlay, GameOverOverlay, type OverlayStat } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
 
 const ID = 'space-invasion'
 const ACCENT = '#5fe8de'
-const W = 400
-const H = 540
+const W0 = 400
+const H0 = 540
+// Campo lógico: se ajusta a la pantalla (ver layout). Búnkeres y nave van pegados al fondo.
+let W = W0
+let H = H0
 
 // ---------- Sprites (pixel art) ----------
 const SQUID_A = ['...XX...', '..XXXX..', '.XXXXXX.', 'XX.XX.XX', 'XXXXXXXX', '..X..X..', '.X.XX.X.', 'X.X..X.X']
@@ -87,13 +91,25 @@ function sprite(mat: string[], color: string, cell: number, dpr: number): HTMLCa
 const GX = 34
 const GY = 26
 const FORM_TOP = 62
-const BUNK_Y = 404
+let BUNK_Y = H0 - 136
 const BUNK_W = 24
 const BUNK_H = 16
 const BUNK_C = 2
-const SHIP_Y_MIN = 474
-const SHIP_Y_MAX = 512
-const INVADE_Y = 450
+let SHIP_Y_MIN = H0 - 66
+let SHIP_Y_MAX = H0 - 28
+let INVADE_Y = H0 - 90
+
+/** Ajusta el campo al área de la pantalla; búnkeres, nave y línea de invasión se anclan al fondo. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  BUNK_Y = H - 136
+  SHIP_Y_MIN = H - 66
+  SHIP_Y_MAX = H - 28
+  INVADE_Y = H - 90
+  publishLogical(f)
+}
 
 const PATTERNS: string[][] = [
   ['ggggggg', 'ggggggg', 'ggggggg'],
@@ -325,7 +341,7 @@ function initial(): State {
     stars: makeStars(),
     ship: {
       x: W / 2,
-      y: 500,
+      y: H - 40,
       vx: 0,
       vy: 0,
       cool: 0,
@@ -442,6 +458,8 @@ export default function SpaceInvasion() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
+    stateRef.current = initial()
     const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
@@ -478,6 +496,7 @@ export default function SpaceInvasion() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let uiKey = ''
 
     const syncUi = () => {
@@ -1592,6 +1611,11 @@ export default function SpaceInvasion() {
     window.addEventListener('blur', onHide)
 
     const loop = (now: number) => {
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        const m = stateRef.current.mode
+        if (m === 'title' || m === 'over') requestRemount()
+      }
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
       last = now
       update(dt)

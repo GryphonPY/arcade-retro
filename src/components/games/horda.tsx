@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { TouchPad } from './touch-pad'
 import { Juice } from './juice'
@@ -12,8 +13,19 @@ import { noise, tone } from './sfx'
 const GAME_ID = 'horda'
 const ACCENT = '#c084fc'
 
-const W = 360
-const H = 560
+const W0 = 360
+const H0 = 560
+// Arena lógica: se ajusta a la pantalla al abrir el juego (ver layout).
+let W = W0
+let H = H0
+
+/** Ajusta la arena al área de la pantalla. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  publishLogical(f)
+}
 
 const MAXE = 300 // enemigos simultáneos
 const MAXP = 140 // proyectiles
@@ -568,6 +580,7 @@ export default function Horda() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const rs = canvas.width / W
     const spr = buildSprites(rs)
@@ -1959,9 +1972,14 @@ export default function Horda() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
       const dt = clamp((now - last) / 1000, 0, 0.05)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+      }
       update(dt)
       justPressedRef.current.clear()
       if (g.phase === 'menu') {
@@ -1997,7 +2015,6 @@ export default function Horda() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none object-contain"
-          style={{ aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Horda Nocturna"
         />
         {ui === 'menu' && (

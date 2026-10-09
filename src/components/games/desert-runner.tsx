@@ -5,6 +5,7 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, aabb, rr, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud, useIsTouch } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
@@ -15,9 +16,21 @@ const ACCENT = '#e8a94f'
 // ---------------------------------------------------------------------------
 // Dimensiones y física (casi cuadrado: se ve bien en celular vertical)
 // ---------------------------------------------------------------------------
-const W = 420
-const H = 380
-const GROUND_Y = 300
+const W0 = 420
+const H0 = 380
+// Pista lógica: se ajusta a la pantalla (ver layout). El suelo se queda pegado al fondo.
+let W = W0
+let H = H0
+let GROUND_Y = H0 - 80
+
+/** Ajusta la pista al área de la pantalla: más cielo arriba si la pantalla es más alta. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  GROUND_Y = H - 80
+  publishLogical(f)
+}
 const PX = 92 // borde izquierdo del armadillo
 const PCX = PX + 21 // centro horizontal
 
@@ -352,6 +365,8 @@ export default function DesertRunner() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
+    G.current = initial(false)
     const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
@@ -366,6 +381,7 @@ export default function DesertRunner() {
     const pal = makePalOut()
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let hudT = 0
 
     // ------------------------------ helpers de juego ------------------------------
@@ -1580,6 +1596,10 @@ export default function DesertRunner() {
 
     // ------------------------------ bucle ------------------------------
     const loop = (now: number) => {
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (phaseRef.current !== 'play') requestRemount()
+      }
       const real = Math.min(0.05, (now - last) / 1000)
       last = now
       step(real)

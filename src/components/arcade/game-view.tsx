@@ -7,6 +7,7 @@ import type { GameMeta } from '@/components/games/catalog'
 import { updateSettings, useBests, useSettings } from './store'
 import { ActiveGameContext } from './online'
 import { ControlList, IconButton } from './ui'
+import { getRemountKey, subscribeStage } from '@/components/games/stage'
 
 const loading = () => <div className="flex-1" />
 
@@ -65,6 +66,8 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
   const fullscreen = useFullscreen()
   const [helpOpen, setHelpOpen] = useState(false)
   const Game = GAME_COMPONENTS[game.id]
+  // Cambia cuando un juego en espera debe volver a montarse con la pantalla actual.
+  const remount = useSyncExternalStore(subscribeStage, getRemountKey, () => 0)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -183,7 +186,7 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
 
       <main className="relative flex min-h-0 flex-1 flex-col">
         <ActiveGameContext.Provider value={game.id}>
-          <Game key={game.id} />
+          <Game key={`${game.id}-${remount}`} />
         </ActiveGameContext.Provider>
       </main>
 

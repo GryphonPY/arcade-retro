@@ -11,7 +11,8 @@ import { PointerControl } from './nebula-strike/input'
 import { titleTap, upgradeHover, upgradeTap } from './nebula-strike/screens'
 import { closeAudio, fx } from './nebula-strike/audio'
 import { duckMusic, stopSoundtrack } from './nebula-strike/soundtrack'
-import { ACCENT, GAME_ID, H, RS, W } from './nebula-strike/util'
+import { ACCENT, GAME_ID, H, RS, W, layoutWorld } from './nebula-strike/util'
+import { requestRemount, stageVersion } from './stage'
 
 interface OverState extends RunResult {
   newBest: boolean
@@ -41,6 +42,7 @@ export default function NebulaStrike() {
     const canvas = canvasRef.current
     const root = rootRef.current
     if (!canvas || !root) return
+    layoutWorld()
     canvas.width = W * RS
     canvas.height = H * RS
     const ctx = canvas.getContext('2d')
@@ -75,9 +77,14 @@ export default function NebulaStrike() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let hudT = 0
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop)
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.mode === 'title' || g.mode === 'over') requestRemount()
+      }
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
       last = now
       const jp = justPressedRef.current
@@ -180,7 +187,6 @@ export default function NebulaStrike() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none"
-          style={{ aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Nebula Strike"
         />
         {over && (

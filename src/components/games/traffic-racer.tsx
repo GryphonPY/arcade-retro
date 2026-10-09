@@ -5,6 +5,7 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, aabb, rr, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud, useIsTouch } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
@@ -15,20 +16,33 @@ const ACCENT = '#e85d5d'
 // ---------------------------------------------------------------------------
 // Dimensiones (vertical, pensado para el celular)
 // ---------------------------------------------------------------------------
-const W = 380
-const H = 520
+const W0 = 380
+const H0 = 520
+// Carretera lógica: se ajusta a la pantalla (ver layout). El auto del jugador va cerca del fondo.
+let W = W0
+let H = H0
 const LANES = 4
 const LANE_W = 68
 const ROAD_W = LANES * LANE_W
-const ROAD_X = (W - ROAD_W) / 2
+let ROAD_X = (W0 - ROAD_W) / 2
 const PW = 36
 const PH = 62
-const PLAYER_Y = H - 128
+let PLAYER_Y = H0 - 128
 const MAX_VX = 270
 const NM_DIST = 22
 const CELL = 64
 
 const laneCenter = (l: number) => ROAD_X + l * LANE_W + LANE_W / 2
+
+/** Ajusta la carretera al área de la pantalla: más espacio arriba y a los lados. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  ROAD_X = (W - ROAD_W) / 2
+  PLAYER_Y = H - 128
+  publishLogical(f)
+}
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
 // zonas por distancia recorrida (px)
@@ -303,6 +317,8 @@ export default function TrafficRacer() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
+    R.current = initial(false)
     const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
@@ -316,6 +332,7 @@ export default function TrafficRacer() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let hudT = 0
 
     // ------------------ sprites de brillo ------------------
@@ -1460,6 +1477,10 @@ export default function TrafficRacer() {
     const loop = (now: number) => {
       const real = Math.min(0.05, (now - last) / 1000)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (phaseRef.current !== 'play') requestRemount()
+      }
       step(real)
       justPressedRef.current.clear()
       draw()

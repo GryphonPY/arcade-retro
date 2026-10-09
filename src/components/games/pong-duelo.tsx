@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { Juice } from './juice'
 import { loadBest, saveBest, setupCanvas, rr } from './game-utils'
@@ -13,14 +14,26 @@ const ACCENT = '#60a5fa'
 const BLUE = '#60a5fa'
 const PINK = '#f472b6'
 
-const W = 360
-const H = 560
+const W0 = 360
+const H0 = 560
+// Cancha lógica: se ajusta a la pantalla (ver layout); la paleta de abajo va pegada al fondo.
+let W = W0
+let H = H0
+let PAD_BOT = H0 - 46
 const PW = 64 // ancho de paleta
 const PH = 10 // alto de paleta
-const PAD_BOT = H - 46
 const PAD_TOP = 46
 const BR = 7 // radio de la bola
 const WIN = 7
+
+/** Ajusta la cancha al área de la pantalla y recalcula lo que depende de su tamaño. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  PAD_BOT = H - 46
+  publishLogical(f)
+}
 
 const SPEED0 = 300
 const SPEED_INC = 17
@@ -156,6 +169,7 @@ export default function PongDuelo() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const juice = new Juice(8)
     const pf = (() => {
@@ -170,6 +184,7 @@ export default function PongDuelo() {
     let newBest = false
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let finalScore = 0
 
     // ---------- sincronía con React ----------
@@ -677,6 +692,10 @@ export default function PongDuelo() {
       raf = requestAnimationFrame(frame)
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+      }
       const jp = justPressedRef.current
       if (jp.has('pause') && (g.phase === 'serve' || g.phase === 'playing' || g.phase === 'point')) {
         g.paused = !g.paused

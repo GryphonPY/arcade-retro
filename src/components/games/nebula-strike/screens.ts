@@ -17,7 +17,16 @@ export const CARD_Y = 318
 export const CARD_H = 112
 export const CARD_W = 106
 export const cardX = (i: number) => 9 + i * (CARD_W + 10)
-export const BTN = { x: W / 2 - 96, y: 486, w: 192, h: 34 }
+export const BTN = {
+  get x() {
+    return W / 2 - 96
+  },
+  get y() {
+    return H - 54
+  },
+  w: 192,
+  h: 34,
+}
 export const UP_Y = (i: number) => 112 + i * 106
 export const UP_H = 96
 

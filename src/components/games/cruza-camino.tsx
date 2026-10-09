@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { useKeys } from './use-keys'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { Juice } from './juice'
 import { loadBest, saveBest, setupCanvas, rr } from './game-utils'
 import { noise, sfx, tone } from './sfx'
@@ -14,8 +15,19 @@ import { noise, sfx, tone } from './sfx'
 
 const GAME_ID = 'cruza-camino'
 const ACCENT = '#38f0a0'
-const W = 360
-const H = 560
+const W0 = 360
+const H0 = 560
+// Carriles lógicos: se ajustan a la pantalla al abrir el juego (ver layout).
+let W = W0
+let H = H0
+
+/** Ajusta el tablero al área de la pantalla: más ancho si la pantalla es más ancha. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  publishLogical(f)
+}
 const TILE = 40
 const COLS = 9
 const HOP_T = 0.115
@@ -399,6 +411,7 @@ export default function CruzaCamino() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const juice = new Juice(9)
 
@@ -1704,7 +1717,12 @@ export default function CruzaCamino() {
     /* ---------------- bucle ---------------- */
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const frame = (now: number) => {
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (G.phase !== 'playing') requestRemount()
+      }
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       step(dt)

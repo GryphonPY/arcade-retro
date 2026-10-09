@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { TouchPad } from './touch-pad'
 import { Juice } from './juice'
@@ -12,8 +13,11 @@ import { noise, tone } from './sfx'
 const GAME_ID = 'torre-neon'
 const ACCENT = '#f472b6'
 
-const W = 360
-const H = 560
+const W0 = 360
+const H0 = 560
+// Mundo lógico: se ajusta a la pantalla (ver layout).
+let W = W0
+let H = H0
 
 // Geometría del mundo (unidades) y proyección isométrica
 const BASE = 100 // tamaño inicial del bloque
@@ -24,7 +28,16 @@ const S = 0.88 // escala unidades -> px
 const KX = 0.866 * S
 const KY = 0.5 * S
 const KZ = S
-const ANCHOR_Y = 310 // y en pantalla de la cara superior de la torre
+let ANCHOR_Y = Math.round(H0 * 0.553) // y en pantalla de la cara superior de la torre
+
+/** Ajusta el mundo lógico al área de la pantalla; la torre se mantiene a la misma altura relativa. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  ANCHOR_Y = Math.round(H * 0.553)
+  publishLogical(f)
+}
 
 type Phase = 'menu' | 'playing' | 'dead' | 'over'
 type Axis = 'x' | 'z'
@@ -185,6 +198,7 @@ export default function TorreNeon() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const juice = new Juice(7)
     const g = newGame()
@@ -318,7 +332,7 @@ export default function TorreNeon() {
       const need = (topY + 40) * KZ + 190 * KY * 2
       g.zoomTarget = clamp(430 / need, 0.14, 1)
       g.camTarget = topY / 2
-      g.anchorTarget = 300
+      g.anchorTarget = ANCHOR_Y - 10
       const nb = saveBest(GAME_ID, g.score)
       setBest(Math.max(loadBest(GAME_ID), g.score))
       setResult({ score: g.score, levels: lv, perfects: g.perfects, bestCombo: g.bestCombo, newBest: nb })
@@ -708,9 +722,14 @@ export default function TorreNeon() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
       const dt = clamp((now - last) / 1000, 0, 0.05)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase !== 'playing' && g.phase !== 'dead') requestRemount()
+      }
       update(dt)
       justPressedRef.current.clear()
       draw()
@@ -741,7 +760,6 @@ export default function TorreNeon() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none object-contain"
-          style={{ aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Torre Neón"
         />
         {ui === 'menu' && (

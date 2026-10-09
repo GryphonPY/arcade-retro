@@ -5,6 +5,7 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
@@ -13,8 +14,19 @@ const GAME_ID = 'cyber-dungeon'
 const ACCENT = '#fbbf24'
 const CYAN = '#22d3ee'
 
-const VW = 384
-const VH = 432
+const VW0 = 384
+const VH0 = 432
+// Vista lógica de la cámara: se ajusta a la pantalla (ver layout); el mapa es más grande.
+let VW = VW0
+let VH = VH0
+
+/** Ajusta la vista de la cámara al área de la pantalla: se ve más del mapa si cabe. */
+function layout() {
+  const f = fitStage(VW0, VH0)
+  VW = f.w
+  VH = f.h
+  publishLogical(f)
+}
 const TILE = 24
 const MW = 40
 const MH = 40
@@ -401,6 +413,7 @@ export default function CyberDungeon() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const dpr = renderScale()
     canvas.width = Math.round(VW * dpr)
     canvas.height = Math.round(VH * dpr)
@@ -2509,7 +2522,12 @@ export default function CyberDungeon() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (G.phase === 'idle' || G.phase === 'over') requestRemount()
+      }
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       update(dt)

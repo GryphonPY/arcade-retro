@@ -5,6 +5,7 @@ import { useKeys, type Dir, type LogicalKey } from './use-keys'
 import { loadBest, saveBest, rr, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { Hud, StartOverlay, GameOverOverlay } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
@@ -14,11 +15,24 @@ import { sfx, tone, noise } from './sfx'
 // ---------------------------------------------------------------------------
 
 const GAME_ID = 'snake-neon'
-const COLS = 20
-const ROWS = 20
 const CELL = 22
-const W = COLS * CELL
-const H = ROWS * CELL
+const W0 = 20 * CELL
+const H0 = 20 * CELL
+// Tablero lógico: la cuadrícula crece o se encoge para llenar la pantalla (ver layout).
+let COLS = 20
+let ROWS = 20
+let W = W0
+let H = H0
+
+/** Ajusta la cuadrícula al área de la pantalla: más filas o columnas si sobra espacio. */
+function layout() {
+  const f = fitStage(W0, H0)
+  COLS = Math.max(20, Math.round(f.w / CELL))
+  ROWS = Math.max(20, Math.round(f.h / CELL))
+  W = COLS * CELL
+  H = ROWS * CELL
+  publishLogical({ w: W, h: H, stretch: true })
+}
 
 const FOODS_PER_LEVEL = 6
 const GOLD_EVERY = 5
@@ -344,6 +358,8 @@ export default function SnakeNeon() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
+    stateRef.current = initial()
     const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
@@ -365,6 +381,7 @@ export default function SnakeNeon() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
 
     const syncHud = () => {
       const s = stateRef.current
@@ -1030,6 +1047,11 @@ export default function SnakeNeon() {
     const loop = (now: number) => {
       const rawDt = Math.min(0.05, (now - last) / 1000)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        const ph = stateRef.current.phase
+        if (ph === 'ready' || ph === 'over') requestRemount()
+      }
       const s = stateRef.current
       const jp = justPressedRef.current
       const q = keyQueueRef.current
@@ -1185,7 +1207,7 @@ export default function SnakeNeon() {
       >
         <canvas
           ref={canvasRef}
-          className="block h-full w-full touch-none select-none rounded-[13px] bg-[#070213] object-contain"
+          className="block h-full w-full touch-none select-none rounded-[13px] bg-[#070213]"
           aria-label="Juego Snake Neón"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

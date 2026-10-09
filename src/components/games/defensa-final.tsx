@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { Juice } from './juice'
 import { loadBest, saveBest, setupCanvas } from './game-utils'
@@ -11,9 +12,24 @@ import { noise, tone } from './sfx'
 const GAME_ID = 'defensa-final'
 const ACCENT = '#fb7185'
 
-const W = 360
-const H = 560
-const GY = 522 // línea del suelo
+const W0 = 360
+const H0 = 560
+// Campo lógico: se ajusta a la pantalla (ver layout). El suelo y las baterías van pegados al fondo.
+let W = W0
+let H = H0
+let GY = H0 - 38 // línea del suelo
+
+/** Ajusta el campo al área de la pantalla. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  GY = H - 38
+  publishLogical(f)
+}
+
+/** Reparte una posición del diseño base según el ancho actual (ciudades y baterías). */
+const spread = (x: number) => W / 2 + (x - W0 / 2) * (W / W0)
 const AMMO = 10
 const PM_SPEED = 430
 const EXTRA_CITY_EVERY = 10000
@@ -233,8 +249,8 @@ function newGame(): Game {
     t: 0,
     score: 0,
     wave: 0,
-    cities: CITY_X.map((x, i) => makeCity(x, i)),
-    batts: BATT_X.map((x) => ({ x, alive: true, ammo: AMMO, smoke: 0, recoil: 0 })),
+    cities: CITY_X.map((x, i) => makeCity(spread(x), i)),
+    batts: BATT_X.map((x) => ({ x: spread(x), alive: true, ammo: AMMO, smoke: 0, recoil: 0 })),
     enemies: [],
     pms: [],
     booms: [],
@@ -277,6 +293,7 @@ export default function DefensaFinal() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const juice = new Juice(8)
     const g = newGame()
@@ -1372,9 +1389,14 @@ export default function DefensaFinal() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
       const dt = clamp((now - last) / 1000, 0, 0.05)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+      }
       update(dt)
       justPressedRef.current.clear()
       draw()
@@ -1407,7 +1429,7 @@ export default function DefensaFinal() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none object-contain"
-          style={{ aspectRatio: `${W} / ${H}`, cursor: 'crosshair' }}
+          style={{ cursor: 'crosshair' }}
           aria-label="Juego Defensa Final"
         />
         {ui === 'menu' && (

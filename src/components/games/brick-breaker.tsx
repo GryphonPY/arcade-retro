@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useKeys } from './use-keys'
-import { loadBest, saveBest, rr, renderScale } from './game-utils'
+import { loadBest, saveBest, rr, renderScale, setupCanvas } from './game-utils'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { Hud, StartOverlay, GameOverOverlay } from './overlay'
@@ -14,17 +15,20 @@ import { sfx, tone } from './sfx'
 // ---------------------------------------------------------------------------
 
 const GAME_ID = 'brick-breaker'
-const W = 400
-const H = 520
+const W0 = 400
+const H0 = 520
+// Mundo lógico: se ajusta a la pantalla al abrir el juego y en cada partida (ver layout).
+let W = W0
+let H = H0
 const TOP = 30 // franja superior con vidas / nivel / combo
 const BCOLS = 8
 const BW = 40
 const BH = 16
 const BGX = 4
 const BGY = 4
-const BX0 = (W - (BCOLS * BW + (BCOLS - 1) * BGX)) / 2
+let BX0 = (W0 - (BCOLS * BW + (BCOLS - 1) * BGX)) / 2
 const BTOP = 88
-const PY = H - 58
+let PY = H0 - 58
 const PH = 12
 const PW0 = 78
 const PW_WIDE = 126
@@ -227,6 +231,16 @@ function buildBricks(level: number, now: number): Brick[] {
     }
   }
   return out
+}
+
+/** Ajusta el mundo lógico al área de la pantalla y recalcula lo que depende de su tamaño. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  BX0 = (W - (BCOLS * BW + (BCOLS - 1) * BGX)) / 2
+  PY = H - 58
+  publishLogical(f)
 }
 
 const newBall = (cx: number): Ball => ({ x: cx, y: PY - R - 1, vx: 0, vy: 0, stuck: true, stickOff: 0, trail: [] })
@@ -454,13 +468,8 @@ export default function BrickBreaker() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = renderScale()
-    canvas.width = Math.round(W * dpr)
-    canvas.height = Math.round(H * dpr)
-    const ctx0 = canvas.getContext('2d')
-    if (!ctx0) return
-    const ctx: CanvasRenderingContext2D = ctx0
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    layout()
+    const ctx = setupCanvas(canvas, W, H)
 
     const pixelFont =
       getComputedStyle(canvas).getPropertyValue('--font-pixel').trim() || '"Press Start 2P", monospace'
@@ -468,9 +477,11 @@ export default function BrickBreaker() {
 
     const juice = new Juice(6)
     const bg = buildBg()
+    stateRef.current = initial()
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
 
     // ---- lógica ----------------------------------------------------------
 
@@ -808,8 +819,7 @@ export default function BrickBreaker() {
     }
 
     const begin = () => {
-      const s = stateRef.current
-      if (s.phase !== 'ready') return
+      if (stateRef.current.phase !== 'ready') return
       startLevel(1)
       setPhase('playing')
       sfx.start()
@@ -1394,6 +1404,11 @@ export default function BrickBreaker() {
     const loop = (now: number) => {
       const rawDt = Math.min(0.05, (now - last) / 1000)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        const ph = stateRef.current.phase
+        if (ph === 'ready' || ph === 'over') requestRemount()
+      }
       const s = stateRef.current
       const jp = justPressedRef.current
 

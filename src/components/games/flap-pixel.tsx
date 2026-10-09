@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
 import { TouchPad } from './touch-pad'
 import { Juice } from './juice'
@@ -12,11 +13,23 @@ import { noise, tone } from './sfx'
 const GAME_ID = 'flap-pixel'
 const ACCENT = '#4ade80'
 
-const W = 360
-const H = 560
-const GROUND = 488
+const W0 = 360
+const H0 = 560
+// Mundo lógico: se ajusta a la pantalla (ver layout). El suelo siempre queda al fondo.
+let W = W0
+let H = H0
+let GROUND = H0 - 72
 const BX = 96 // posición horizontal fija del pájaro
 const BIRD_R = 10 // radio de la hitbox (el sprite es más grande: perdona)
+
+/** Ajusta el mundo lógico al área de la pantalla; el suelo se queda pegado al fondo. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  GROUND = H - 72
+  publishLogical(f)
+}
 
 // Física
 const GRAVITY = 1500
@@ -262,6 +275,7 @@ export default function FlapPixel() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const rs = canvas.width / W
     const sprites = makeBirdSprites(rs)
@@ -804,9 +818,14 @@ export default function FlapPixel() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
       const dt = clamp((now - last) / 1000, 0, 0.05)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'menu' || g.phase === 'over') requestRemount()
+      }
       update(dt)
       justPressedRef.current.clear()
       draw()
@@ -839,7 +858,6 @@ export default function FlapPixel() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none object-contain"
-          style={{ aspectRatio: `${W} / ${H}` }}
           aria-label="Juego Flap Pixel"
         />
         {ui === 'menu' && (

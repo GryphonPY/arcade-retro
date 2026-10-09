@@ -5,6 +5,7 @@ import { useKeys, type Dir } from './use-keys'
 import { loadBest, saveBest, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone } from './sfx'
@@ -19,8 +20,23 @@ const ACCENT = '#FFE23D'
 const COLS = 17
 const ROWS = 23
 const T = 24
-const W = COLS * T
-const H = ROWS * T
+// Laberinto fijo (MW x MH). El lienzo lógico (W x H) lo llena la pantalla: el laberinto va centrado.
+const MW = COLS * T
+const MH = ROWS * T
+let W = MW
+let H = MH
+let OX = 0
+let OY = 0
+
+/** Ajusta el lienzo al área de la pantalla y centra el laberinto dentro. */
+function layout() {
+  const f = fitStage(MW, MH)
+  W = f.w
+  H = f.h
+  OX = (W - MW) / 2
+  OY = (H - MH) / 2
+  publishLogical(f)
+}
 const TUNNEL_ROW = 11
 const EXIT_TILE = { c: 8, r: 9 }
 const PLAYER_START = { c: 8, r: 18 }
@@ -283,13 +299,13 @@ function cellPath(
 function buildWallLayer(grid: string[][], theme: Theme, flash: boolean): HTMLCanvasElement {
   const dpr = renderScale()
   const cv = document.createElement('canvas')
-  cv.width = W * dpr
-  cv.height = H * dpr
+  cv.width = MW * dpr
+  cv.height = MH * dpr
   const g = cv.getContext('2d')
   if (!g) return cv
   g.setTransform(dpr, 0, 0, dpr, 0, 0)
   g.fillStyle = '#04040E'
-  g.fillRect(0, 0, W, H)
+  g.fillRect(0, 0, MW, MH)
   const isWall = (c: number, r: number) => {
     if (c < 0 || c >= COLS) return r !== TUNNEL_ROW
     if (r < 0 || r >= ROWS) return true
@@ -575,6 +591,7 @@ export default function GhostMaze() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
@@ -727,7 +744,7 @@ export default function GhostMaze() {
         w.extraLifeGiven = true
         w.lives = Math.min(5, w.lives + 1)
         sfx.levelUp()
-        juice.text(W / 2, 13.5 * T, 'VIDA EXTRA', '#ff6b8a', 12, 1.4)
+        juice.text(MW / 2, 13.5 * T, 'VIDA EXTRA', '#ff6b8a', 12, 1.4)
       }
     }
 
@@ -1007,7 +1024,7 @@ export default function GhostMaze() {
       for (const g of w.ghosts) g.fright = false
       addScore(500)
       juice.freeze(260)
-      juice.text(W / 2, 13.5 * T, '+500', '#ffe23d', 12, 1.4)
+      juice.text(MW / 2, 13.5 * T, '+500', '#ffe23d', 12, 1.4)
       sfx.levelUp()
     }
 
@@ -1409,23 +1426,40 @@ export default function GhostMaze() {
         return
       }
       juice.applyShake(ctx)
+      // rejilla tenue en los márgenes (el laberinto la tapa con su propio fondo)
+      ctx.strokeStyle = 'rgba(125,249,255,0.06)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = OX % T; x < W; x += T) {
+        ctx.moveTo(x + 0.5, 0)
+        ctx.lineTo(x + 0.5, H)
+      }
+      for (let y = OY % T; y < H; y += T) {
+        ctx.moveTo(0, y + 0.5)
+        ctx.lineTo(W, y + 0.5)
+      }
+      ctx.stroke()
       const flash = w.phase === 'clear' && w.phaseT > 0.35 && Math.floor((w.phaseT - 0.35) / 0.22) % 2 === 0
-      ctx.drawImage(getLayer(w.combo, w.grid, flash), 0, 0, W, H)
+      // el laberinto va en sus propias coordenadas, centrado en el lienzo
+      ctx.save()
+      ctx.translate(OX, OY)
+      ctx.drawImage(getLayer(w.combo, w.grid, flash), 0, 0, MW, MH)
       if (w.phase !== 'clear' || w.phaseT < 0.35) drawPellets()
       drawActors()
       juice.drawParticles(ctx)
       juice.drawTexts(ctx, pixelFont)
-      // rótulos de estado
+      ctx.restore()
+      // rótulos de estado (coordenadas de pantalla)
       if (w.phase === 'ready' && w.phaseT >= 0) {
-        drawBanner(`NIVEL ${w.level}`, 8.5 * T, '#7df9ff', 11, true)
-        drawBanner('¡LISTO!', 13.5 * T, ACCENT, 13, true)
+        drawBanner(`NIVEL ${w.level}`, OY + 8.5 * T, '#7df9ff', 11, true)
+        drawBanner('¡LISTO!', OY + 13.5 * T, ACCENT, 13, true)
       }
       if (w.scaredT > 0 && w.phase === 'play') {
         const k = w.scaredT / w.scaredDur
         ctx.fillStyle = 'rgba(80,110,255,0.25)'
-        ctx.fillRect(T, H - 7, W - 2 * T, 3)
+        ctx.fillRect(OX + T, OY + MH - 7, MW - 2 * T, 3)
         ctx.fillStyle = k < 0.3 ? '#ff6b8a' : '#7df9ff'
-        ctx.fillRect(T, H - 7, (W - 2 * T) * k, 3)
+        ctx.fillRect(OX + T, OY + MH - 7, (MW - 2 * T) * k, 3)
       }
       ctx.restore()
       juice.drawFlash(ctx, W, H)
@@ -1439,9 +1473,14 @@ export default function GhostMaze() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (w.phase === 'idle' || w.phase === 'over') requestRemount()
+      }
       update(dt)
       justPressedRef.current.clear()
       if (w.phase !== 'ready' && w.phase !== 'play') keyQueueRef.current.length = 0

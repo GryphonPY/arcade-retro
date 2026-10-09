@@ -5,6 +5,7 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, setupCanvas } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
@@ -12,9 +13,21 @@ import { sfx, tone, noise } from './sfx'
 // ---------------------------------------------------------------------------
 // Constantes
 // ---------------------------------------------------------------------------
-const W = 360
-const H = 300
-const GROUND = 252 // y de los pies sobre el suelo
+const W0 = 360
+const H0 = 300
+// Escenario lógico: se ajusta a la pantalla (ver layout). El suelo va pegado al fondo; sobra cielo.
+let W = W0
+let H = H0
+let GROUND = H0 - 48 // y de los pies sobre el suelo
+
+/** Ajusta el escenario al área de la pantalla. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  GROUND = H - 48
+  publishLogical(f)
+}
 const PW = 14
 const PH = 28
 const PH_CROUCH = 18
@@ -534,6 +547,7 @@ export default function GunAndRun() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const juice = new Juice(8)
     const rawFont = getComputedStyle(document.body).getPropertyValue('--font-pixel').trim()
@@ -547,6 +561,7 @@ export default function GunAndRun() {
     let g = newGame(1)
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let hudT = 0
     let lastScoreShown = -1
     let lastZone = 1
@@ -2779,6 +2794,10 @@ export default function GunAndRun() {
 
     // ---------- bucle ----------
     const frame = (now: number) => {
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'ready' || g.phase === 'over') requestRemount()
+      }
       const real = Math.min(0.05, (now - last) / 1000)
       last = now
       const jp = justPressedRef.current

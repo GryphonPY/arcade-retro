@@ -5,6 +5,7 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, setupCanvas } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
@@ -12,18 +13,34 @@ import { sfx, tone, noise } from './sfx'
 // ---------------------------------------------------------------------------
 // Constantes del mundo
 // ---------------------------------------------------------------------------
-const W = 360
-const H = 480
+const W0 = 360
+const H0 = 480
+// Escenario lógico: se ajusta a la pantalla (ver layout). La carretera va centrada y el auto cerca del fondo.
+let W = W0
+let H = H0
 const SW_L = 40 // inicio de la banqueta izquierda
-const ROAD_L = 62
-const ROAD_R = 298
+const ROAD_W = 236
+let ROAD_L = (W0 - ROAD_W) / 2
+let ROAD_R = ROAD_L + ROAD_W
 const SW_R = 320
 const LANE_W = (ROAD_R - ROAD_L) / 4
 const CW = 24
 const CH = 36
 const TRUCK_H = 54
-const PY_MIN = H - 270
-const PY_MAX = H - 64 - CH
+let PY_MIN = H0 - 270
+let PY_MAX = H0 - 64 - CH
+
+/** Ajusta el escenario al área de la pantalla: la carretera se mantiene centrada. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  ROAD_L = (W - ROAD_W) / 2
+  ROAD_R = ROAD_L + ROAD_W
+  PY_MIN = H - 270
+  PY_MAX = H - 64 - CH
+  publishLogical(f)
+}
 const ACCENT = '#ffc531'
 
 const laneCx = (i: number) => ROAD_L + LANE_W * (i + 0.5)
@@ -510,6 +527,7 @@ export default function HitAndRun() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
     const ctx = setupCanvas(canvas, W, H)
     const juice = new Juice(9)
     juiceRef.current = juice
@@ -526,6 +544,7 @@ export default function HitAndRun() {
     let g = newGame()
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let hudT = 0
     let lastScoreShown = -1
     let lastStars = 0
@@ -1972,6 +1991,10 @@ export default function HitAndRun() {
 
     // ---------- bucle ----------
     const frame = (now: number) => {
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.phase === 'ready' || g.phase === 'over') requestRemount()
+      }
       const real = Math.min(0.05, (now - last) / 1000)
       last = now
       const jp = justPressedRef.current

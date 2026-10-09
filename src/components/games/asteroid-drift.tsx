@@ -5,14 +5,26 @@ import { useKeys } from './use-keys'
 import { loadBest, saveBest, renderScale } from './game-utils'
 import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
+import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { Hud, StartOverlay, GameOverOverlay, type OverlayStat } from './overlay'
 import { Juice } from './juice'
 import { sfx, tone, noise } from './sfx'
 
 const ID = 'asteroid-drift'
 const ACCENT = '#38bdf8'
-const W = 420
-const H = 520
+const W0 = 420
+const H0 = 520
+// Espacio lógico: se ajusta a la pantalla al abrir el juego (ver layout). Da la vuelta en los bordes.
+let W = W0
+let H = H0
+
+/** Ajusta el espacio de juego al área de la pantalla. */
+function layout() {
+  const f = fitStage(W0, H0)
+  W = f.w
+  H = f.h
+  publishLogical(f)
+}
 
 // ---------- Tipos ----------
 type PType = 'shield' | 'triple' | 'rapid'
@@ -254,6 +266,8 @@ export default function AsteroidDrift() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    layout()
+    stateRef.current = initial()
     const dpr = renderScale()
     canvas.width = Math.round(W * dpr)
     canvas.height = Math.round(H * dpr)
@@ -290,6 +304,7 @@ export default function AsteroidDrift() {
 
     let raf = 0
     let last = performance.now()
+    let seenStage = stageVersion()
     let uiKey = ''
 
     const syncUi = () => {
@@ -1253,6 +1268,10 @@ export default function AsteroidDrift() {
     const loop = (now: number) => {
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
       last = now
+      if (stageVersion() !== seenStage) {
+        seenStage = stageVersion()
+        if (g.mode === 'title' || g.mode === 'over') requestRemount()
+      }
       update(dt)
       justPressedRef.current.clear()
       draw()
