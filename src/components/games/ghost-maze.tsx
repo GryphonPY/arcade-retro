@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys, type Dir } from './use-keys'
+import { useSwipeKeys } from './gestures'
 import { loadBest, saveBest, renderScale } from './game-utils'
-import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud } from './overlay'
@@ -576,6 +576,7 @@ function drawFruit(g: CanvasRenderingContext2D, kind: number, x: number, y: numb
 export default function GhostMaze() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { justPressedRef, pressedRef, keyQueueRef, virtualPress, virtualRelease } = useKeys()
+  const swipe = useSwipeKeys(virtualPress, virtualRelease)
   const [score, setScore] = useState(0)
   const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest(GAME_ID) : 0))
   const [lives, setLives] = useState(3)
@@ -1526,6 +1527,7 @@ export default function GhostMaze() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none object-contain"
+          {...swipe}
           aria-label="Juego Laberinto Fantasma"
         />
         {!started && !over && (
@@ -1534,7 +1536,7 @@ export default function GhostMaze() {
             accent={ACCENT}
             subtitle="Come todas las bolitas. Cada fantasma te persigue distinto: el rojo de frente, el rosa te corta el paso, el cian te flanquea y el naranja duda. Las bolas grandes los asustan."
             hint="Flecha o ESPACIO para empezar"
-            touchHint="Usa la cruceta para empezar"
+            touchHint="Desliza para girar; puedes hacerlo antes de llegar a la esquina"
             onStart={begin}
           >
             <p className="max-w-xs text-xs leading-relaxed text-white/55">
@@ -1559,7 +1561,6 @@ export default function GhostMaze() {
         )}
       </GameScreen>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Listo" />
     </div>
   )
 }

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, rr, renderScale, setupCanvas } from './game-utils'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
-import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { Hud, StartOverlay, GameOverOverlay } from './overlay'
 import { Juice } from './juice'
@@ -449,7 +448,7 @@ interface Actions {
 
 export default function BrickBreaker() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
+  const { pressedRef, justPressedRef } = useKeys()
   const [score, setScore] = useState(0)
   const [best, setBest] = useState(0)
   const [phase, setPhase] = useState<UiPhase>('ready')
@@ -1534,7 +1533,6 @@ export default function BrickBreaker() {
         )}
       </GameScreen>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Lanzar" />
     </div>
   )
 }

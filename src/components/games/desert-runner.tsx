@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useKeys } from './use-keys'
 import { loadBest, saveBest, aabb, rr, renderScale } from './game-utils'
-import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud, useIsTouch } from './overlay'
@@ -1716,16 +1715,6 @@ export default function DesertRunner() {
         </div>
       </GameScreen>
 
-      <TouchPad
-        onPress={virtualPress}
-        onRelease={virtualRelease}
-        showAction
-        actionLabel="Saltar"
-        actionGlyph="A"
-        showAction2
-        action2Label="Agachar"
-        action2Glyph="B"
-      />
     </div>
   )
 }

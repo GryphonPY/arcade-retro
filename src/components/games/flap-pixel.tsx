@@ -5,7 +5,6 @@ import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { GameOverOverlay, Hud, StartOverlay } from './overlay'
-import { TouchPad } from './touch-pad'
 import { Juice } from './juice'
 import { loadBest, saveBest, setupCanvas } from './game-utils'
 import { noise, tone } from './sfx'
@@ -265,7 +264,7 @@ interface Result {
 
 export default function FlapPixel() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const { justPressedRef, keyQueueRef, virtualPress, virtualRelease } = useKeys()
+  const { justPressedRef, keyQueueRef } = useKeys()
   const startRef = useRef<() => void>(() => {})
   const [ui, setUi] = useState<Phase>('menu')
   const [score, setScore] = useState(0)
@@ -895,7 +894,6 @@ export default function FlapPixel() {
           />
         )}
       </GameScreen>
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showDpad={false} showAction actionLabel="Aletear" />
     </div>
   )
 }

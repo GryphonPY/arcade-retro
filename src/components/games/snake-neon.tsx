@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useKeys, type Dir, type LogicalKey } from './use-keys'
 import { loadBest, saveBest, rr, renderScale } from './game-utils'
-import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { Hud, StartOverlay, GameOverOverlay } from './overlay'
@@ -338,7 +337,7 @@ interface Actions {
 
 export default function SnakeNeon() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const { justPressedRef, keyQueueRef, virtualPress, virtualRelease } = useKeys()
+  const { justPressedRef, keyQueueRef } = useKeys()
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [best, setBest] = useState(0)
@@ -1245,7 +1244,6 @@ export default function SnakeNeon() {
         )}
       </GameScreen>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Pausa" />
     </div>
   )
 }

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
-import { TouchPad } from './touch-pad'
 import { GameOverOverlay, Hud, StartOverlay, useIsTouch } from './overlay'
 import { Juice } from './juice'
 import { loadBest, renderScale, rr, saveBest, setupCanvas } from './game-utils'
@@ -333,7 +332,7 @@ interface Api {
 /* ------------------------------------------------------------------ */
 
 export default function Bloques() {
-  const { pressedRef, justPressedRef, keyQueueRef, virtualPress, virtualRelease } = useKeys()
+  const { pressedRef, justPressedRef, keyQueueRef } = useKeys()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const startRef = useRef<() => void>(() => {})
   const apiRef = useRef<Api | null>(null)
@@ -1367,15 +1366,6 @@ export default function Bloques() {
           />
         )}
       </GameScreen>
-      <TouchPad
-        onPress={virtualPress}
-        onRelease={virtualRelease}
-        showAction
-        actionLabel="Soltar"
-        showAction2
-        action2Label="Guardar"
-        action2Glyph="H"
-      />
     </div>
   )
 }

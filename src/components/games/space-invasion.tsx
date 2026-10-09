@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
+import { useFollowKeys } from './gestures'
 import { loadBest, saveBest, renderScale, aabb, rr } from './game-utils'
-import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { Hud, StartOverlay, GameOverOverlay, type OverlayStat } from './overlay'
@@ -439,6 +439,12 @@ export default function SpaceInvasion() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const { pressedRef, justPressedRef, virtualPress, virtualRelease } = useKeys()
   const stateRef = useRef<State>(initial())
+  const follow = useFollowKeys(virtualPress, virtualRelease, {
+    worldW: () => W,
+    targetX: () => stateRef.current.ship.x,
+    dead: 5,
+    hold: 'action',
+  })
   const [best, setBest] = useState(() => (typeof window !== 'undefined' ? loadBest(ID) : 0))
   const [ui, setUi] = useState({
     mode: 'title' as 'title' | 'play' | 'over',
@@ -1611,6 +1617,7 @@ export default function SpaceInvasion() {
     window.addEventListener('blur', onHide)
 
     const loop = (now: number) => {
+      follow.tick()
       if (stageVersion() !== seenStage) {
         seenStage = stageVersion()
         const m = stateRef.current.mode
@@ -1661,6 +1668,7 @@ export default function SpaceInvasion() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full touch-none select-none object-contain"
+          {...follow.handlers}
           aria-label="Juego Invasión Espacial"
         />
         {ui.mode === 'title' && (
@@ -1669,7 +1677,7 @@ export default function SpaceInvasion() {
             accent={ACCENT}
             subtitle="Mantén pulsado el disparo para ráfaga automática. Encadena impactos sin fallar para subir el multiplicador."
             hint="Flechas / WASD mover · ESPACIO disparar (mantén)"
-            touchHint="Toca A para empezar (mantenlo para disparar)"
+            touchHint="Mantén el dedo en la pantalla: la nave lo sigue y dispara sola"
             onStart={requestStart}
           />
         )}
@@ -1685,7 +1693,6 @@ export default function SpaceInvasion() {
           />
         )}
       </GameScreen>
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Fuego" actionGlyph="A" />
     </div>
   )
 }

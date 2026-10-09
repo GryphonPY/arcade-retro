@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useKeys } from './use-keys'
+import { useFollowKeys } from './gestures'
 import { loadBest, saveBest, aabb, rr, renderScale } from './game-utils'
-import { TouchPad } from './touch-pad'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
 import { StartOverlay, GameOverOverlay, Hud, useIsTouch } from './overlay'
@@ -294,6 +294,40 @@ export default function TrafficRacer() {
   const [stats, setStats] = useState({ km: '0.00', nm: 0, chain: 0, coins: 0 })
 
   const R = useRef<Race>(initial(false))
+  // Un dedo: el auto lo sigue. Un segundo dedo en cualquier parte: turbo.
+  const follow = useFollowKeys(virtualPress, virtualRelease, {
+    worldW: () => W,
+    targetX: () => R.current.px + PW / 2,
+    dead: 8,
+  })
+  const boostRef = useRef<number | null>(null)
+  const touch = {
+    onPointerDown: (e: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (boostRef.current === null && follow.active()) {
+        boostRef.current = e.pointerId
+        virtualPress('action')
+        return
+      }
+      follow.handlers.onPointerDown(e)
+    },
+    onPointerMove: follow.handlers.onPointerMove,
+    onPointerUp: (e: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (boostRef.current === e.pointerId) {
+        boostRef.current = null
+        virtualRelease('action')
+        return
+      }
+      follow.handlers.onPointerUp(e)
+    },
+    onPointerCancel: (e: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (boostRef.current === e.pointerId) {
+        boostRef.current = null
+        virtualRelease('action')
+        return
+      }
+      follow.handlers.onPointerCancel(e)
+    },
+  }
   const scoreRef = useRef(0)
   const phaseRef = useRef<'start' | 'play' | 'over'>('start')
 
@@ -1475,6 +1509,7 @@ export default function TrafficRacer() {
     }
 
     const loop = (now: number) => {
+      follow.tick()
       const real = Math.min(0.05, (now - last) / 1000)
       last = now
       if (stageVersion() !== seenStage) {
@@ -1522,6 +1557,7 @@ export default function TrafficRacer() {
         <canvas
           ref={canvasRef}
           className="block h-full w-full object-contain touch-none select-none"
+          {...touch}
           aria-label="Juego Carrera de Tráfico"
         />
         {phase === 'start' && (
@@ -1530,7 +1566,7 @@ export default function TrafficRacer() {
             accent={ACCENT}
             subtitle="Zigzaguea entre el tráfico por la ciudad, el desierto y el túnel."
             hint="Pulsa ESPACIO o una flecha"
-            touchHint="Toca A o la cruceta para arrancar"
+            touchHint="Arrastra el dedo para manejar; con otro dedo, turbo"
             onStart={begin}
           >
             <Tips />
@@ -1554,7 +1590,6 @@ export default function TrafficRacer() {
         )}
       </GameScreen>
 
-      <TouchPad onPress={virtualPress} onRelease={virtualRelease} showAction actionLabel="Turbo" actionGlyph="T" />
     </div>
   )
 }
