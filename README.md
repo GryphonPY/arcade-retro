@@ -1,6 +1,6 @@
 # Arcade Retro
 
-Sala de juegos arcade para el navegador: **20 juegos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio, controles táctiles pensados para el celular y una **tabla de récords mundial**.
+Sala de juegos arcade para el navegador: **28 juegos** hechos desde cero con Canvas 2D, música chiptune generada en tiempo real con WebAudio, controles táctiles pensados para el celular y una **tabla de récords mundial**.
 
 Sin anuncios, sin cuentas y sin descargas: solo eliges un apodo para aparecer en el salón de la fama. Se puede instalar como app y jugar sin conexión.
 

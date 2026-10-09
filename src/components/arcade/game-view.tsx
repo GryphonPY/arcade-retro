@@ -33,6 +33,14 @@ const GAME_COMPONENTS: Record<string, ComponentType> = {
   'brick-breaker': dynamic(() => import('@/components/games/brick-breaker'), { ssr: false, loading }),
   'hit-and-run': dynamic(() => import('@/components/games/hit-and-run'), { ssr: false, loading }),
   'gun-and-run': dynamic(() => import('@/components/games/gun-and-run'), { ssr: false, loading }),
+  chocones: dynamic(() => import('@/components/games/chocones'), { ssr: false, loading }),
+  artilleria: dynamic(() => import('@/components/games/artilleria'), { ssr: false, loading }),
+  'futbol-cabezon': dynamic(() => import('@/components/games/futbol-cabezon'), { ssr: false, loading }),
+  'guerra-castillos': dynamic(() => import('@/components/games/guerra-castillos'), { ssr: false, loading }),
+  pasteleria: dynamic(() => import('@/components/games/pasteleria'), { ssr: false, loading }),
+  'dulce-match': dynamic(() => import('@/components/games/dulce-match'), { ssr: false, loading }),
+  'cafe-michi': dynamic(() => import('@/components/games/cafe-michi'), { ssr: false, loading }),
+  nidito: dynamic(() => import('@/components/games/nidito'), { ssr: false, loading }),
 }
 
 function subscribeFullscreen(cb: () => void) {

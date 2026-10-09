@@ -39,7 +39,7 @@ const POWER_LABEL: Record<PowerKind, string> = {
   fuego: 'FUEGO',
   cabeza: 'CABEZA GIGANTE',
   congela: 'CONGELADO',
-  porteria: 'PORTERIA CHICA',
+  porteria: 'MI PORTERIA CHICA',
 }
 const POWER_COLOR: Record<PowerKind, string> = {
   fuego: '#fb923c',
@@ -584,8 +584,8 @@ export default function FutbolCabezon() {
           rival.kickT = -1
           break
         case 'porteria':
-          // achica la portería que defiende el rival
-          g.shrinkT[rival.side] = POWER_S.porteria
+          // achica la portería que defiende quien lo toma: el rival tendrá más difícil marcar
+          g.shrinkT[p.side] = POWER_S.porteria
           break
       }
     }
@@ -1126,8 +1126,8 @@ export default function FutbolCabezon() {
         if (p.fire) items.push(['FUEGO', POWER_COLOR.fuego])
         if (p.giantT > 0) items.push([`${POWER_LABEL.cabeza} ${Math.ceil(p.giantT)}`, POWER_COLOR.cabeza])
         if (p.frozenT > 0) items.push([`${POWER_LABEL.congela} ${Math.ceil(p.frozenT)}`, POWER_COLOR.congela])
-        // la portería pequeña la lanza el rival: aquí se avisa al que la sufre
-        if (g.shrinkT[1 - s] > 0) items.push([`${POWER_LABEL.porteria} ${Math.ceil(g.shrinkT[1 - s])}`, POWER_COLOR.porteria])
+        // la portería pequeña es la propia: aquí se avisa a quien la tomó
+        if (g.shrinkT[s] > 0) items.push([`${POWER_LABEL.porteria} ${Math.ceil(g.shrinkT[s])}`, POWER_COLOR.porteria])
         ctx.textAlign = s === 0 ? 'left' : 'right'
         items.forEach(([t, c], i) => {
           ctx.fillStyle = c

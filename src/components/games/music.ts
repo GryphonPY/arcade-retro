@@ -580,9 +580,96 @@ const DEFS: Record<string, TrackDef> = {
     ),
     drumsB: 'k-hks-h-'.repeat(7) + 'k-s-ssss',
   },
+  // Chocones: electro rockero en Mi menor, con bombo a tope
+  chocones: {
+    bpm: 140,
+    bassType: 'sawtooth',
+    bass: bars(elec8('E'), elec8('C'), elec8('G'), elec8('D')),
+    lead: bars('E4 - G4 - B4 - E5 -', 'C5 - E5 - G5 - C6 -', 'G4 - B4 - D5 - G5 -', 'D5 - F#5 - A5 - D6 -'),
+    leadType: 'square',
+    leadVol: 0.024,
+    bassVol: 0.045,
+    drums: R8.repeat(4),
+  },
+  // Artillería: marcha tensa en Re menor, con redoble de guerra
+  artilleria: {
+    bpm: 112,
+    bass: bars(gal8('D'), gal8('A#'), gal8('F'), gal8('C')),
+    lead: bars('D5 - - F5 - D5 - -', 'A#4 - - D5 - F5 - -', 'F4 - A4 - C5 - A4 -', 'C5 - - G4 - C5 - -'),
+    leadType: 'square',
+    leadVol: 0.02,
+    bassType: 'triangle',
+    bassVol: 0.05,
+    drums: 'k-s-k-ss'.repeat(4),
+  },
+  // Fútbol Cabezón: sintetizadores alegres en Do mayor
+  'futbol-cabezon': {
+    bpm: 150,
+    bassType: 'sawtooth',
+    bass: bars(pulse('C'), pulse('G')),
+    lead: bars('C5 E5 G5 C6 G5 E5 C5 -', 'G4 B4 D5 G5 D5 B4 G4 -', 'A4 C5 E5 A5 E5 C5 A4 -', 'F4 A4 C5 F5 C5 A4 F4 -'),
+    leadType: 'square',
+    leadVol: 0.022,
+    bassVol: 0.04,
+    drums: R8.repeat(4),
+  },
+  // Guerra de Castillos: marcha épica en Sol menor
+  'guerra-castillos': {
+    bpm: 120,
+    bass: bars('G2 - G2 - D2 - G2 -', 'C2 - C2 - G2 - C2 -', 'D#2 - D#2 - A#2 - D#2 -', 'D2 - D2 - A2 - D2 -'),
+    lead: bars('G4 - - A#4 - D5 - -', 'C5 - - G4 - E5 - -', 'D#5 - - D5 - C5 - -', 'D5 - F5 - A5 - - -'),
+    leadType: 'sawtooth',
+    leadVol: 0.018,
+    bassType: 'triangle',
+    bassVol: 0.05,
+    drums: R8.repeat(4),
+  },
+  // Pastelería en Pareja: alegre y dulce en Fa mayor
+  pasteleria: {
+    bpm: 118,
+    bass: bars('F2 - C3 - F2 - C3 -', 'A#2 - F3 - A#2 - F3 -', 'D2 - A2 - D3 - A2 -', 'C2 - G2 - C3 - G2 -'),
+    lead: bars('A4 C5 F5 - A5 - F5 C5', 'D5 F5 A#5 - D5 - A#4 -', 'F5 - A5 C6 - A5 F5 -', 'E5 G5 C6 - G5 E5 C5 -'),
+    leadType: 'triangle',
+    leadVol: 0.034,
+    bassVol: 0.045,
+    drums: R8.repeat(4),
+  },
+  // Dulce Match: rebotón en Do mayor, para los combos
+  'dulce-match': {
+    bpm: 128,
+    bassType: 'triangle',
+    bass: bars(pulse('C'), pulse('A')),
+    lead: bars('E5 - G5 - C6 - G5 -', 'D5 - F5 - A5 - F5 -', 'C5 E5 G5 C6 G5 E5 C5 -', 'A4 - C5 - E5 - C5 -'),
+    leadType: 'square',
+    leadVol: 0.022,
+    bassVol: 0.05,
+    drums: R8.repeat(4),
+  },
+  // Café Michi: jazz suave en Re menor, para una cafetería tranquila
+  'cafe-michi': {
+    bpm: 100,
+    bass: bars('D2 - A2 - F2 - A2 -', 'C2 - G2 - E2 - G2 -', 'A#1 - F2 - D2 - F2 -', 'A1 - E2 - C#2 - E2 -'),
+    lead: bars('F4 - A4 - D5 - A4 -', 'E4 - G4 - C5 - G4 -', 'D4 - F4 - A#4 - F4 -', 'C#4 - E4 - A4 - E4 -'),
+    leadType: 'triangle',
+    leadVol: 0.03,
+    bassType: 'triangle',
+    bassVol: 0.045,
+    drums: 'k---s-h-'.repeat(4),
+  },
+  // Nidito: balada dulce en Do mayor con campanitas
+  nidito: {
+    bpm: 110,
+    bassType: 'triangle',
+    bass: bars('C3 - G3 - E3 - G3 -', 'A2 - E3 - C3 - E3 -', 'F2 - C3 - A2 - C3 -', 'G2 - D3 - B2 - D3 -'),
+    lead: bars('E5 - - G5 - C6 - -', 'D5 - - F5 - A5 - -', 'C5 - - E5 - G5 - -', 'B4 - - D5 - G5 - -'),
+    leadType: 'triangle',
+    leadVol: 0.032,
+    bassVol: 0.045,
+    drums: 'k---s---'.repeat(4),
+  },
 }
 
-const splitToks = (str: string | undefined) => (str ?? '').trim().split(/\s+/).filter(Boolean)
+const splitToks =(str: string | undefined) => (str ?? '').trim().split(/\s+/).filter(Boolean)
 
 /** Une las voces de una sección rellenando con silencios hasta igualarlas. */
 function section(bass: string[], lead: string[], drums: string[]) {

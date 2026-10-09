@@ -8,6 +8,14 @@ import { Badge as HordaBadge } from './badges/horda'
 import { Badge as NebulaStrikeBadge } from './badges/nebula-strike'
 import { Badge as Bunker93Badge } from './badges/bunker-93'
 import { Badge as SunsetRunBadge } from './badges/sunset-run'
+import { Badge as ChoconesBadge } from './badges/chocones'
+import { Badge as ArtilleriaBadge } from './badges/artilleria'
+import { Badge as FutbolCabezonBadge } from './badges/futbol-cabezon'
+import { Badge as GuerraCastillosBadge } from './badges/guerra-castillos'
+import { Badge as PasteleriaBadge } from './badges/pasteleria'
+import { Badge as DulceMatchBadge } from './badges/dulce-match'
+import { Badge as CafeMichiBadge } from './badges/cafe-michi'
+import { Badge as NiditoBadge } from './badges/nidito'
 
 export function CartridgeBadge({ gameId }: { gameId: string }) {
   switch (gameId) {
@@ -31,6 +39,22 @@ export function CartridgeBadge({ gameId }: { gameId: string }) {
       return <Bunker93Badge />
     case 'sunset-run':
       return <SunsetRunBadge />
+    case 'chocones':
+      return <ChoconesBadge />
+    case 'artilleria':
+      return <ArtilleriaBadge />
+    case 'futbol-cabezon':
+      return <FutbolCabezonBadge />
+    case 'guerra-castillos':
+      return <GuerraCastillosBadge />
+    case 'pasteleria':
+      return <PasteleriaBadge />
+    case 'dulce-match':
+      return <DulceMatchBadge />
+    case 'cafe-michi':
+      return <CafeMichiBadge />
+    case 'nidito':
+      return <NiditoBadge />
     case 'snake-neon':
       return (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
