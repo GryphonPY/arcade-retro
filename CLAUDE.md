@@ -7,6 +7,9 @@
   (herramienta Agent con `model: haiku`). El orquestador no programa los
   cambios directamente; revisa lo que entregan, verifica (lint, tipos, build)
   y sube a `main`.
+- Excepción: el diseño visual (arte, personajes, escenarios, estilo de las
+  pantallas) lo hace el orquestador Opus directamente; los subagentes Haiku
+  implementan la lógica, conectan y prueban.
 
 # Trato con el usuario
 
