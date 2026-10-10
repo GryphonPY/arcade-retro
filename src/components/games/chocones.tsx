@@ -12,7 +12,7 @@ import { noise, sfx, tone } from './sfx'
 const ACCENT = '#facc15'
 const TAU = Math.PI * 2
 
-const W0 = 360
+const W0 = 320
 const H0 = 560
 // Mundo lógico: `layout()` lo ajusta a la pantalla. El ring está centrado en (CX, CY).
 let W = W0
@@ -21,9 +21,9 @@ let CX = W0 / 2
 let CY = H0 / 2
 let R0 = Math.min(W0, H0) * 0.4
 
-const CAR_R = 13 // radio del auto (choques y dibujo)
-const ENGINE = 380 // aceleración del motor (px/s²)
-const VMAX = 250
+const CAR_R = 15 // radio del auto (choques y dibujo)
+const ENGINE = 360 // aceleración del motor (px/s²)
+const VMAX = 235
 const VMAX_TURBO = 420
 const GRIP = 6 // qué tan rápido muere el deslizamiento lateral (menos = más derrape)
 const OIL_GRIP = 0.8
@@ -225,7 +225,7 @@ function layout() {
   H = f.h
   CX = W / 2
   CY = H / 2
-  R0 = Math.min(W, H) * 0.4
+  R0 = Math.min(W, H) * 0.45
   publishLogical(f)
 }
 
@@ -1142,13 +1142,37 @@ export default function Chocones() {
       bg.addColorStop(1, '#07040e')
       ctx.fillStyle = bg
       ctx.fillRect(-20, -20, W + 40, H + 40)
+      // carpa de feria: franjas suaves y guirnaldas de banderines
+      ctx.fillStyle = 'rgba(244,114,182,0.07)'
+      for (let x = 0; x < W; x += 40) ctx.fillRect(x, 0, 20, H)
+      const flags = ['#f472b6', '#facc15', '#22d3ee', '#a3e635', '#c084fc']
+      for (const gy of [CY - R0 - 46, CY + R0 + 40]) {
+        if (gy < 40 || gy > H - 40) continue
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        for (let x = -10; x <= W + 10; x += 4) ctx.lineTo(x, gy + Math.sin((x / W) * Math.PI * 2) * 8)
+        ctx.stroke()
+        let k = 0
+        for (let x = 6; x < W; x += 22) {
+          const y = gy + Math.sin((x / W) * Math.PI * 2) * 8
+          const sw = Math.sin(g.t * 3 + x) * 1.5
+          ctx.fillStyle = flags[k++ % flags.length]
+          ctx.beginPath()
+          ctx.moveTo(x - 7, y)
+          ctx.lineTo(x + 7, y)
+          ctx.lineTo(x + sw, y + 15)
+          ctx.closePath()
+          ctx.fill()
+        }
+      }
       // luces de feria alrededor de la arena
       const nBulbs = 28
       for (let i = 0; i < nBulbs; i++) {
         const a = (i / nBulbs) * TAU + g.t * 0.15
         const on = Math.floor(g.t * 3 + i) % 3 === 0
-        const bx = CX + Math.cos(a) * (R0 + 22)
-        const by = CY + Math.sin(a) * (R0 + 22)
+        const bx = CX + Math.cos(a) * (R0 + 9)
+        const by = CY + Math.sin(a) * (R0 + 9)
         ctx.fillStyle = on ? ['#fde047', '#f472b6', '#22d3ee'][i % 3] : 'rgba(255,255,255,0.12)'
         ctx.beginPath()
         ctx.arc(bx, by, on ? 3.2 : 2.4, 0, TAU)
