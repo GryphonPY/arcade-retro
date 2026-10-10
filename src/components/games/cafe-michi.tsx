@@ -18,7 +18,7 @@ const BANDEJA_CAP = 3
 
 const W0 = 360
 const H0 = 560
-const SC = 1.4 // escala de los gatitos sobre sus dibujos base
+const SC = 1.7 // escala de los gatitos sobre sus dibujos base
 // Mundo lógico: se ajusta a la pantalla (ver layout). Todo se dibuja en proporción a W y H.
 let W = W0
 let H = H0
@@ -606,100 +606,112 @@ function precio(ctx: CanvasRenderingContext2D, x: number, y: number, costo: numb
 
 /** Máquina de bebidas de frente, dibujada según cuál es. Bloqueada: gris y tenue. */
 function maquina(ctx: CanvasRenderingContext2D, id: Bebida, bx: number, by: number, bw: number, bh: number, abierta: boolean) {
+  // aparatito kawaii: cuerpo redondo con carita; cada bebida tiene su detalle arriba
+  const INKC = '#6b3a3a'
   const cx = bx + bw / 2
-  const cuerpo = abierta ? INFO[id].maquina : '#dcd3d6'
-  ctx.fillStyle = cuerpo
-  ctx.strokeStyle = '#9a6a5a'
-  ctx.lineWidth = 1.6
-  if (id === 'chocolate') {
-    // olla de chocolate con tapa de bolita y asas
-    ctx.beginPath()
-    ctx.arc(bx + bw * 0.1, by + bh * 0.62, bh * 0.14, Math.PI / 2, (Math.PI * 3) / 2)
-    ctx.arc(bx + bw * 0.9, by + bh * 0.62, bh * 0.14, -Math.PI / 2, Math.PI / 2)
-    ctx.stroke()
-    rr(ctx, bx + bw * 0.1, by + bh * 0.46, bw * 0.8, bh * 0.54, 10)
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.ellipse(cx, by + bh * 0.46, bw * 0.42, bh * 0.12, 0, 0, PI2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#6b3a2a'
-    ctx.beginPath()
-    ctx.ellipse(cx, by + bh * 0.46, bw * 0.34, bh * 0.08, 0, 0, PI2)
-    ctx.fill()
-    ctx.fillStyle = '#6b3a2a'
-    ctx.beginPath()
-    ctx.arc(cx - bw * 0.2, by + bh * 0.6, 1.6, 0, PI2)
-    ctx.arc(cx + bw * 0.16, by + bh * 0.66, 1.3, 0, PI2)
-    ctx.fill()
-    return
-  }
-  rr(ctx, bx, by + 2, bw, bh - 2, 8)
+  const cuerpo = abierta ? INFO[id].maquina : '#e7dfe2'
+  const t = performance.now() / 1000
+  const bob = abierta ? Math.sin(t * 2.4 + bx) * 1.2 : 0
+  const top = by + bh * 0.5 + bob
+  ctx.save()
+  ctx.lineWidth = 2
+  ctx.strokeStyle = INKC
+  // sombra
+  ctx.fillStyle = 'rgba(107,58,58,0.15)'
+  ctx.beginPath()
+  ctx.ellipse(cx, by + bh - 1, bw * 0.4, 3, 0, 0, PI2)
   ctx.fill()
-  ctx.stroke()
+  // detalle superior según la bebida
   if (id === 'cafe') {
-    // cafetera espresso: manómetro, botón y cabezal
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.arc(bx + bw * 0.22, by + bh * 0.56, 4.6, 0, PI2)
+    ctx.fillStyle = '#c08457'
+    rr(ctx, cx - bw * 0.16, top - bh * 0.12, bw * 0.32, bh * 0.14, 4)
     ctx.fill()
-    ctx.strokeStyle = '#ef4444'
-    ctx.lineWidth = 1
+    ctx.stroke()
+    // vapor
+    if (abierta) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+      ctx.lineWidth = 1.6
+      for (const dx of [-5, 5]) {
+        ctx.beginPath()
+        for (let k = 0; k < 8; k++) ctx.lineTo(cx + dx + Math.sin(t * 4 + k * 0.8 + dx) * 2, top - bh * 0.22 - k * 1.6)
+        ctx.stroke()
+      }
+    }
+  } else if (id === 'chocolate') {
+    ctx.fillStyle = '#7c4a32'
     ctx.beginPath()
-    ctx.moveTo(bx + bw * 0.22, by + bh * 0.56)
-    ctx.lineTo(bx + bw * 0.22 + 3, by + bh * 0.56 - 2.5)
+    ctx.ellipse(cx, top, bw * 0.36, bh * 0.1, 0, Math.PI, 0)
+    ctx.fill()
     ctx.stroke()
     ctx.fillStyle = '#f472b6'
     ctx.beginPath()
-    ctx.arc(bx + bw * 0.8, by + bh * 0.56, 2.4, 0, PI2)
+    ctx.arc(cx, top - bh * 0.08, 2.6, 0, PI2)
     ctx.fill()
-    ctx.fillStyle = '#8a5a4a'
-    rr(ctx, cx - 7, by + bh * 0.7, 14, 5, 2)
-    ctx.fill()
-    rr(ctx, cx - 2.2, by + bh * 0.7 + 5, 4.4, 3.5, 1.2)
-    ctx.fill()
+    ctx.stroke()
   } else if (id === 'matcha') {
-    // batidora de matcha: cuenco verde y chasen (batidor de bambú)
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = '#86efac'
     ctx.beginPath()
-    ctx.ellipse(cx, by + bh * 0.74, bw * 0.34, bh * 0.14, 0, 0, PI2)
+    ctx.arc(cx, top, bw * 0.14, Math.PI, 0)
     ctx.fill()
     ctx.stroke()
-    ctx.fillStyle = '#5a9e4b'
+    ctx.fillStyle = '#4d7c0f'
     ctx.beginPath()
-    ctx.ellipse(cx, by + bh * 0.72, bw * 0.3, bh * 0.08, 0, 0, PI2)
+    ctx.ellipse(cx + 4, top - bw * 0.2, 5, 2.4, -0.6, 0, PI2)
     ctx.fill()
-    ctx.strokeStyle = '#b8895a'
-    ctx.lineWidth = 1.8
-    ctx.beginPath()
-    ctx.moveTo(cx, by + bh * 0.26)
-    ctx.lineTo(cx, by + bh * 0.6)
-    ctx.stroke()
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.ellipse(cx, by + bh * 0.46, 3, 5, 0, 0, PI2)
-    ctx.stroke()
   } else {
-    // espumador de leche: jarra con corazón y vapor
+    ctx.strokeStyle = '#94a3b8'
+    ctx.lineWidth = 2.4
+    ctx.beginPath()
+    ctx.moveTo(bx + bw * 0.78, top - bh * 0.18)
+    ctx.lineTo(bx + bw * 0.86, top + bh * 0.25)
+    ctx.stroke()
+    ctx.strokeStyle = INKC
+    ctx.lineWidth = 2
     ctx.fillStyle = '#ffffff'
-    rr(ctx, cx - bw * 0.22, by + bh * 0.42, bw * 0.44, bh * 0.44, 5)
+    ctx.beginPath()
+    ctx.arc(cx - 2, top - bh * 0.06, bw * 0.13, 0, PI2)
     ctx.fill()
     ctx.stroke()
-    corazon(ctx, cx, by + bh * 0.7, 3.2, '#f472b6')
-    ctx.strokeStyle = '#9ca3af'
-    ctx.lineWidth = 2.2
-    ctx.beginPath()
-    ctx.moveTo(bx + bw * 0.78, by + bh * 0.26)
-    ctx.lineTo(bx + bw * 0.9, by + bh * 0.72)
-    ctx.stroke()
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'
-    ctx.beginPath()
-    ctx.arc(bx + bw * 0.3, by + bh * 0.3, 2.4, 0, PI2)
-    ctx.arc(bx + bw * 0.4, by + bh * 0.2, 1.6, 0, PI2)
-    ctx.fill()
   }
+  // cuerpo
+  ctx.fillStyle = cuerpo
+  rr(ctx, bx + bw * 0.08, top, bw * 0.84, by + bh - 3 - top, Math.min(14, bw * 0.25))
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'
+  rr(ctx, bx + bw * 0.16, top + 4, bw * 0.16, (by + bh - top) * 0.4, 4)
+  ctx.fill()
+  // carita: ojitos que parpadean, boquita y cachetes
+  const fy = top + (by + bh - top) * 0.42
+  const blink = abierta && Math.sin(t * 1.3 + bx * 0.1) > 0.97
+  ctx.fillStyle = INKC
+  ctx.strokeStyle = INKC
+  ctx.lineWidth = 1.6
+  for (const dx of [-bw * 0.15, bw * 0.15]) {
+    if (blink || !abierta) {
+      ctx.beginPath()
+      ctx.arc(cx + dx, fy, 2.6, Math.PI * 0.15, Math.PI * 0.85)
+      ctx.stroke()
+    } else {
+      ctx.beginPath()
+      ctx.arc(cx + dx, fy, 2.6, 0, PI2)
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.arc(cx + dx + 0.9, fy - 0.9, 0.9, 0, PI2)
+      ctx.fill()
+      ctx.fillStyle = INKC
+    }
+  }
+  ctx.beginPath()
+  ctx.arc(cx, fy + 3, 2.4, 0.1 * Math.PI, 0.9 * Math.PI)
+  ctx.stroke()
+  ctx.fillStyle = 'rgba(244,114,182,0.55)'
+  ctx.beginPath()
+  ctx.ellipse(cx - bw * 0.27, fy + 3, 3.2, 2, 0, 0, PI2)
+  ctx.ellipse(cx + bw * 0.27, fy + 3, 3.2, 2, 0, 0, PI2)
+  ctx.fill()
+  ctx.restore()
 }
 
 /** Gatito sentado de frente, a escala SC. (x, y) son sus patas. Cola, cachetes y accesorios de los especiales. */

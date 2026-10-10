@@ -934,14 +934,14 @@ export class Chefs {
     ctx.restore()
     if (it) {
       ctx.save()
-      drawItem(ctx, it, x + f * 13, y - 11, 0.5)
+      drawItem(ctx, it, x + f * 24, y - 22, 0.85)
       ctx.restore()
     }
   }
 }
 
 /** Escala del cocinerito y su altura total (de los pies a la punta del gorro). */
-const CHEF_K = 0.55
+const CHEF_K = 0.92
 const CHEF_H = 58 * CHEF_K
 
 /**
@@ -950,7 +950,7 @@ const CHEF_H = 58 * CHEF_K
  * El mostrador se señala desde el hueco de abajo, que es la pasarela compartida.
  */
 function chefFeetY(sp: Spot, H: number): number {
-  const gap = 3 + CHEF_H
-  if (sp.kind === 'counter') return H * 0.565 + gap
-  return sp.y + sp.h / 2 + gap
+  // grande y al frente del puesto (lo tapa un poco, como en Overcooked)
+  if (sp.kind === 'counter') return H * 0.565 + CHEF_H * 0.75
+  return sp.y + sp.h / 2 + CHEF_H * 0.82
 }
