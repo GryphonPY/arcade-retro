@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react'
 import { sfx } from '../sfx'
 import { sumarInventario, type Actualizar } from './guardado'
 import { CUARTOS, MUEBLES, PAREDES, PISOS, type Mueble, type Superficie } from './muebles-data'
+import { aplicarAccion } from './tareas'
 import type { CuartoId, Partida } from './types'
 
 export interface TiendaProps {
@@ -36,11 +37,17 @@ export function Tienda({ partida, actualizar, cuartoId, avisar }: TiendaProps) {
       avisar('Te faltan monedas para este mueble')
       return
     }
-    actualizar((p) => ({
-      ...p,
-      monedas: p.monedas - m.precio,
-      inventario: sumarInventario(p.inventario, m.id, 1),
-    }))
+    actualizar((p) =>
+      aplicarAccion(
+        {
+          ...p,
+          monedas: p.monedas - m.precio,
+          inventario: sumarInventario(p.inventario, m.id, 1),
+        },
+        `comprar:${m.cuarto}`,
+        1,
+      ),
+    )
     sfx.coin()
     avisar(`¡Comprado! ${m.nombre} está en tu inventario (Casa → Decorar)`)
   }

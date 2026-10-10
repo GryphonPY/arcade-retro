@@ -359,7 +359,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'artilleria',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     landscape: true,
     category: 'pareja',
@@ -483,7 +482,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'nidito',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     category: 'tiernos',
     name: 'Nidito',

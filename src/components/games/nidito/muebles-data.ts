@@ -62,15 +62,37 @@ const sombra = (w = 70) => el(50, 96, w / 2, 3.5, SOMBRA_FILL)
 const corazon = (x: number, y: number, s: number, f: string) =>
   pa(`M${x} ${y + s * 0.3} C${x} ${y - s * 0.2} ${x - s * 0.6} ${y - s * 0.2} ${x - s * 0.6} ${y + s * 0.15} C${x - s * 0.6} ${y + s * 0.5} ${x} ${y + s * 0.7} ${x} ${y + s} C${x} ${y + s * 0.7} ${x + s * 0.6} ${y + s * 0.5} ${x + s * 0.6} ${y + s * 0.15} C${x + s * 0.6} ${y - s * 0.2} ${x} ${y - s * 0.2} ${x} ${y + s * 0.3}Z`, f)
 
+/** Tapa superior: un tono más claro sobre una pieza, para dar volumen. */
+const tapa = (x: number, y: number, w: number, h: number, f = '#ffffff') =>
+  r(x, y, w, h, f, Math.min(h / 2, 4), 'opacity="0.28"')
+
 const sofa = (b: string, cuerpo: string, cojin: string, ancho = 92) => {
   const x0 = (100 - ancho) / 2
+  const cw = (ancho - 28) / 2
   return (
-    r(x0 + 6, 34, ancho - 12, 34, b, 14) +
-    r(x0 - 2, 52, ancho + 4, 30, cuerpo, 13) +
-    r(x0 + 10, 60, (ancho - 26) / 2, 16, cojin, 8) +
-    r(x0 + 14 + (ancho - 26) / 2, 60, (ancho - 26) / 2, 16, cojin, 8) +
-    r(x0 + 2, 80, 7, 14, OSC, 3) +
-    r(x0 + ancho - 9, 80, 7, 14, OSC, 3)
+    sombra(ancho + 4) +
+    // patas con perspectiva (más oscuras y cortas al frente)
+    r(x0 + 6, 86, 6, 9, OSC, 2) +
+    r(x0 + ancho - 12, 86, 6, 9, OSC, 2) +
+    // respaldo: cara frontal y tapa superior
+    r(x0 + 4, 30, ancho - 8, 40, b, 14) +
+    tapa(x0 + 10, 32, ancho - 20, 5) +
+    c(x0 + 22, 44, 1.6, OSC, 'opacity="0.3"') +
+    c(50, 44, 1.6, OSC, 'opacity="0.3"') +
+    c(x0 + ancho - 22, 44, 1.6, OSC, 'opacity="0.3"') +
+    // brazos con tapa
+    r(x0 - 4, 46, 14, 42, cuerpo, 7) +
+    tapa(x0 - 2, 47, 10, 4) +
+    r(x0 + ancho - 10, 46, 14, 42, cuerpo, 7) +
+    tapa(x0 + ancho - 8, 47, 10, 4) +
+    // frente del asiento
+    r(x0 + 10, 68, ancho - 20, 20, cuerpo, 6) +
+    r(x0 + 10, 84, ancho - 20, 4, OSC, 2, 'opacity="0.18"') +
+    // cojines con tapa clara y sombra en el borde de abajo
+    r(x0 + 14, 56, cw, 18, cojin, 7) +
+    tapa(x0 + 16, 57, cw - 4, 4) +
+    r(x0 + 14 + cw + 2, 56, cw, 18, cojin, 7) +
+    tapa(x0 + 16 + cw + 2, 57, cw - 4, 4)
   )
 }
 
@@ -82,9 +104,13 @@ const silla = (madera: string, cojin: string, respaldo: boolean) =>
   r(26, 50, 48, 8, cojin, 4)
 
 const mesa = (t: string, pata: string, w = 70) =>
-  r(50 - w / 2, 50, w, 8, t, 4) +
-  r(50 - w / 2 + 6, 58, 6, 38, pata, 2) +
-  r(50 + w / 2 - 12, 58, 6, 38, pata, 2)
+  sombra(w + 6) +
+  r(50 - w / 2 + 6, 60, 6, 36, pata, 2) +
+  r(50 + w / 2 - 12, 60, 6, 36, pata, 2) +
+  r(50 - w / 2 + 4, 56, w - 8, 5, pata, 2, 'opacity="0.6"') +
+  r(50 - w / 2, 46, w, 10, t, 4) +
+  tapa(50 - w / 2 + 3, 47, w - 6, 3) +
+  r(50 - w / 2, 53, w, 3, pata, 1.5, 'opacity="0.35"')
 
 const cama = (cabecera: string, colchon: string, cobija: string, almohada = '#ffffff') =>
   r(4, 30, 10, 62, cabecera, 4) +
@@ -96,17 +122,25 @@ const cama = (cabecera: string, colchon: string, cobija: string, almohada = '#ff
   r(84, 84, 6, 12, OSC, 2)
 
 const planta = (maceta: string, hoja: string, alto = 62) =>
-  r(38, 100 - 26, 24, 26, maceta, 5) +
-  pa(`M50 ${100 - 26} C${34} ${100 - 40} 30 ${100 - alto + 14} 42 ${100 - alto}`, hoja, 'stroke="none"') +
-  pa(`M50 ${100 - 26} C${66} ${100 - 40} 70 ${100 - alto + 14} 58 ${100 - alto}`, hoja, 'stroke="none"') +
+  sombra(30) +
+  r(36, 72, 28, 28, maceta, 6) +
+  r(33, 68, 34, 7, maceta, 3) +
+  tapa(36, 69, 28, 3) +
+  pa(`M50 72 C34 60 30 ${100 - alto + 14} 42 ${100 - alto}`, hoja, 'stroke="none"') +
+  pa(`M50 72 C66 60 70 ${100 - alto + 14} 58 ${100 - alto}`, hoja, 'stroke="none"') +
   el(50, 100 - alto + 4, 14, 16, hoja) +
   el(34, 100 - alto + 22, 9, 6, hoja) +
-  el(66, 100 - alto + 22, 9, 6, hoja)
+  el(66, 100 - alto + 22, 9, 6, hoja) +
+  el(44, 100 - alto + 10, 4, 7, '#ffffff', 'opacity="0.25"')
 
 const lampara = (pantalla: string, base: string, alto = 60) =>
+  sombra(22) +
   r(47, 100 - alto + 30, 6, alto - 36, base, 2) +
-  r(38, 100 - 10, 24, 8, base, 4) +
-  pa(`M32 ${100 - alto + 30} L68 ${100 - alto + 30} L62 ${100 - alto} L38 ${100 - alto} Z`, pantalla)
+  el(50, 90, 12, 4, base) +
+  el(50, 88, 9, 2.5, '#ffffff', 'opacity="0.3"') +
+  pa(`M32 ${100 - alto + 30} L68 ${100 - alto + 30} L62 ${100 - alto} L38 ${100 - alto} Z`, pantalla) +
+  el(50, 100 - alto, 12, 3, '#ffffff', 'opacity="0.5"') +
+  el(50, 100 - alto + 30, 18, 3, '#f5d98a', 'opacity="0.6"')
 
 const cuadro = (marco: string, dentro: string) =>
   r(10, 14, 80, 66, marco, 8) + r(18, 22, 64, 50, dentro, 4)
@@ -126,19 +160,19 @@ const ALFOMBRA_FONDO = (fondo: string, borde: string) =>
 
 // ---------- muebles ----------
 
-export const MUEBLES: Mueble[] = [
+const MUEBLES_BASE: Mueble[] = [
   // ----- sala -----
   {
-    id: 'sofa-rosa', nombre: 'Sofá rosita', cuarto: 'sala', precio: 120, ancho: 0.3, alto: 0.2, asiento: 0.1,
-    svg: sombra(84) + sofa('#ff9fbd', '#ffb3c9', '#ffe0ea'),
+    id: 'sofa-rosa', nombre: 'Sofá rosita', cuarto: 'sala', precio: 120, ancho: 0.36, alto: 0.2, asiento: 0.088,
+    svg: sofa('#ff9fbd', '#ffb3c9', '#ffe0ea'),
   },
   {
-    id: 'sofa-menta', nombre: 'Sofá menta', cuarto: 'sala', precio: 140, ancho: 0.3, alto: 0.2, asiento: 0.1,
-    svg: sombra(84) + sofa('#7fcfb2', '#b5ead7', '#e4fbf2'),
+    id: 'sofa-menta', nombre: 'Sofá menta', cuarto: 'sala', precio: 140, ancho: 0.36, alto: 0.2, asiento: 0.088,
+    svg: sofa('#7fcfb2', '#b5ead7', '#e4fbf2'),
   },
   {
-    id: 'sillon-lila', nombre: 'Sillón lila', cuarto: 'sala', precio: 90, ancho: 0.18, alto: 0.2, asiento: 0.1,
-    svg: sombra(56) + sofa('#a98bf0', '#cdb4ff', '#efe6ff', 70),
+    id: 'sillon-lila', nombre: 'Sillón lila', cuarto: 'sala', precio: 90, ancho: 0.2, alto: 0.2, asiento: 0.088,
+    svg: sofa('#a98bf0', '#cdb4ff', '#efe6ff', 70),
   },
   {
     id: 'mesa-centro', nombre: 'Mesita de centro', cuarto: 'sala', precio: 60, ancho: 0.18, alto: 0.1,
@@ -541,6 +575,16 @@ export const MUEBLES: Mueble[] = [
       c(30, 72, 3, '#7a5068') + c(44, 72, 3, '#7a5068') + c(58, 72, 3, '#7a5068') + c(72, 72, 3, '#7a5068'),
   },
 ]
+
+/** Escala del mobiliario: más grande frente a los personajes (se ve más acogedor). */
+const ESCALA_MUEBLE = 1.3
+
+export const MUEBLES: Mueble[] = MUEBLES_BASE.map((m) => ({
+  ...m,
+  ancho: m.ancho * ESCALA_MUEBLE,
+  alto: m.alto * ESCALA_MUEBLE,
+  asiento: m.asiento !== undefined ? m.asiento * ESCALA_MUEBLE : undefined,
+}))
 
 // ---------- paredes y pisos ----------
 

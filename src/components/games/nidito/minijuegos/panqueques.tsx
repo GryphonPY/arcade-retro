@@ -108,7 +108,7 @@ const multiplicador = (racha: number) => 1 + Math.min(3, Math.floor(racha / 5))
 function medidas(W: number, H: number) {
   const u = Math.min(W * 0.92, H * 0.7)
   const ph = Math.max(14, u * 0.045)
-  const plY = H * 0.84
+  const plY = H * 0.7 // deja espacio al gatito chef debajo del plato
   return {
     u,
     pw: u * 0.36,
@@ -116,7 +116,7 @@ function medidas(W: number, H: number) {
     plW: u * 0.46,
     plY,
     baseY: plY - ph * 0.2,
-    catY: plY + u * 0.13,
+    catY: plY + u * 0.1,
     rc: u * 0.1,
     centro: H * 0.4,
     perfecto: H * 0.055,
@@ -441,7 +441,8 @@ function paso(g: Juego, dt: number) {
   const desp = 0.9 * dt
   if (g.teclas.izq) g.platoObj -= desp
   if (g.teclas.der) g.platoObj += desp
-  const mitad = m.plW / 2 / g.W
+  // El dibujo del plato incluye las asas (~0.55 del ancho): el límite las deja dentro.
+  const mitad = (m.plW * 0.6) / g.W
   g.platoObj = clamp(g.platoObj, mitad, 1 - mitad)
   const previo = g.plato
   g.plato += (g.platoObj - g.plato) * Math.min(1, dt * 14)

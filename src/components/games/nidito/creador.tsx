@@ -1,24 +1,37 @@
 'use client'
 
 import { useState } from 'react'
-import type { Look, Personaje } from './types'
+import type { Genero, Look, Personaje } from './types'
 import { Avatar } from './avatar'
-import { COLORES_OJOS, COLORES_PELO, LOOK_BASE, OJOS, PEINADOS, TONOS_PIEL } from './wardrobe-data'
+import {
+  cambiarGenero,
+  COLORES_OJOS,
+  COLORES_PELO,
+  completarGenero,
+  GENEROS,
+  LOOK_POR_GENERO,
+  OJOS,
+  PEINADOS,
+  TONOS_PIEL,
+} from './wardrobe-data'
 
 const NOMBRES_BASE: [string, string] = ['Ella', 'Él']
 
-function personaBase(nombre: string): Personaje {
-  return { nombre, look: { ...LOOK_BASE, ropa: { ...LOOK_BASE.ropa } } }
+/** Personaje nuevo: la chica y el chico empiezan con su atuendo y peinado por defecto. */
+function personaBase(nombre: string, genero: Genero): Personaje {
+  const base = LOOK_POR_GENERO[genero]
+  return { nombre, look: { ...base, ropa: { ...base.ropa } } }
 }
 
 function copiaPar(inicial?: [Personaje, Personaje]): [Personaje, Personaje] {
   if (inicial) {
-    return [
-      { nombre: inicial[0].nombre, look: { ...inicial[0].look, ropa: { ...inicial[0].look.ropa } } },
-      { nombre: inicial[1].nombre, look: { ...inicial[1].look, ropa: { ...inicial[1].look.ropa } } },
-    ]
+    const copia = (p: Personaje, i: 0 | 1): Personaje => {
+      const look = completarGenero(p.look, i)
+      return { nombre: p.nombre, look: { ...look, ropa: { ...look.ropa } } }
+    }
+    return [copia(inicial[0], 0), copia(inicial[1], 1)]
   }
-  return [personaBase(NOMBRES_BASE[0]), personaBase(NOMBRES_BASE[1])]
+  return [personaBase(NOMBRES_BASE[0], 'chica'), personaBase(NOMBRES_BASE[1], 'chico')]
 }
 
 function Muestra({
@@ -93,6 +106,14 @@ export function Creador({
     })
   }
 
+  function cambiaGenero(genero: Genero) {
+    setPar((prev) => {
+      const copia: [Personaje, Personaje] = [prev[0], prev[1]]
+      copia[activa] = { ...prev[activa], look: cambiarGenero(prev[activa].look, genero) }
+      return copia
+    })
+  }
+
   function cambiaNombre(nombre: string) {
     setPar((prev) => {
       const copia: [Personaje, Personaje] = [prev[0], prev[1]]
@@ -145,6 +166,31 @@ export function Creador({
             placeholder="¿Cómo se llama?"
             className="min-h-11 w-full rounded-2xl border-0 bg-white px-4 text-base font-semibold text-rose-800 shadow-sm ring-1 ring-rose-100 outline-none focus:ring-2 focus:ring-pink-300"
           />
+        </Seccion>
+
+        <Seccion titulo="Soy">
+          <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Género del personaje">
+            {GENEROS.map((g) => {
+              const activo = (look.genero ?? (activa === 0 ? 'chica' : 'chico')) === g.id
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={activo}
+                  onClick={() => cambiaGenero(g.id)}
+                  className={`min-h-16 rounded-3xl text-lg font-black transition-all active:scale-95 ${
+                    activo
+                      ? 'bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-lg shadow-pink-200'
+                      : 'bg-white text-rose-500 shadow-sm ring-1 ring-rose-100'
+                  }`}
+                >
+                  <span aria-hidden className="mr-1">{g.id === 'chica' ? '👧' : '👦'}</span>
+                  {g.nombre}
+                </button>
+              )
+            })}
+          </div>
         </Seccion>
 
         <Seccion titulo="Tono de piel">

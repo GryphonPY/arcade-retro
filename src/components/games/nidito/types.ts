@@ -1,6 +1,8 @@
 // Contrato compartido de Nidito (juego de pareja, casa y vestuario).
 // Lo usan varias piezas a la vez: no cambies nombres sin avisar al orquestador.
 
+export type Genero = 'chica' | 'chico'
+
 export type SlotRopa = 'arriba' | 'abajo' | 'zapatos' | 'accesorio' | 'pijama'
 
 export interface Look {
@@ -10,6 +12,7 @@ export interface Look {
   ojos: string // id de ojos
   colorOjos: string // hex
   rubor: boolean
+  genero?: Genero // opcional: partidas viejas no lo tienen (ver guardado.ts)
   ropa: Partial<Record<SlotRopa, string>> // id de prenda por espacio
 }
 
@@ -56,6 +59,29 @@ export interface Partida {
   citasHechas: Record<string, number> // id de cita -> veces
   ultimoRegalo: string // fecha YYYY-MM-DD del regalo diario
   mejores: Record<string, number> // récords de minijuegos
+  // Opcionales: partidas anteriores no los tienen (ver cargarPartida).
+  dia?: DiaTareas // tareas del día y su avance
+  fotos?: Foto[] // álbum de fotos del cuarto (máximo 30, más reciente primero)
+}
+
+/** Tareas del día: se eligen al empezar el día y se renuevan a medianoche (fecha local). */
+export interface DiaTareas {
+  fecha: string // YYYY-MM-DD
+  lista: string[] // ids de tarea (ver tareas.ts)
+  cuentas: Record<string, number> // avance por clave de acción
+  hechas: string[] // ids de tareas ya completadas (ya dieron recompensa)
+}
+
+/** Foto del cuarto: descripción compacta del estado (se vuelve a dibujar en miniatura). */
+export interface Foto {
+  id: string
+  dia: string // YYYY-MM-DD
+  t: number // epoch ms
+  cuarto: CuartoId
+  pared: string
+  piso: string
+  muebles: MuebleColocado[]
+  pareja: Array<{ nombre: string; look: Look; x: number; y: number; dir: 1 | -1 }>
 }
 
 /** Props de cada minijuego: al terminar entrega las monedas ganadas (y la puntuación). */

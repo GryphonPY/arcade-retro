@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Avatar } from './avatar'
 import { nivelDeCorazones, type Actualizar } from './guardado'
+import { aplicarAccion } from './tareas'
 import type { Partida } from './types'
 
 export interface CitasProps {
@@ -261,12 +262,16 @@ export function Citas({ partida, actualizar, avisar }: CitasProps) {
     const nuevoNivel = nivelDeCorazones(partida.corazones + l.corazones)
     actualizar((p) => {
       const corazones = p.corazones + l.corazones
-      return {
-        ...p,
-        corazones,
-        nivelAmor: nivelDeCorazones(corazones),
-        citasHechas: { ...p.citasHechas, [l.id]: (p.citasHechas[l.id] ?? 0) + 1 },
-      }
+      return aplicarAccion(
+        {
+          ...p,
+          corazones,
+          nivelAmor: nivelDeCorazones(corazones),
+          citasHechas: { ...p.citasHechas, [l.id]: (p.citasHechas[l.id] ?? 0) + 1 },
+        },
+        'cita',
+        1,
+      )
     })
     if (nuevoNivel > partida.nivelAmor) avisar(`¡Nivel de amor ${nuevoNivel}! 💕`)
     else avisar(`+${l.corazones} corazones 💕`)

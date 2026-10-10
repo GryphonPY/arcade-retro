@@ -1,16 +1,18 @@
 'use client'
 
-import { useCallback, useEffect, useState, useSyncExternalStore, type ComponentType } from 'react'
-import { CalendarHeart, Coins, Gamepad2, Gift, Heart, House, Shirt, Store, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
-import { isMuted, loadMutePref, setMuted, sfx } from './sfx'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from 'react'
+import { BookHeart, CalendarHeart, Coins, Gamepad2, Gift, Heart, House, Shirt, Store, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
+import { isMuted, loadMutePref, setMuted, sfx, tone } from './sfx'
 import { Armario } from './nidito/armario'
 import { Casa } from './nidito/casa'
 import { Citas } from './nidito/citas'
 import { Creador } from './nidito/creador'
+import { Libreta, type PestanaLibreta } from './nidito/libreta'
 import { Tienda } from './nidito/tienda'
 import Panqueques from './nidito/minijuegos/panqueques'
 import Entregas from './nidito/minijuegos/entregas'
 import { cargarPartida, guardarPartida, hoyISO, nuevaPartida } from './nidito/guardado'
+import { aplicarAccion, buscarTarea } from './nidito/tareas'
 import type { CuartoId, MinijuegoProps, Partida, Personaje } from './nidito/types'
 
 type Seccion = 'casa' | 'armario' | 'tienda' | 'citas' | 'minijuegos'
@@ -48,7 +50,7 @@ const JUEGOS: Array<{
 ]
 
 const BOTON_BASE =
-  'flex h-16 flex-col items-center justify-center gap-0.5 whitespace-nowrap rounded-3xl text-[11px] font-extrabold transition active:scale-95'
+  'flex h-16 max-h-[520px]:h-12 flex-col items-center justify-center gap-0.5 whitespace-nowrap rounded-3xl text-[11px] font-extrabold transition active:scale-95'
 
 const suscribirNada = () => () => {}
 
@@ -86,6 +88,9 @@ function NiditoJuego() {
     return isMuted()
   })
   const [aviso, setAviso] = useState<{ id: number; texto: string } | null>(null)
+  const [libreta, setLibreta] = useState<PestanaLibreta | null>(null)
+  const [celebra, setCelebra] = useState(0)
+  const hechasRef = useRef<string[] | null>(null)
 
   // Guardado automático tras cada cambio.
   useEffect(() => {
@@ -96,11 +101,30 @@ function NiditoJuego() {
 
   const avisar = useCallback((texto: string) => setAviso({ id: Date.now(), texto }), [])
 
+  const terminarCelebracion = useCallback(() => setCelebra(0), [])
+
   useEffect(() => {
     if (!aviso) return
     const t = window.setTimeout(() => setAviso(null), 2600)
     return () => window.clearTimeout(t)
   }, [aviso])
+
+  // Celebración tierna cuando una tarea del día se completa (venga de donde venga).
+  useEffect(() => {
+    const ids = partida?.dia && partida.dia.fecha === hoyISO() ? partida.dia.hechas : []
+    const previas = hechasRef.current
+    hechasRef.current = ids
+    if (previas === null) return
+    const nueva = ids.find((id) => !previas.includes(id))
+    if (!nueva) return
+    setCelebra((n) => n + 1)
+    tone({ freq: 659, dur: 0.14, vol: 0.05, type: 'triangle' })
+    tone({ freq: 880, dur: 0.14, vol: 0.05, type: 'triangle', delay: 0.12 })
+    tone({ freq: 1175, dur: 0.3, vol: 0.05, type: 'triangle', delay: 0.24 })
+    const tarea = buscarTarea(nueva)
+    const nombres: [string, string] = [partida?.pareja[0].nombre ?? '', partida?.pareja[1].nombre ?? '']
+    avisar(`¡Tarea lista: ${tarea ? tarea.texto(nombres) : 'bien hecho'}! 💕`)
+  }, [partida, avisar])
 
   if (partida === null) {
     return (
@@ -129,11 +153,14 @@ function NiditoJuego() {
 
   const terminarJuego = (id: Juego, resultado: { monedas: number; puntos: number }) => {
     const ganadas = Math.max(0, Math.round(resultado.monedas))
-    actualizar((p) => ({
-      ...p,
-      monedas: p.monedas + ganadas,
-      mejores: { ...p.mejores, [id]: Math.max(p.mejores[id] ?? 0, resultado.puntos) },
-    }))
+    actualizar((p) => {
+      const cuenta = {
+        ...p,
+        monedas: p.monedas + ganadas,
+        mejores: { ...p.mejores, [id]: Math.max(p.mejores[id] ?? 0, resultado.puntos) },
+      }
+      return id === 'panqueques' ? aplicarAccion(cuenta, 'panqueques', resultado.puntos, 'maximo') : cuenta
+    })
     avisar(`+${ganadas} monedas · ${resultado.puntos} puntos`)
     setJuego(null)
   }
@@ -142,15 +169,22 @@ function NiditoJuego() {
 
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden text-[#6b4a63]"
+      className="relative flex h-full w-full flex-col overflow-hidden text-[#6b4a63]"
       style={{ background: 'linear-gradient(180deg, #fff7fb 0%, #f6efff 100%)' }}
     >
-      <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-3">
+      {/* adornitos kawaii de fondo */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden text-[#ffb3c9]/60">
+        <span className="absolute left-[4%] top-[18%] text-lg">✦</span>
+        <span className="absolute right-[6%] top-[30%] text-xl">♡</span>
+        <span className="absolute left-[8%] bottom-[24%] text-base">♡</span>
+        <span className="absolute right-[10%] bottom-[12%] text-lg">✦</span>
+      </div>
+      <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-3 max-h-[520px]:pb-1 max-h-[520px]:pt-1.5">
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-extrabold leading-tight">
             {a.nombre} &amp; {b.nombre}
           </p>
-          <p className="text-[11px] font-semibold text-[#a68aa0]">Nidito · nivel de amor {partida.nivelAmor}</p>
+          <p className="text-[11px] font-semibold text-[#a68aa0] max-h-[520px]:hidden">Nidito · nivel de amor {partida.nivelAmor}</p>
         </div>
         <span className="flex h-10 items-center gap-1 rounded-2xl bg-white/85 px-2.5 text-sm font-extrabold shadow-sm" title="Monedas">
           <Coins className="h-4 w-4 text-[#d19a2a]" aria-hidden />
@@ -160,6 +194,14 @@ function NiditoJuego() {
           <Heart className="h-4 w-4 fill-[#ff8fb1] text-[#ff8fb1]" aria-hidden />
           {partida.corazones}
         </span>
+        <button
+          type="button"
+          onClick={() => setLibreta('tareas')}
+          aria-label="Abrir libreta"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#fff1f6] to-[#e4dcff] text-[#6b4a63] shadow-sm transition active:scale-90"
+        >
+          <BookHeart className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={reclamarRegalo}
@@ -180,7 +222,7 @@ function NiditoJuego() {
         </button>
       </header>
 
-      <main className="relative min-h-0 flex-1 overflow-hidden">
+      <main className="relative isolate min-h-0 flex-1 overflow-hidden">
         {seccion === 'casa' && (
           <Casa partida={partida} actualizar={actualizar} cuartoId={cuartoId} onCuarto={setCuartoId} avisar={avisar} />
         )}
@@ -233,6 +275,8 @@ function NiditoJuego() {
             </div>
           ))}
 
+        {celebra > 0 && <Confeti key={celebra} onFin={terminarCelebracion} />}
+
         {aviso && (
           <div role="status" className="pointer-events-none absolute inset-x-0 top-2 z-50 flex justify-center px-4">
             <span
@@ -270,6 +314,48 @@ function NiditoJuego() {
           )
         })}
       </nav>
+
+      {libreta && (
+        <Libreta
+          partida={partida}
+          actualizar={actualizar}
+          pestana={libreta}
+          onPestana={setLibreta}
+          onCerrar={() => setLibreta(null)}
+          avisar={avisar}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Confeti de corazones que cae sobre el juego al completar una tarea (se quita solo). */
+function Confeti({ onFin }: { onFin: () => void }) {
+  const [piezas] = useState(() =>
+    Array.from({ length: 22 }, (_, i) => ({
+      i,
+      x: 4 + Math.random() * 92,
+      demora: Math.random() * 0.6,
+      tam: 14 + Math.random() * 14,
+      emoji: ['💖', '💗', '💕', '🩷', '💘'][i % 5],
+    })),
+  )
+  useEffect(() => {
+    const t = window.setTimeout(onFin, 2600)
+    return () => window.clearTimeout(t)
+  }, [onFin])
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-[80] overflow-hidden">
+      <style>{`@keyframes nidito-confeti { 0% { transform: translateY(0) rotate(0deg); opacity: 1 } 85% { opacity: 1 } 100% { transform: translateY(120vh) rotate(180deg); opacity: 0 } } .nidito-confeti { animation: nidito-confeti 2.2s ease-in forwards; }`}</style>
+      {piezas.map((p) => (
+        <span
+          key={p.i}
+          className="nidito-confeti absolute -top-8 select-none"
+          style={{ left: `${p.x}%`, fontSize: p.tam, animationDelay: `${p.demora}s` }}
+        >
+          {p.emoji}
+        </span>
+      ))}
     </div>
   )
 }

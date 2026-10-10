@@ -95,6 +95,8 @@ interface Shell {
   pen: number
   bounces: number
   age: number
+  /** Nació dentro de la roca (cañón contra una pendiente): no explota hasta salir. */
+  ghost: boolean
   trail: { x: number; y: number }[]
 }
 interface Ring {
@@ -550,7 +552,11 @@ export default function Artilleria() {
             return false
           }
         }
-        if (!solidAt(s.x, s.y)) continue
+        if (!solidAt(s.x, s.y)) {
+          s.ghost = false
+          continue
+        }
+        if (s.ghost) continue
         if (w.name === 'PERFO') {
           // atraviesa la tierra abriendo un túnel; explota al agotar su penetración
           s.pen += Math.hypot(s.vx, s.vy) * h
@@ -629,6 +635,7 @@ export default function Artilleria() {
           pen: 0,
           bounces: 0,
           age: 0,
+          ghost: solidAt(mx, my),
           trail: [],
         })
       }
@@ -699,6 +706,7 @@ export default function Artilleria() {
       let vx = Math.cos(a) * t.dir * sp
       let vy = -Math.sin(a) * sp
       const dt = 0.02
+      let ghost = solidAt(x, y)
       for (let i = 0; i < 700; i++) {
         vx += g.wind * dt
         vy += G * dt
@@ -707,7 +715,9 @@ export default function Artilleria() {
         x += vx * dt
         y += vy * dt
         if (x < -400 || x > WW + 400 || y > WH + 100) return { x: clamp(x, 0, WW), y: WH }
-        if (solidAt(x, y)) return { x: px, y: py }
+        if (solidAt(x, y)) {
+          if (!ghost) return { x: px, y: py }
+        } else ghost = false
       }
       return { x, y }
     }
@@ -885,7 +895,11 @@ export default function Artilleria() {
     const fitAxis = (v: number, world: number, view: number) => (world >= view ? clamp(v, 0, world - view) : (world - view) / 2)
 
     const updateCamera = (dt: number) => {
-      let fx = (g.tanks[0].x + g.tanks[1].x) / 2
+      // por defecto: ambos tanques si caben en el cuadro; si no, el tanque en turno (en celular el cuadro es estrecho)
+      const ct = g.tanks[g.cur]
+      const ot = g.tanks[1 - g.cur]
+      const span = Math.abs(ct.x - ot.x)
+      let fx = span <= W - 120 ? (ct.x + ot.x) / 2 : ct.x + Math.sign(ot.x - ct.x) * (W / 2 - 90)
       let fy = WH - H / 2
       if (g.phase === 'win') {
         const wt = g.tanks[g.winner >= 0 ? g.winner : 0]
@@ -976,24 +990,50 @@ export default function Artilleria() {
         ctx.restore()
         return
       }
-      const hull = t.flash > 0 ? '#ffffff' : col
-      ctx.fillStyle = '#1f2937'
-      rr(ctx, x - 17, y - 6, 34, 6, 3)
+      // orugas con ruedas
+      const track = ctx.createLinearGradient(0, y - 7, 0, y)
+      track.addColorStop(0, '#4b5563')
+      track.addColorStop(1, '#111827')
+      ctx.fillStyle = track
+      rr(ctx, x - 17, y - 7, 34, 7, 3.5)
       ctx.fill()
-      ctx.fillStyle = hull
+      ctx.fillStyle = '#9ca3af'
+      for (const dx of [-11, -4, 4, 11]) {
+        ctx.beginPath()
+        ctx.arc(x + dx, y - 3.5, 1.8, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      // casco con degradado y placa frontal
+      const hull = t.flash > 0 ? '#ffffff' : col
+      const hg = ctx.createLinearGradient(0, y - 14, 0, y - 6)
+      hg.addColorStop(0, t.flash > 0 ? '#ffffff' : 'rgba(255,255,255,0.35)')
+      hg.addColorStop(0.35, hull)
+      hg.addColorStop(1, 'rgba(0,0,0,0.35)')
+      ctx.fillStyle = hg
       rr(ctx, x - 15, y - 13, 30, 8, 3)
       ctx.fill()
+      // torreta
+      ctx.fillStyle = t.flash > 0 ? '#ffffff' : 'rgba(255,255,255,0.18)'
       ctx.beginPath()
-      ctx.arc(x, y - 14, 6, 0, Math.PI * 2)
+      ctx.arc(x, y - 14, 6, Math.PI, 0)
       ctx.fill()
+      ctx.fillStyle = hull
+      ctx.beginPath()
+      ctx.arc(x, y - 14, 5.5, Math.PI, 0)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      ctx.fillRect(x - 6, y - 14, 12, 1.2)
       const ang = g.phase === 'aim' && t.index === g.cur ? g.angle : g.angA[t.index]
       const r = (ang * Math.PI) / 180
-      ctx.strokeStyle = '#e5e7eb'
-      ctx.lineWidth = 4
+      ctx.strokeStyle = '#1f2937'
+      ctx.lineWidth = 5.5
       ctx.lineCap = 'round'
       ctx.beginPath()
       ctx.moveTo(x, y - 14)
       ctx.lineTo(x + Math.cos(r) * t.dir * 22, y - 14 - Math.sin(r) * 22)
+      ctx.stroke()
+      ctx.strokeStyle = '#e5e7eb'
+      ctx.lineWidth = 3
       ctx.stroke()
       const f = t.hp / TANK_HP
       ctx.fillStyle = 'rgba(0,0,0,0.6)'
@@ -1025,12 +1065,17 @@ export default function Artilleria() {
       let vy = -Math.sin(a) * sp
       const dt = 0.045
       ctx.fillStyle = '#ffffff'
+      let ghost = solidAt(x, y)
       for (let i = 1; i <= 14; i++) {
         vx += g.wind * dt
         vy += G * dt
         x += vx * dt
         y += vy * dt
-        if (solidAt(x, y)) break
+        if (solidAt(x, y)) {
+          if (!ghost) break
+          continue
+        }
+        ghost = false
         ctx.globalAlpha = 0.9 - i * 0.055
         ctx.beginPath()
         ctx.arc(x, y, Math.max(1, 3 - i * 0.12), 0, Math.PI * 2)
@@ -1512,7 +1557,7 @@ export default function Artilleria() {
             type="button"
             disabled={!ui.canAct}
             onClick={() => cmdRef.current.push('fire')}
-            className={`${btn} w-24 text-black`}
+            className={`${btn} w-28 text-base text-black`}
             style={{ background: ACCENT, boxShadow: `0 0 22px ${ACCENT}66` }}
           >
             DISPARAR

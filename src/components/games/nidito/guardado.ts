@@ -2,6 +2,7 @@
 
 import type { CuartoId, Cuarto, Partida, Personaje } from './types'
 import { CUARTOS } from './muebles-data'
+import { completarGenero } from './wardrobe-data'
 
 /** Clave de localStorage de la partida. Cambiar el sufijo implica migrar. */
 export const CLAVE_PARTIDA = 'nidito-partida-v1'
@@ -32,7 +33,7 @@ function cuartoInicial(id: CuartoId, muebles: Cuarto['muebles']): Cuarto {
   return { id, pared: base.paredInicial, piso: base.pisoInicial, muebles }
 }
 
-/** Partida nueva: 300 monedas, sala y recámara desbloqueadas con pocos muebles. */
+/** Partida nueva: 300 monedas, sala y recámara desbloqueadas y ya acogedoras. */
 export function nuevaPartida(pareja: [Personaje, Personaje]): Partida {
   return {
     version: 1,
@@ -43,14 +44,24 @@ export function nuevaPartida(pareja: [Personaje, Personaje]): Partida {
     nivelAmor: 1,
     cuartos: [
       cuartoInicial('sala', [
+        { uid: nuevoUid(), id: 'cuadro-paisaje', x: 0.44, y: 0.3, flip: false },
+        { uid: nuevoUid(), id: 'cuadro-corazon', x: 0.66, y: 0.3, flip: false },
         { uid: nuevoUid(), id: 'alfombra-redonda', x: 0.5, y: 0.9, flip: false },
-        { uid: nuevoUid(), id: 'sofa-rosa', x: 0.3, y: 0.8, flip: false },
-        { uid: nuevoUid(), id: 'planta-grande', x: 0.9, y: 0.82, flip: false },
-        { uid: nuevoUid(), id: 'cuadro-corazon', x: 0.6, y: 0.48, flip: false },
+        { uid: nuevoUid(), id: 'sofa-rosa', x: 0.36, y: 0.8, flip: false },
+        { uid: nuevoUid(), id: 'mesa-centro', x: 0.6, y: 0.8, flip: false },
+        { uid: nuevoUid(), id: 'lampara-pie', x: 0.15, y: 0.8, flip: false },
+        { uid: nuevoUid(), id: 'estante-libros', x: 0.8, y: 0.66, flip: false },
+        { uid: nuevoUid(), id: 'planta-grande', x: 0.93, y: 0.9, flip: false },
       ]),
       cuartoInicial('recamara', [
-        { uid: nuevoUid(), id: 'cama-doble', x: 0.5, y: 0.84, flip: false },
-        { uid: nuevoUid(), id: 'lampara-buro', x: 0.82, y: 0.7, flip: false },
+        { uid: nuevoUid(), id: 'cuadro-luna', x: 0.5, y: 0.3, flip: false },
+        { uid: nuevoUid(), id: 'alfombra-peluda', x: 0.5, y: 0.92, flip: false },
+        { uid: nuevoUid(), id: 'cama-doble', x: 0.42, y: 0.76, flip: false },
+        { uid: nuevoUid(), id: 'buro', x: 0.13, y: 0.86, flip: false },
+        { uid: nuevoUid(), id: 'lampara-buro', x: 0.13, y: 0.68, flip: false },
+        { uid: nuevoUid(), id: 'tocador', x: 0.84, y: 0.78, flip: false },
+        { uid: nuevoUid(), id: 'puf-corazon', x: 0.7, y: 0.92, flip: false },
+        { uid: nuevoUid(), id: 'peluche-conejo', x: 0.3, y: 0.94, flip: false },
       ]),
     ],
     inventario: {},
@@ -73,6 +84,11 @@ export function cargarPartida(): Partida | null {
     // Rellenos defensivos por si la partida viene de una versión anterior.
     return {
       ...p,
+      // Partidas sin género: la primera es chica y la segunda chico (con su ropa de chico si era la de inicio).
+      pareja: [
+        { ...p.pareja[0], look: completarGenero(p.pareja[0].look, 0) },
+        { ...p.pareja[1], look: completarGenero(p.pareja[1].look, 1) },
+      ],
       inventario: p.inventario ?? {},
       ropaComprada: p.ropaComprada ?? [],
       mascotas: p.mascotas ?? [],

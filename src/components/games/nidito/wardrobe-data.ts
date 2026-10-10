@@ -2,7 +2,10 @@
 // Los ids son estables (se guardan en localStorage): no los renombres.
 // Los ids de prendas son únicos en todo el catálogo porque `ropaComprada` guarda ids sueltos.
 
-import type { Look, SlotRopa } from './types'
+import type { Genero, Look, SlotRopa } from './types'
+
+/** Género de cada prenda: 'ambos' se usa en cualquiera de los dos personajes. */
+export type GeneroPrenda = Genero | 'ambos'
 
 export type Patron = 'lunares' | 'rayas' | 'cuadros' | 'corazones' | 'estrellas'
 
@@ -12,7 +15,10 @@ export interface Opcion {
   hex: string
 }
 
-export type EstiloPeinado = 'corto' | 'bob' | 'largo' | 'coletas' | 'chongo' | 'rizos' | 'trenza' | 'pixie' | 'cola' | 'ondas'
+export type EstiloPeinado =
+  | 'corto' | 'bob' | 'largo' | 'coletas' | 'chongo' | 'rizos' | 'trenza' | 'pixie' | 'cola' | 'ondas'
+  // cortes de chico: sin mechones largos
+  | 'despeinado' | 'raya' | 'rizado'
 
 export interface Peinado {
   id: string
@@ -52,6 +58,7 @@ export interface Prenda {
   manga?: 'corta' | 'larga' // solo arriba
   cubre?: 'cuerpo' // vestido y overol tapan también la parte de abajo
   zona?: 'cabeza' | 'cuello' // solo accesorio
+  genero?: GeneroPrenda // el Armario muestra primero la del género del personaje
 }
 
 /** Tonos de piel (cálidos y variados). */
@@ -68,6 +75,9 @@ export const TONOS_PIEL: Opcion[] = [
 
 export const PEINADOS: Peinado[] = [
   { id: 'corto', nombre: 'Corto con flequillo', estilo: 'corto' },
+  { id: 'corto-despeinado', nombre: 'Corto despeinado', estilo: 'despeinado' },
+  { id: 'corte-raya', nombre: 'Corte con raya', estilo: 'raya' },
+  { id: 'rizado-corto', nombre: 'Rizado corto', estilo: 'rizado' },
   { id: 'bob', nombre: 'Bob', estilo: 'bob' },
   { id: 'largo', nombre: 'Melena larga', estilo: 'largo' },
   { id: 'coletas', nombre: 'Coletas', estilo: 'coletas' },
@@ -111,18 +121,19 @@ export const OJOS: Ojos[] = [
   { id: 'felices', nombre: 'Cerraditos felices', forma: 'felices' },
 ]
 
-export const PRENDAS: Prenda[] = [
+const PRENDAS_LISTA: Prenda[] = [
   // ARRIBA (10)
   { id: 'arriba-playera-rosa', nombre: 'Playerita rosa', slot: 'arriba', precio: 0, color: '#F7A8C4', acento: '#FFFFFF', estilo: 'playera', manga: 'corta' },
   { id: 'arriba-playera-menta', nombre: 'Playera menta', slot: 'arriba', precio: 30, color: '#A8E6CF', acento: '#FFFFFF', estilo: 'playera', manga: 'corta' },
   { id: 'arriba-blusa-mono', nombre: 'Blusa con moñito', slot: 'arriba', precio: 60, color: '#FFF4F7', acento: '#F48FB1', estilo: 'blusa', manga: 'corta' },
-  { id: 'arriba-marinera', nombre: 'Marinera a rayas', slot: 'arriba', precio: 70, color: '#FFFFFF', acento: '#3F6FB5', estilo: 'playera', manga: 'corta', patron: 'rayas' },
+  { id: 'arriba-marinera', nombre: 'Marinera a rayas', slot: 'arriba', color: '#FFFFFF', acento: '#3F6FB5', estilo: 'playera', manga: 'corta', patron: 'rayas', precio: 0 },
   { id: 'arriba-cuadros-pasto', nombre: 'Camisa de cuadros', slot: 'arriba', precio: 50, color: '#B5E48C', acento: '#5E9E3A', estilo: 'camisa', manga: 'larga', patron: 'cuadros' },
   { id: 'arriba-sudadera-lila', nombre: 'Sudadera lila', slot: 'arriba', precio: 80, color: '#C9B1F0', acento: '#8E6CC9', estilo: 'sudadera', manga: 'larga' },
   { id: 'arriba-suter-cielo', nombre: 'Suéter cielo', slot: 'arriba', precio: 90, color: '#A9D6FF', acento: '#FFFFFF', estilo: 'suter', manga: 'larga' },
   { id: 'arriba-hoodie-orejas', nombre: 'Hoodie con orejitas', slot: 'arriba', precio: 120, color: '#FFD6A5', acento: '#F4A261', estilo: 'hoodie', manga: 'larga' },
   { id: 'arriba-vestido-fresa', nombre: 'Vestido de fresas', slot: 'arriba', precio: 150, color: '#FF8FAB', acento: '#FFFFFF', estilo: 'vestido', manga: 'corta', patron: 'lunares', cubre: 'cuerpo' },
   { id: 'arriba-vestido-cielo', nombre: 'Vestido de corazones', slot: 'arriba', precio: 180, color: '#9AD0FF', acento: '#FFFFFF', estilo: 'vestido', manga: 'corta', patron: 'corazones', cubre: 'cuerpo' },
+  { id: 'arriba-vestido-margarita', nombre: 'Vestidito de margaritas', slot: 'arriba', precio: 0, color: '#FFF1F6', acento: '#FFB3C6', estilo: 'vestido', manga: 'corta', patron: 'lunares', cubre: 'cuerpo' },
   { id: 'arriba-overol', nombre: 'Overol de mezclilla', slot: 'arriba', precio: 140, color: '#7FB8E8', acento: '#4A74A8', estilo: 'overol', manga: 'corta', cubre: 'cuerpo' },
 
   // ABAJO (9)
@@ -168,6 +179,20 @@ export const PRENDAS: Prenda[] = [
   { id: 'pijama-gatito', nombre: 'Pijama de gatito', slot: 'pijama', precio: 130, color: '#BDE0FE', acento: '#A2D2FF', estilo: 'pijama', patron: 'rayas' },
 ]
 
+/** Género de las prendas que no son "ambos". Lo que no aparece aquí es para los dos. */
+const GENERO_DE: Record<string, GeneroPrenda> = {
+  'arriba-blusa-mono': 'chica', 'arriba-vestido-fresa': 'chica', 'arriba-vestido-cielo': 'chica', 'arriba-vestido-margarita': 'chica',
+  'abajo-falda-plisada': 'chica', 'abajo-tul': 'chica', 'abajo-falda-cuadros': 'chica', 'abajo-minifalda-lunares': 'chica',
+  'zapatos-botitas-cafe': 'chica', 'zapatos-mary-rosa': 'chica', 'zapatos-sandalias-cielo': 'chica',
+  'accesorio-mono-rosa': 'chica', 'accesorio-flor-margarita': 'chica', 'accesorio-corona-corazon': 'chica',
+  'accesorio-diadema-estrellas': 'chica', 'accesorio-collar-perlas': 'chica',
+  'abajo-pantalon-cafe': 'chico', 'abajo-jeans': 'chico', 'abajo-ciclista': 'chico',
+  'zapatos-tenis-negros': 'chico', 'zapatos-botas-vino': 'chico',
+}
+
+/** Catálogo final: cada prenda trae su género (por defecto 'ambos'). */
+export const PRENDAS: Prenda[] = PRENDAS_LISTA.map((p) => ({ ...p, genero: GENERO_DE[p.id] ?? 'ambos' }))
+
 /** Prenda base que se dibuja si a un espacio no le toca nada (no se vende). */
 export const PRENDAS_BASE: Record<Exclude<SlotRopa, 'pijama'>, Prenda> = {
   arriba: { id: 'base-arriba', nombre: 'Camiseta básica', slot: 'arriba', precio: 0, color: '#FFFFFF', acento: '#CFE8FF', estilo: 'playera', manga: 'corta' },
@@ -176,21 +201,80 @@ export const PRENDAS_BASE: Record<Exclude<SlotRopa, 'pijama'>, Prenda> = {
   accesorio: { id: 'base-accesorio', nombre: 'Sin accesorio', slot: 'accesorio', precio: 0, color: '#FFFFFF', acento: '#FFFFFF', estilo: 'moño', zona: 'cabeza' },
 }
 
-/** Look inicial sugerido para una pareja nueva (el Creador puede usarlo de base). */
-export const ROPA_INICIAL: Partial<Record<SlotRopa, string>> = {
-  arriba: 'arriba-playera-rosa',
-  abajo: 'abajo-falda-plisada',
-  zapatos: 'zapatos-botitas-cafe',
+/** Look de inicio de cada género: ropa gratis, peinado y ojos propios. */
+export const LOOK_POR_GENERO: Record<Genero, Look> = {
+  chica: {
+    piel: TONOS_PIEL[1].hex,
+    pelo: 'bob',
+    colorPelo: COLORES_PELO[1].hex,
+    ojos: 'almendra', // pestañas largas
+    colorOjos: COLORES_OJOS[0].hex,
+    rubor: true,
+    genero: 'chica',
+    ropa: { arriba: 'arriba-vestido-margarita', zapatos: 'zapatos-botitas-cafe' }, // vestido de inicio (cubre el cuerpo)
+  },
+  chico: {
+    piel: TONOS_PIEL[2].hex,
+    pelo: 'corto-despeinado',
+    colorPelo: COLORES_PELO[0].hex,
+    ojos: 'redondos', // sin pestañas largas
+    colorOjos: COLORES_OJOS[3].hex,
+    rubor: false,
+    genero: 'chico',
+    ropa: { arriba: 'arriba-marinera', abajo: 'abajo-pantalon-cafe', zapatos: 'zapatos-tenis-blancos' },
+  },
 }
 
-export const LOOK_BASE: Look = {
-  piel: TONOS_PIEL[1].hex,
-  pelo: 'corto',
-  colorPelo: COLORES_PELO[1].hex,
-  ojos: 'redondos',
-  colorOjos: COLORES_OJOS[0].hex,
-  rubor: true,
-  ropa: { ...ROPA_INICIAL },
+/** Look de inicio de la chica (compatibilidad con código que usa LOOK_BASE). */
+export const LOOK_BASE: Look = LOOK_POR_GENERO.chica
+
+export const GENEROS: Array<{ id: Genero; nombre: string }> = [
+  { id: 'chica', nombre: 'Chica' },
+  { id: 'chico', nombre: 'Chico' },
+]
+
+/** ¿La prenda sirve para este género? Las "ambos" sirven para cualquiera. */
+export function prendaParaGenero(p: Prenda, genero: Genero): boolean {
+  return (p.genero ?? 'ambos') === 'ambos' || p.genero === genero
+}
+
+/**
+ * Cambia el género de un personaje. Lo que no corresponde se reemplaza por el
+ * atuendo y peinado por defecto del nuevo género; lo demás (colores, ojos, rubor) se conserva.
+ */
+export function cambiarGenero(look: Look, nuevo: Genero): Look {
+  const anterior: Genero = look.genero ?? (nuevo === 'chica' ? 'chico' : 'chica')
+  if (look.genero === nuevo) return look
+  const base = LOOK_POR_GENERO[nuevo]
+  const ropa: Partial<Record<SlotRopa, string>> = { ...look.ropa }
+  for (const slot of Object.keys(base.ropa) as Array<Exclude<SlotRopa, 'pijama' | 'accesorio'>>) {
+    const id = ropa[slot]
+    const pr = buscarPrenda(id)
+    if (!pr || !prendaParaGenero(pr, nuevo)) ropa[slot] = base.ropa[slot]
+  }
+  if (look.pelo === LOOK_POR_GENERO[anterior].pelo) {
+    return { ...look, genero: nuevo, pelo: base.pelo, ojos: look.ojos, ropa }
+  }
+  return { ...look, genero: nuevo, ropa }
+}
+
+/**
+ * Partidas guardadas sin género: el primer personaje es chica y el segundo chico.
+ * Al segundo, si trae el atuendo de inicio de la chica, se le pone el del chico
+ * (no se toca la ropa que compró o eligió).
+ */
+export function completarGenero(look: Look, indice: 0 | 1): Look {
+  if (look.genero) return look
+  if (indice === 0) return { ...look, genero: 'chica' }
+  // Partidas viejas traían la playera y la falda de inicio de la chica.
+  const inicioChica = LOOK_POR_GENERO.chica.ropa
+  const ropaDeInicio =
+    look.ropa.zapatos === inicioChica.zapatos &&
+    (look.ropa.arriba === inicioChica.arriba || look.ropa.arriba === 'arriba-playera-rosa') &&
+    (look.ropa.abajo === undefined || look.ropa.abajo === 'abajo-falda-plisada')
+  return ropaDeInicio
+    ? { ...look, genero: 'chico', ropa: { ...look.ropa, ...LOOK_POR_GENERO.chico.ropa } }
+    : { ...look, genero: 'chico' }
 }
 
 export const PRENDAS_POR_SLOT: Record<SlotRopa, Prenda[]> = {

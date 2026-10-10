@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { Apple, Hand, X } from 'lucide-react'
 import type { Mascota, Partida } from './types'
 import type { Actualizar } from './guardado'
+import { aplicarAccion } from './tareas'
 
 const OSC = '#5b4a5e'
 const MAX_MASCOTAS = 2
@@ -162,25 +163,37 @@ export function PanelMascotas({
   }
 
   const acariciar = (i: number) => {
-    actualizar((p) => ({
-      ...p,
-      mascotas: p.mascotas.map((m, j) => (j === i ? { ...m, felicidad: Math.min(100, m.felicidad + 8) } : m)),
-    }))
+    actualizar((p) =>
+      aplicarAccion(
+        {
+          ...p,
+          mascotas: p.mascotas.map((m, j) => (j === i ? { ...m, felicidad: Math.min(100, m.felicidad + 8) } : m)),
+        },
+        'mascota',
+        1,
+      ),
+    )
   }
 
   const alimentar = (i: number) => {
     if (partida.monedas < 5) return avisar('Te faltan 5 monedas para la comida')
-    actualizar((p) => ({
-      ...p,
-      monedas: p.monedas - 5,
-      mascotas: p.mascotas.map((m, j) => (j === i ? { ...m, felicidad: Math.min(100, m.felicidad + 15) } : m)),
-    }))
+    actualizar((p) =>
+      aplicarAccion(
+        {
+          ...p,
+          monedas: p.monedas - 5,
+          mascotas: p.mascotas.map((m, j) => (j === i ? { ...m, felicidad: Math.min(100, m.felicidad + 15) } : m)),
+        },
+        'mascota',
+        1,
+      ),
+    )
     onAlimentar(i)
   }
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-30 flex max-h-[62%] flex-col rounded-t-[28px] bg-white/95 shadow-[0_-12px_40px_rgba(107,74,99,0.25)] backdrop-blur"
+      className="absolute inset-x-0 bottom-0 z-[2000] flex max-h-[62%] flex-col rounded-t-[28px] bg-white/95 shadow-[0_-12px_40px_rgba(107,74,99,0.25)] backdrop-blur"
       role="dialog"
       aria-label="Mascotas"
     >

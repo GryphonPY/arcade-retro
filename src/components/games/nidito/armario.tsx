@@ -4,8 +4,10 @@ import { Coins, Shirt, X } from 'lucide-react'
 import { useState } from 'react'
 import type { Partida, Personaje, SlotRopa } from './types'
 import { Avatar } from './avatar'
-import { NOMBRE_SLOT, PRENDAS_POR_SLOT, type Prenda } from './wardrobe-data'
+import { NOMBRE_SLOT, PRENDAS_POR_SLOT, type Prenda, type GeneroPrenda } from './wardrobe-data'
+import type { Genero } from './types'
 import { tone } from '../sfx'
+import { aplicarAccion } from './tareas'
 
 const SLOTS: SlotRopa[] = ['arriba', 'abajo', 'zapatos', 'accesorio', 'pijama']
 
@@ -25,7 +27,10 @@ export function Armario({
   const [aviso, setAviso] = useState<string | null>(null)
 
   const persona: Personaje = partida.pareja[activa]
-  const prendas = PRENDAS_POR_SLOT[slot]
+  // Primero las del género del personaje, luego las "ambos" y al final las demás (no se prohíbe nada).
+  const generoPersona: Genero = persona.look.genero ?? (activa === 0 ? 'chica' : 'chico')
+  const rango = (g: GeneroPrenda | undefined) => (g === generoPersona ? 0 : (g ?? 'ambos') === 'ambos' ? 1 : 2)
+  const prendas = [...PRENDAS_POR_SLOT[slot]].sort((a, b) => rango(a.genero) - rango(b.genero))
 
   /** Devuelve una partida nueva con la prenda puesta en el espacio actual de la persona activa. */
   function ponerEnEspacio(id: string | null, extra?: Partial<Partida>): Partida {
@@ -41,7 +46,7 @@ export function Armario({
     const puesta = persona.look.ropa[slot] === p.id
     if (puesta) return
     if (estaComprada(partida, p)) {
-      onCambio(ponerEnEspacio(p.id))
+      onCambio(aplicarAccion(ponerEnEspacio(p.id), `atuendo:${activa}`, 1))
       tone({ freq: 660, to: 990, dur: 0.12, type: 'triangle', vol: 0.05 })
       setAviso(null)
       return
@@ -52,10 +57,14 @@ export function Armario({
       return
     }
     onCambio(
-      ponerEnEspacio(p.id, {
-        monedas: partida.monedas - p.precio,
-        ropaComprada: [...partida.ropaComprada, p.id],
-      }),
+      aplicarAccion(
+        ponerEnEspacio(p.id, {
+          monedas: partida.monedas - p.precio,
+          ropaComprada: [...partida.ropaComprada, p.id],
+        }),
+        `atuendo:${activa}`,
+        1,
+      ),
     )
     tone({ freq: 523, to: 1046, dur: 0.18, type: 'triangle', vol: 0.06 })
     setAviso(`¡Nuevo! ${p.nombre} es suyo.`)
