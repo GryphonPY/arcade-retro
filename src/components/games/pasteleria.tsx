@@ -9,177 +9,151 @@ import { setupCanvas } from './game-utils'
 import { noise, tone } from './sfx'
 
 /*
- * Pastelería en Pareja, estilo Cooking Mama: cada pastel pasa por cuatro retos
- * cortos con gestos (batir en círculos, sacar del horno a tiempo, decorar con
- * crema trazando y poner frutas tocando). En pareja se turnan los pasos.
+ * Pastelería en Pareja, a lo Good Pizza Great Pizza: cada animalito pide algo
+ * vago y gracioso ("¡uno bien rosita!", "sin fruta, soy alérgico") y ustedes
+ * arman el pastel con total libertad: sabor, pisos, crema y adornos que se
+ * arrastran a donde quieran (dos dedos a la vez: se juega en pareja). El
+ * cliente paga según qué tan bien entendieron su pedido y qué tan lindo quedó.
  */
 
 const W = 360
 const H = 640
 const ACCENT = '#f472b6'
 const INK = '#5b2a3a'
-const P_COLOR = ['#f472b6', '#60a5fa']
-const CAKES = 3
 const SAVE_KEY = 'arcade-pasteleria-v1'
+const PER_DAY = 6
 
-type Step = 'batir' | 'hornear' | 'crema' | 'decorar'
-const STEPS: Step[] = ['batir', 'hornear', 'crema', 'decorar']
-const STEP_NAME: Record<Step, string> = { batir: '¡BATE!', hornear: '¡AL HORNO!', crema: '¡CREMA!', decorar: '¡DECORA!' }
-const STEP_HELP: Record<Step, string> = {
-  batir: 'Gira el dedo en círculos dentro del tazón',
-  hornear: 'Toca cuando la aguja esté en lo verde',
-  crema: 'Pasa el dedo por los puntitos',
-  decorar: 'Toca los brillitos antes de que se apaguen',
+// ---------- ingredientes ----------
+type Flavor = 'vainilla' | 'chocolate' | 'fresa'
+const FLAVORS: { id: Flavor; color: string; name: string }[] = [
+  { id: 'vainilla', color: '#fde68a', name: 'Vainilla' },
+  { id: 'chocolate', color: '#a0673f', name: 'Choco' },
+  { id: 'fresa', color: '#f9a8d4', name: 'Fresa' },
+]
+type Frost = 'blanca' | 'rosa' | 'lila' | 'menta' | 'choco' | 'limon'
+const FROSTS: { id: Frost; color: string }[] = [
+  { id: 'blanca', color: '#ffffff' },
+  { id: 'rosa', color: '#f9a8d4' },
+  { id: 'lila', color: '#c4b5fd' },
+  { id: 'menta', color: '#a7f3d0' },
+  { id: 'choco', color: '#7c4a2d' },
+  { id: 'limon', color: '#fef08a' },
+]
+type Kind = 'fresa' | 'cereza' | 'arandano' | 'corazon' | 'estrella' | 'bombon' | 'vela' | 'flor' | 'chispas'
+const KINDS: Kind[] = ['fresa', 'cereza', 'arandano', 'corazon', 'estrella', 'bombon', 'vela', 'flor', 'chispas']
+const KIND_COLOR: Record<Kind, string> = {
+  fresa: 'rojo',
+  cereza: 'rojo',
+  arandano: 'azul',
+  corazon: 'rosa',
+  estrella: 'amarillo',
+  bombon: 'cafe',
+  vela: 'blanco',
+  flor: 'lila',
+  chispas: 'colores',
 }
-const STEP_DUR: Record<Step, number> = { batir: 6, hornear: 6, crema: 6.5, decorar: 6 }
+const FRUIT: Kind[] = ['fresa', 'cereza', 'arandano']
 
-type Animal = 'gato' | 'conejo' | 'oso'
-type Topping = 'fresa' | 'cereza' | 'chispas' | 'corazon'
-interface Order {
-  animal: Animal
-  fur: string
-  sponge: string
-  frost: string
-  top: Topping
+interface Top {
+  id: number
+  kind: Kind
+  x: number
+  y: number
+  pop: number
+}
+interface Cake {
+  flavor: Flavor
+  tiers: number
+  frost: Frost | null
+  drip: boolean
+  tops: Top[]
 }
 
-const FURS = ['#fbcfe8', '#fde68a', '#c4b5fd', '#fed7aa', '#e5e7eb']
-const SPONGES = ['#fde68a', '#b77b4b', '#f9a8d4']
-const FROSTS = ['#ffffff', '#f9a8d4', '#c4b5fd', '#a7f3d0', '#fde68a']
-const TOPS: Topping[] = ['fresa', 'cereza', 'chispas', 'corazon']
+// ---------- pedidos ----------
+type Cond = [ok: boolean, weight: number, hint: string]
+interface Request {
+  text: string
+  check: (c: Cake, n: (k: Kind) => number) => Cond[]
+}
+const REQUESTS: Request[] = [
+  { text: '¡Uno bien rosita, porfa!', check: (c, n) => [[c.frost === 'rosa', 2, 'Le faltó crema rosa'], [n('corazon') + n('fresa') >= 2, 1, 'Más cositas rosas']] },
+  { text: 'Quiero muuuchas fresas', check: (c, n) => [[n('fresa') >= 6, 3, '¡Quería MÁS fresas!']] },
+  { text: 'Es mi cumple: ¡alto y con velitas!', check: (c, n) => [[c.tiers >= 3, 2, 'Lo quería más alto'], [n('vela') >= 3, 2, 'Faltaron velitas']] },
+  { text: 'Sin fruta, soy alérgico', check: (c, n) => [[FRUIT.every((k) => n(k) === 0), 3, '¡Tenía fruta! Achú'], [c.tops.length >= 3, 1, 'Se ve vacío']] },
+  {
+    text: 'Chocolate, chocolate y más chocolate',
+    check: (c, n) => [[c.flavor === 'chocolate', 1, 'El pan no era de chocolate'], [c.frost === 'choco', 2, 'La crema no era de chocolate'], [n('bombon') >= 3, 1, 'Más bombones']],
+  },
+  { text: 'Algo chiquito y tierno', check: (c, n) => [[c.tiers === 1, 2, 'Muy grandote'], [n('corazon') >= 1, 1, 'Un corazoncito faltó']] },
+  {
+    text: '¡De todos los colores, como arcoíris!',
+    check: (c) => [[new Set(c.tops.map((t) => KIND_COLOR[t.kind])).size >= 4 || c.tops.some((t) => t.kind === 'chispas'), 3, 'Más colores']],
+  },
+  { text: 'Menta con cerezas, mi favorito', check: (c, n) => [[c.frost === 'menta', 2, 'La crema no era de menta'], [n('cereza') >= 2, 2, 'Faltaron cerezas']] },
+  {
+    text: 'Para mi boda: blanco y elegante',
+    check: (c, n) => [[c.frost === 'blanca', 2, 'Lo quería blanco'], [c.tiers >= 2, 1, 'Muy bajito para boda'], [n('flor') >= 2, 1, 'Unas flores habrían ido bien']],
+  },
+  { text: 'De vainilla con estrellitas', check: (c, n) => [[c.flavor === 'vainilla', 1, 'No era de vainilla'], [n('estrella') >= 3, 2, 'Más estrellitas']] },
+  { text: 'Sorpréndeme', check: (c) => [[new Set(c.tops.map((t) => t.kind)).size >= 3, 2, 'Algo más variado'], [c.tops.length >= 6, 1, 'Le faltó apapacho']] },
+  { text: 'Lila con arándanos', check: (c, n) => [[c.frost === 'lila', 2, 'La crema no era lila'], [n('arandano') >= 3, 2, 'Faltaron arándanos']] },
+  { text: 'Uno con escurrido de crema', check: (c) => [[c.drip, 2, 'Sin escurrido'], [c.frost !== null, 1, 'Sin crema']] },
+  { text: 'De fresa, con fresas, fresísimo', check: (c, n) => [[c.flavor === 'fresa', 2, 'El pan no era de fresa'], [n('fresa') >= 3, 2, 'Más fresas']] },
+  { text: 'Uno de limón, sin velas', check: (c, n) => [[c.frost === 'limon', 2, 'No era de limón'], [n('vela') === 0, 2, '¡Dije sin velas!']] },
+]
+
+type Animal = 'gato' | 'conejo' | 'oso' | 'pollito'
+const ANIMALS: Animal[] = ['gato', 'conejo', 'oso', 'pollito']
+const FURS = ['#fbcfe8', '#fde68a', '#c4b5fd', '#fed7aa', '#e5e7eb', '#bfdbfe']
 const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)]
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
-interface Dot {
-  x: number
-  y: number
-  hit: boolean
-}
-interface Spark {
-  x: number
-  y: number
-  age: number
-  life: number
-}
-
-interface G {
-  phase: 'menu' | 'intro' | 'step' | 'result' | 'over'
-  duo: boolean
-  cake: number
-  step: number
-  t: number // tiempo restante del paso o de la pantalla actual
-  order: Order
-  scores: number[] // del pastel en curso
-  cakeScores: number[]
-  coins: number
-  // batir
-  mix: number
-  ang: number | null
-  swirl: number
-  // hornear
-  needle: number
-  nDir: number
-  zone: number
-  tapped: number | null
-  // crema
-  dots: Dot[]
-  blobs: { x: number; y: number }[]
-  // decorar
-  sparks: Spark[]
-  spawnT: number
-  placed: { x: number; y: number }[]
-  hits: number
-  misses: number
-  // puntero
-  down: boolean
-  px: number
-  py: number
-  lastKey: string
-  paused: boolean
-  grade: string
-}
-
-function newOrder(): Order {
-  return { animal: pick(['gato', 'conejo', 'oso']), fur: pick(FURS), sponge: pick(SPONGES), frost: pick(FROSTS), top: pick(TOPS) }
-}
-
-function freshGame(duo: boolean): G {
-  return {
-    phase: 'intro',
-    duo,
-    cake: 0,
-    step: 0,
-    t: 1.4,
-    order: newOrder(),
-    scores: [],
-    cakeScores: [],
-    coins: 0,
-    mix: 0,
-    ang: null,
-    swirl: 0,
-    needle: 0,
-    nDir: 1,
-    zone: 0.65,
-    tapped: null,
-    dots: [],
-    blobs: [],
-    sparks: [],
-    spawnT: 0,
-    placed: [],
-    hits: 0,
-    misses: 0,
-    down: false,
-    px: 0,
-    py: 0,
-    lastKey: '',
-    paused: false,
-    grade: '',
+// ---------- geometría ----------
+const PLATE_Y = 452
+const TIER_H = 52
+const TIER_W = [210, 156, 108]
+const tierTop = (i: number) => PLATE_Y - (i + 1) * TIER_H
+function onCake(c: Cake, x: number, y: number) {
+  for (let i = 0; i < c.tiers; i++) {
+    const w = TIER_W[i]
+    if (x > W / 2 - w / 2 - 4 && x < W / 2 + w / 2 + 4 && y > tierTop(i) - 16 && y < tierTop(i) + TIER_H) return true
   }
+  return false
 }
 
-// Geometría compartida
-const CAKE_X = W / 2
-const CAKE_Y = 430 // base del pastel
-const CAKE_W = 220
-const CAKE_H = 96
-const TOP_Y = CAKE_Y - CAKE_H // borde superior
-const BOWL = { x: W / 2, y: 390, r: 115 }
+// botones de la parte de abajo
+const TABS = ['PAN', 'CREMA', 'ADORNOS'] as const
+type Tab = (typeof TABS)[number]
+const TAB_Y = 474
+const PANEL_Y = 506
+const BTN_LISTO = { x: 238, y: 596, w: 110, h: 36 }
+const BTN_TRASH = { x: 186, y: 596, w: 44, h: 36 }
+const trayPos = (i: number) => ({ x: 34 + (i % 5) * 73, y: PANEL_Y + 22 + Math.floor(i / 5) * 44 })
 
-function loadBest(): number {
-  try {
-    const v = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') as { best?: unknown } | null
-    return v && typeof v.best === 'number' ? v.best : 0
-  } catch {
-    return 0
-  }
-}
-function saveBest(best: number) {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ best }))
-  } catch {
-    // sin almacenamiento
-  }
-}
-
+// ---------- sonido ----------
 function sfx(name: string) {
   switch (name) {
-    case 'swish':
-      noise({ dur: 0.05, vol: 0.02, freq: 2400 })
-      break
-    case 'go':
-      ;[659, 880].forEach((f, i) => tone({ freq: f, dur: 0.09, type: 'triangle', vol: 0.05, delay: i * 0.08 }))
-      break
     case 'pop':
       tone({ freq: 520, to: 980, dur: 0.07, type: 'sine', vol: 0.06 })
       break
-    case 'miss':
-      tone({ freq: 300, to: 200, dur: 0.1, type: 'triangle', vol: 0.04 })
+    case 'grab':
+      tone({ freq: 700, dur: 0.04, type: 'triangle', vol: 0.035 })
       break
-    case 'ding':
-      ;[1047, 1319, 1568].forEach((f, i) => tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.05, delay: i * 0.06 }))
+    case 'splat':
+      noise({ dur: 0.12, vol: 0.04, freq: 900 })
+      tone({ freq: 300, to: 180, dur: 0.1, type: 'sine', vol: 0.04 })
       break
-    case 'perfect':
+    case 'poof':
+      noise({ dur: 0.1, vol: 0.03, freq: 2400 })
+      break
+    case 'bell':
+      ;[1319, 1047].forEach((f, i) => tone({ freq: f, dur: 0.18, type: 'triangle', vol: 0.05, delay: i * 0.12 }))
+      break
+    case 'love':
       ;[523, 659, 784, 1047, 1319].forEach((f, i) => tone({ freq: f, dur: 0.14, type: 'square', vol: 0.04, delay: i * 0.07 }))
+      break
+    case 'ok':
+      ;[523, 659, 784].forEach((f, i) => tone({ freq: f, dur: 0.12, type: 'triangle', vol: 0.05, delay: i * 0.08 }))
       break
     case 'meh':
       ;[440, 392, 330].forEach((f, i) => tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.05, delay: i * 0.1 }))
@@ -193,33 +167,48 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   ctx.roundRect(x, y, w, h, r)
 }
 
-function face(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, mood: 'happy' | 'wow' | 'calm' | 'sad', t: number) {
+type Mood = 'happy' | 'wow' | 'calm' | 'sad' | 'love'
+function face(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, mood: Mood, t: number) {
   const blink = Math.sin(t * 1.7 + x) > 0.985
   ctx.fillStyle = INK
   ctx.strokeStyle = INK
   ctx.lineWidth = 2 * s
   for (const dx of [-1, 1]) {
-    if (mood === 'happy' || blink) {
+    const ex = x + dx * 9 * s
+    if (mood === 'love') {
+      ctx.fillStyle = '#f43f5e'
       ctx.beginPath()
-      ctx.arc(x + dx * 9 * s, y, 4 * s, Math.PI * 1.1, Math.PI * 1.9)
+      ctx.moveTo(ex, y + 4 * s)
+      ctx.bezierCurveTo(ex - 7 * s, y - 1 * s, ex - 4 * s, y - 7 * s, ex, y - 3 * s)
+      ctx.bezierCurveTo(ex + 4 * s, y - 7 * s, ex + 7 * s, y - 1 * s, ex, y + 4 * s)
+      ctx.fill()
+      ctx.fillStyle = INK
+    } else if (mood === 'happy' || blink) {
+      ctx.beginPath()
+      ctx.arc(ex, y, 4 * s, Math.PI * 1.1, Math.PI * 1.9)
       ctx.stroke()
     } else {
       ctx.beginPath()
-      ctx.arc(x + dx * 9 * s, y, (mood === 'wow' ? 4.2 : 3.4) * s, 0, Math.PI * 2)
+      ctx.arc(ex, y, (mood === 'wow' ? 4.2 : 3.4) * s, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#fff'
       ctx.beginPath()
-      ctx.arc(x + dx * 9 * s + 1.2 * s, y - 1.2 * s, 1.3 * s, 0, Math.PI * 2)
+      ctx.arc(ex + 1.2 * s, y - 1.2 * s, 1.3 * s, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = INK
     }
   }
   ctx.beginPath()
-  if (mood === 'wow') ctx.ellipse(x, y + 8 * s, 3.5 * s, 4.5 * s, 0, 0, Math.PI * 2)
-  else if (mood === 'sad') ctx.arc(x, y + 11 * s, 4 * s, Math.PI * 1.15, Math.PI * 1.85)
-  else ctx.arc(x, y + 5 * s, 4.5 * s, 0.15 * Math.PI, 0.85 * Math.PI)
-  if (mood === 'wow') ctx.fill()
-  else ctx.stroke()
+  if (mood === 'wow') {
+    ctx.ellipse(x, y + 8 * s, 3.5 * s, 4.5 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (mood === 'sad') {
+    ctx.arc(x, y + 11 * s, 4 * s, Math.PI * 1.15, Math.PI * 1.85)
+    ctx.stroke()
+  } else {
+    ctx.arc(x, y + 5 * s, (mood === 'love' ? 6 : 4.5) * s, 0.15 * Math.PI, 0.85 * Math.PI)
+    ctx.stroke()
+  }
   ctx.fillStyle = 'rgba(244,114,182,0.5)'
   ctx.beginPath()
   ctx.ellipse(x - 16 * s, y + 6 * s, 5 * s, 3 * s, 0, 0, Math.PI * 2)
@@ -227,248 +216,320 @@ function face(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, mo
   ctx.fill()
 }
 
-function drawAnimal(ctx: CanvasRenderingContext2D, o: Order, x: number, y: number, s: number, mood: 'happy' | 'wow' | 'calm' | 'sad', t: number) {
+function drawAnimal(ctx: CanvasRenderingContext2D, a: Animal, fur: string, x: number, y: number, mood: Mood, t: number) {
   ctx.save()
-  ctx.lineWidth = 2.5 * s
+  ctx.lineWidth = 2.5
   ctx.strokeStyle = INK
-  ctx.fillStyle = o.fur
-  if (o.animal === 'conejo') {
+  ctx.fillStyle = fur
+  if (a === 'conejo') {
     for (const dx of [-1, 1]) {
       ctx.beginPath()
-      ctx.ellipse(x + dx * 14 * s, y - 42 * s, 9 * s, 26 * s, dx * 0.15, 0, Math.PI * 2)
+      ctx.ellipse(x + dx * 14, y - 42, 9, 26, dx * 0.15, 0, Math.PI * 2)
       ctx.fill()
       ctx.stroke()
     }
-  } else if (o.animal === 'gato') {
+  } else if (a === 'gato') {
     for (const dx of [-1, 1]) {
       ctx.beginPath()
-      ctx.moveTo(x + dx * 32 * s, y - 8 * s)
-      ctx.lineTo(x + dx * 26 * s, y - 42 * s)
-      ctx.lineTo(x + dx * 6 * s, y - 28 * s)
+      ctx.moveTo(x + dx * 32, y - 8)
+      ctx.lineTo(x + dx * 26, y - 42)
+      ctx.lineTo(x + dx * 6, y - 28)
       ctx.closePath()
       ctx.fill()
       ctx.stroke()
     }
-  } else {
+  } else if (a === 'oso') {
     for (const dx of [-1, 1]) {
       ctx.beginPath()
-      ctx.arc(x + dx * 26 * s, y - 26 * s, 12 * s, 0, Math.PI * 2)
+      ctx.arc(x + dx * 26, y - 26, 12, 0, Math.PI * 2)
       ctx.fill()
       ctx.stroke()
     }
+  } else {
+    ctx.fillStyle = '#fde047'
+    ctx.beginPath()
+    ctx.ellipse(x, y - 36, 6, 9, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = fur
   }
   ctx.beginPath()
-  ctx.ellipse(x, y, 38 * s, 34 * s, 0, 0, Math.PI * 2)
+  ctx.ellipse(x, y, 38, 34, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.stroke()
-  face(ctx, x, y - 2 * s, s, mood, t)
+  if (a === 'pollito') {
+    ctx.fillStyle = '#fb923c'
+    ctx.beginPath()
+    ctx.moveTo(x - 5, y + 4)
+    ctx.lineTo(x + 5, y + 4)
+    ctx.lineTo(x, y + 10)
+    ctx.closePath()
+    ctx.fill()
+  }
+  face(ctx, x, y - 4, 1, mood, t)
   ctx.restore()
 }
 
-function drawTopping(ctx: CanvasRenderingContext2D, top: Topping, x: number, y: number, s: number, seed: number) {
+function drawTopping(ctx: CanvasRenderingContext2D, k: Kind, x: number, y: number, s: number, seed: number, t: number) {
   ctx.save()
-  ctx.lineWidth = 1.5 * s
+  ctx.translate(x, y)
+  ctx.scale(s, s)
+  ctx.lineWidth = 1.6
   ctx.strokeStyle = INK
-  if (top === 'fresa') {
+  const blob = (fill: string, r: number) => {
+    ctx.fillStyle = fill
+    ctx.beginPath()
+    ctx.arc(0, 0, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  }
+  if (k === 'fresa') {
     ctx.fillStyle = '#ef4444'
     ctx.beginPath()
-    ctx.moveTo(x - 8 * s, y - 4 * s)
-    ctx.quadraticCurveTo(x - 8 * s, y + 9 * s, x, y + 11 * s)
-    ctx.quadraticCurveTo(x + 8 * s, y + 9 * s, x + 8 * s, y - 4 * s)
-    ctx.quadraticCurveTo(x, y - 9 * s, x - 8 * s, y - 4 * s)
+    ctx.moveTo(-8, -4)
+    ctx.quadraticCurveTo(-8, 9, 0, 11)
+    ctx.quadraticCurveTo(8, 9, 8, -4)
+    ctx.quadraticCurveTo(0, -9, -8, -4)
     ctx.fill()
     ctx.stroke()
     ctx.fillStyle = '#22c55e'
     ctx.beginPath()
-    ctx.ellipse(x, y - 6 * s, 6 * s, 2.5 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(0, -6, 6, 2.5, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.fillStyle = '#fde68a'
-    ctx.fillRect(x - 3 * s, y, 1.5 * s, 1.5 * s)
-    ctx.fillRect(x + 2 * s, y + 3 * s, 1.5 * s, 1.5 * s)
-  } else if (top === 'cereza') {
+    ctx.fillRect(-3, 0, 1.6, 1.6)
+    ctx.fillRect(2, 3, 1.6, 1.6)
+    ctx.fillRect(-1, 5, 1.6, 1.6)
+  } else if (k === 'cereza') {
     ctx.strokeStyle = '#65a30d'
     ctx.beginPath()
-    ctx.moveTo(x, y - 4 * s)
-    ctx.quadraticCurveTo(x + 2 * s, y - 14 * s, x + 7 * s, y - 16 * s)
+    ctx.moveTo(0, -4)
+    ctx.quadraticCurveTo(2, -14, 7, -16)
     ctx.stroke()
     ctx.strokeStyle = INK
-    ctx.fillStyle = '#dc2626'
-    ctx.beginPath()
-    ctx.arc(x, y, 7 * s, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
+    blob('#dc2626', 7)
     ctx.fillStyle = 'rgba(255,255,255,0.7)'
     ctx.beginPath()
-    ctx.arc(x - 2.5 * s, y - 2.5 * s, 2 * s, 0, Math.PI * 2)
+    ctx.arc(-2.5, -2.5, 2, 0, Math.PI * 2)
     ctx.fill()
-  } else if (top === 'chispas') {
-    const cols = ['#f472b6', '#60a5fa', '#facc15', '#4ade80', '#c084fc']
-    for (let i = 0; i < 6; i++) {
+  } else if (k === 'arandano') {
+    blob('#4f6bd8', 6.5)
+    ctx.strokeStyle = '#c7d2fe'
+    ctx.beginPath()
+    ctx.moveTo(-2, -2)
+    ctx.lineTo(2, 2)
+    ctx.moveTo(2, -2)
+    ctx.lineTo(-2, 2)
+    ctx.stroke()
+  } else if (k === 'corazon') {
+    ctx.fillStyle = '#fb7185'
+    ctx.beginPath()
+    ctx.moveTo(0, 8)
+    ctx.bezierCurveTo(-12, -2, -6, -11, 0, -4)
+    ctx.bezierCurveTo(6, -11, 12, -2, 0, 8)
+    ctx.fill()
+    ctx.stroke()
+  } else if (k === 'estrella') {
+    ctx.fillStyle = '#facc15'
+    ctx.beginPath()
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 - Math.PI / 2
+      const r = i % 2 ? 4 : 9.5
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r)
+    }
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  } else if (k === 'bombon') {
+    blob('#6b3a22', 7.5)
+    ctx.strokeStyle = '#d6a77a'
+    ctx.beginPath()
+    ctx.arc(0, 0, 3.5, 0.3, Math.PI * 1.6)
+    ctx.stroke()
+  } else if (k === 'vela') {
+    ctx.fillStyle = '#ffffff'
+    rr(ctx, -3.5, -14, 7, 18, 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.strokeStyle = '#f472b6'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(-3.5, -9)
+    ctx.lineTo(3.5, -12)
+    ctx.moveTo(-3.5, -3)
+    ctx.lineTo(3.5, -6)
+    ctx.stroke()
+    const fl = 1 + Math.sin(t * 14 + seed) * 0.15
+    ctx.fillStyle = '#fb923c'
+    ctx.beginPath()
+    ctx.ellipse(0, -19, 3 * fl, 5 * fl, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#fde047'
+    ctx.beginPath()
+    ctx.ellipse(0, -18, 1.5, 2.8, 0, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (k === 'flor') {
+    ctx.fillStyle = '#d8b4fe'
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2
+      ctx.beginPath()
+      ctx.arc(Math.cos(a) * 5, Math.sin(a) * 5, 4.2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+    blob('#fde047', 3.2)
+  } else {
+    const cols = ['#f472b6', '#60a5fa', '#facc15', '#4ade80', '#c084fc', '#fb923c']
+    for (let i = 0; i < 7; i++) {
       const a = seed * 7 + i * 1.7
       ctx.save()
-      ctx.translate(x + Math.cos(a) * 9 * s, y + Math.sin(a * 1.3) * 6 * s)
+      ctx.translate(Math.cos(a) * 8, Math.sin(a * 1.3) * 6)
       ctx.rotate(a)
       ctx.fillStyle = cols[i % cols.length]
-      rr(ctx, -4 * s, -1.3 * s, 8 * s, 2.6 * s, 1.3 * s)
+      rr(ctx, -4, -1.3, 8, 2.6, 1.3)
       ctx.fill()
       ctx.restore()
     }
-  } else {
-    ctx.fillStyle = '#fb7185'
-    ctx.beginPath()
-    ctx.moveTo(x, y + 8 * s)
-    ctx.bezierCurveTo(x - 12 * s, y - 2 * s, x - 6 * s, y - 11 * s, x, y - 4 * s)
-    ctx.bezierCurveTo(x + 6 * s, y - 11 * s, x + 12 * s, y - 2 * s, x, y + 8 * s)
-    ctx.fill()
-    ctx.stroke()
   }
   ctx.restore()
 }
 
-/** Pastel: base, bizcocho, crema (lo que se haya puesto) y adornos. */
-function drawCake(ctx: CanvasRenderingContext2D, g: G, rise: number, frostAll: boolean) {
-  const o = g.order
-  const h = CAKE_H * rise
-  // plato
+function drawCake(ctx: CanvasRenderingContext2D, c: Cake, t: number, mood: Mood) {
+  const sponge = FLAVORS.find((f) => f.id === c.flavor)!.color
+  const frost = c.frost ? FROSTS.find((f) => f.id === c.frost)!.color : null
+  // plato giratorio
   ctx.fillStyle = '#ffffff'
   ctx.strokeStyle = INK
   ctx.lineWidth = 2.5
   ctx.beginPath()
-  ctx.ellipse(CAKE_X, CAKE_Y + 6, CAKE_W / 2 + 26, 16, 0, 0, Math.PI * 2)
+  ctx.ellipse(W / 2, PLATE_Y + 6, 140, 18, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.stroke()
-  // bizcocho con dos capas
-  ctx.fillStyle = o.sponge
-  rr(ctx, CAKE_X - CAKE_W / 2, CAKE_Y - h, CAKE_W, h, 18)
+  ctx.fillStyle = '#fbcfe8'
+  ctx.beginPath()
+  ctx.ellipse(W / 2, PLATE_Y + 6, 120, 11, 0, 0, Math.PI * 2)
   ctx.fill()
-  ctx.stroke()
-  ctx.fillStyle = o.frost
-  ctx.fillRect(CAKE_X - CAKE_W / 2 + 2, CAKE_Y - h * 0.52, CAKE_W - 4, 8)
-  // carita del pastel
-  face(ctx, CAKE_X, CAKE_Y - h * 0.28, 1.1, g.phase === 'result' ? 'happy' : 'calm', performance.now() / 1000)
-  // crema: completa o por gotas
-  if (frostAll) {
-    ctx.fillStyle = o.frost
-    ctx.beginPath()
-    ctx.moveTo(CAKE_X - CAKE_W / 2, CAKE_Y - h + 8)
-    for (let i = 0; i <= 10; i++) {
-      const x = CAKE_X - CAKE_W / 2 + (CAKE_W * i) / 10
-      ctx.quadraticCurveTo(x - CAKE_W / 20, CAKE_Y - h + 26 + (i % 2) * 6, x, CAKE_Y - h + 12)
-    }
-    ctx.lineTo(CAKE_X + CAKE_W / 2, CAKE_Y - h - 6)
-    ctx.lineTo(CAKE_X - CAKE_W / 2, CAKE_Y - h - 6)
-    ctx.closePath()
+  for (let i = 0; i < c.tiers; i++) {
+    const w = TIER_W[i]
+    const x = W / 2 - w / 2
+    const y = tierTop(i)
+    ctx.fillStyle = sponge
+    rr(ctx, x, y, w, TIER_H, 14)
     ctx.fill()
     ctx.stroke()
-  }
-  for (const b of g.blobs) {
-    ctx.fillStyle = o.frost
-    ctx.beginPath()
-    ctx.arc(b.x, b.y, 11, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    ctx.beginPath()
-    ctx.arc(b.x - 3, b.y - 4, 3, 0, Math.PI * 2)
-    ctx.fill()
-  }
-  g.placed.forEach((p, i) => drawTopping(ctx, o.top, p.x, p.y, 1.3, i))
-}
-
-function drawKitchen(ctx: CanvasRenderingContext2D, t: number) {
-  // pared rosa con azulejos
-  ctx.fillStyle = '#ffe4ef'
-  ctx.fillRect(0, 0, W, H)
-  ctx.strokeStyle = 'rgba(244,114,182,0.18)'
-  ctx.lineWidth = 1
-  for (let y = 160; y < 520; y += 28) {
-    for (let x = (y / 28) % 2 ? 0 : -14; x < W; x += 28) {
-      ctx.strokeRect(x + 0.5, y + 0.5, 28, 28)
+    // relleno
+    ctx.fillStyle = frost ?? '#fff7ed'
+    ctx.fillRect(x + 2, y + TIER_H * 0.55, w - 4, 6)
+    if (frost) {
+      ctx.fillStyle = frost
+      ctx.beginPath()
+      ctx.moveTo(x, y + 10)
+      const n = Math.round(w / 22)
+      for (let k = 0; k <= n; k++) {
+        const px = x + (w * k) / n
+        const drop = c.drip && k % 2 === 1 ? 26 + ((k * 7 + i * 3) % 3) * 6 : 14
+        ctx.quadraticCurveTo(px - w / n / 2, y + drop + 6, px, y + 10)
+      }
+      ctx.lineTo(x + w, y - 2)
+      ctx.quadraticCurveTo(x + w, y - 6, x + w - 12, y - 6)
+      ctx.lineTo(x + 12, y - 6)
+      ctx.quadraticCurveTo(x, y - 6, x, y - 2)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'
+      rr(ctx, x + 10, y - 2, w * 0.3, 4, 2)
+      ctx.fill()
     }
   }
-  // ventanita del cliente
-  ctx.fillStyle = '#bae6fd'
-  rr(ctx, 14, 14, W - 28, 132, 22)
-  ctx.fill()
-  ctx.strokeStyle = INK
-  ctx.lineWidth = 3
-  ctx.stroke()
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  for (let i = 0; i < 2; i++) {
-    const cx = ((i * 0.55 + t * 0.01) % 1.2) * W
-    ctx.beginPath()
-    ctx.arc(cx, 40 + i * 18, 12, 0, Math.PI * 2)
-    ctx.arc(cx + 14, 34 + i * 18, 15, 0, Math.PI * 2)
-    ctx.arc(cx + 28, 40 + i * 18, 11, 0, Math.PI * 2)
-    ctx.fill()
+  face(ctx, W / 2, PLATE_Y - TIER_H * 0.32, 1.1, mood, t)
+  for (const tp of c.tops) {
+    const s = 1.35 * (1 + Math.max(0, tp.pop) * 0.5)
+    drawTopping(ctx, tp.kind, tp.x, tp.y, s, tp.id, t)
   }
-  // toldo de rayas
-  for (let i = 0; i < 9; i++) {
-    ctx.fillStyle = i % 2 ? '#ffffff' : '#f472b6'
-    ctx.beginPath()
-    const x = 14 + (i * (W - 28)) / 9
-    const w = (W - 28) / 9
-    ctx.moveTo(x, 14)
-    ctx.lineTo(x + w, 14)
-    ctx.lineTo(x + w, 26)
-    ctx.arc(x + w / 2, 26, w / 2, 0, Math.PI)
-    ctx.closePath()
-    ctx.fill()
-  }
-  // mostrador de madera
-  ctx.fillStyle = '#e8b98a'
-  ctx.fillRect(0, 520, W, H - 520)
-  ctx.fillStyle = '#d39a68'
-  ctx.fillRect(0, 520, W, 10)
-  ctx.strokeStyle = INK
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.moveTo(0, 520)
-  ctx.lineTo(W, 520)
-  ctx.stroke()
 }
 
-function bubble(ctx: CanvasRenderingContext2D, g: G, x: number, y: number) {
-  ctx.fillStyle = '#ffffff'
-  ctx.strokeStyle = INK
-  ctx.lineWidth = 2.5
-  rr(ctx, x, y, 150, 92, 18)
-  ctx.fill()
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(x + 4, y + 50)
-  ctx.lineTo(x - 14, y + 62)
-  ctx.lineTo(x + 6, y + 64)
-  ctx.fill()
-  // mini pastel del pedido
-  const cx = x + 75
-  const by = y + 70
-  ctx.fillStyle = g.order.sponge
-  rr(ctx, cx - 40, by - 34, 80, 34, 9)
-  ctx.fill()
-  ctx.stroke()
-  ctx.fillStyle = g.order.frost
-  rr(ctx, cx - 42, by - 42, 84, 16, 8)
-  ctx.fill()
-  ctx.stroke()
-  for (let i = 0; i < 3; i++) drawTopping(ctx, g.order.top, cx - 24 + i * 24, by - 46, 0.75, i)
+function wrap(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let line = ''
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w
+    if (ctx.measureText(test).width > maxW && line) {
+      lines.push(line)
+      line = w
+    } else line = test
+  }
+  if (line) lines.push(line)
+  const y0 = y - ((lines.length - 1) * lh) / 2
+  lines.forEach((l, i) => ctx.fillText(l, x, y0 + i * lh))
 }
 
-// ---------- componente ----------
-interface Ui {
-  phase: G['phase']
-  cake: number
+// ---------- estado ----------
+interface G {
+  phase: 'menu' | 'arrive' | 'build' | 'judge' | 'over'
+  day: number
+  served: number
+  happy: number
+  coins: number
+  dayCoins: number
+  t: number
+  cust: { a: Animal; fur: string; req: Request; x: number }
+  cake: Cake
+  tab: Tab
+  say: string
+  mood: Mood
+  lastScore: number
+  nextId: number
+  paused: boolean
+}
+
+interface Save {
+  day: number
   coins: number
   best: number
-  stars: number
-  avg: number
+}
+function load(): Save {
+  try {
+    const v = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') as Partial<Save> | null
+    return {
+      day: typeof v?.day === 'number' ? v.day : 1,
+      coins: typeof v?.coins === 'number' ? v.coins : 0,
+      best: typeof v?.best === 'number' ? v.best : 0,
+    }
+  } catch {
+    return { day: 1, coins: 0, best: 0 }
+  }
+}
+function store(s: Save) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s))
+  } catch {
+    // sin almacenamiento
+  }
+}
+
+const emptyCake = (): Cake => ({ flavor: 'vainilla', tiers: 1, frost: null, drip: false, tops: [] })
+const newCust = (prev?: Request) => {
+  let req = pick(REQUESTS)
+  while (prev && req === prev) req = pick(REQUESTS)
+  return { a: pick(ANIMALS), fur: pick(FURS), req, x: W + 60 }
+}
+
+interface Ui {
+  phase: G['phase']
+  day: number
+  served: number
+  coins: number
+  dayCoins: number
+  happy: number
+  best: number
 }
 
 export default function Pasteleria() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const startRef = useRef<(duo: boolean) => void>(() => {})
-  const [duo, setDuo] = useState(true)
-  const [ui, setUi] = useState<Ui>({ phase: 'menu', cake: 0, coins: 0, best: 0, stars: 0, avg: 0 })
+  const startRef = useRef<() => void>(() => {})
+  const [ui, setUi] = useState<Ui>({ phase: 'menu', day: 1, served: 0, coins: 0, dayCoins: 0, happy: 0, best: 0 })
 
   useEffect(() => {
     publishLogical({ w: W, h: H })
@@ -480,178 +541,115 @@ export default function Pasteleria() {
       return `${v ? v + ', ' : ''}"Press Start 2P", monospace`
     })()
     const juice = new Juice()
-    let g: G = freshGame(true)
-    g.phase = 'menu'
-    let best = loadBest()
-    setUi((u) => ({ ...u, best }))
-    let raf = 0
-    let last = performance.now()
-    let t = 0
-
-    const sync = () => setUi({ phase: g.phase, cake: g.cake, coins: g.coins, best, stars: 0, avg: 0 })
-
-    const stepNow = (): Step => STEPS[g.step]
-    const player = () => (g.duo ? g.step % 2 : 0)
-
-    const beginStep = () => {
-      const s = stepNow()
-      g.phase = 'step'
-      g.t = STEP_DUR[s] - Math.min(1.2, g.cake * 0.4)
-      if (s === 'batir') {
-        g.mix = 0
-        g.ang = null
-      } else if (s === 'hornear') {
-        g.needle = 0
-        g.nDir = 1
-        g.zone = 0.55 + Math.random() * 0.25
-        g.tapped = null
-      } else if (s === 'crema') {
-        g.dots = []
-        const n = 13
-        for (let i = 0; i < n; i++) {
-          const x = CAKE_X - CAKE_W / 2 + 14 + ((CAKE_W - 28) * i) / (n - 1)
-          g.dots.push({ x, y: TOP_Y + 4 + Math.sin(i * 0.9 + g.cake) * 12, hit: false })
-        }
-        g.blobs = []
-      } else {
-        g.sparks = []
-        g.spawnT = 0.2
-        g.placed = []
-        g.hits = 0
-        g.misses = 0
-      }
-      sfx('go')
+    let save = load()
+    const g: G = {
+      phase: 'menu',
+      day: save.day,
+      served: 0,
+      happy: 0,
+      coins: save.coins,
+      dayCoins: 0,
+      t: 0,
+      cust: newCust(),
+      cake: emptyCake(),
+      tab: 'PAN',
+      say: '',
+      mood: 'calm',
+      lastScore: 0,
+      nextId: 1,
+      paused: false,
     }
+    const sync = () =>
+      setUi({ phase: g.phase, day: g.day, served: g.served, coins: g.coins, dayCoins: g.dayCoins, happy: g.happy, best: save.best })
+    sync()
 
-    const endStep = (score: number) => {
-      score = Math.round(clamp(score, 0, 100))
-      g.scores.push(score)
-      const msg = score >= 90 ? '¡PERFECTO!' : score >= 70 ? '¡MUY BIEN!' : score >= 45 ? '¡BIEN!' : 'UPS...'
-      const col = score >= 90 ? '#facc15' : score >= 70 ? '#f472b6' : score >= 45 ? '#60a5fa' : '#a78bfa'
-      juice.text(W / 2, 250, msg, col, 18, 1.1)
-      if (score >= 90) {
-        juice.burst(W / 2, 300, ['#facc15', '#f472b6', '#ffffff', '#60a5fa'], { count: 30, speed: 220, life: 0.8, size: 5 })
-        juice.shake(0.25)
-        sfx('ding')
-      } else if (score < 45) sfx('meh')
-      else sfx('pop')
-      if (g.step < STEPS.length - 1) {
-        g.step++
-        g.phase = 'intro'
-        g.t = 1.3
-      } else {
-        const avg = g.scores.reduce((a, b) => a + b, 0) / g.scores.length
-        g.cakeScores.push(avg)
-        const earn = Math.round(avg / 2) + (avg >= 90 ? 30 : 0)
-        g.coins += earn
-        g.grade = avg >= 90 ? '¡PASTEL PERFECTO!' : avg >= 70 ? '¡QUÉ RICO!' : avg >= 45 ? '¡ESTÁ BONITO!' : 'SE VE... ÚNICO'
-        g.phase = 'result'
-        g.t = 2.6
-        juice.text(W / 2, 200, `+${earn}`, '#facc15', 16, 1.4)
-        juice.burst(W / 2, 330, ['#f472b6', '#fde68a', '#a7f3d0', '#c4b5fd', '#ffffff'], { count: 50, speed: 260, life: 1.1, size: 6 })
-        juice.flash('#ffffff', 0.4)
-        sfx(avg >= 70 ? 'perfect' : 'pop')
-      }
+    const arrive = () => {
+      g.cust = newCust(g.cust.req)
+      g.cake = emptyCake()
+      g.tab = 'PAN'
+      g.phase = 'arrive'
+      g.t = 0.7
+      g.say = g.cust.req.text
+      g.mood = 'calm'
+      sfx('bell')
       sync()
     }
 
-    const nextCakeOrOver = () => {
-      g.cake++
-      if (g.cake >= CAKES) {
+    startRef.current = () => {
+      g.served = 0
+      g.happy = 0
+      g.dayCoins = 0
+      juice.reset()
+      arrive()
+    }
+
+    const judge = () => {
+      const c = g.cake
+      const n = (k: Kind) => c.tops.filter((t) => t.kind === k).length
+      const conds = g.cust.req.check(c, n)
+      const tw = conds.reduce((a, q) => a + q[1], 0)
+      const match = conds.reduce((a, q) => a + (q[0] ? q[1] : 0), 0) / tw
+      const types = new Set(c.tops.map((t) => t.kind)).size
+      const effort = (c.frost ? 0.3 : 0) + clamp(c.tops.length / 6, 0, 1) * 0.45 + clamp(types / 3, 0, 1) * 0.25
+      const score = Math.round(100 * (0.7 * match + 0.3 * effort))
+      const miss = conds.find((q) => !q[0])
+      const pay = 10 + Math.round(score * 0.5)
+      g.lastScore = score
+      g.coins += pay
+      g.dayCoins += pay
+      g.served++
+      if (score >= 70) g.happy++
+      if (score >= 90) {
+        g.say = pick(['¡ES PERFECTO!', '¡Lo amo! ¡Gracias!', '¡Justo lo que soñé!'])
+        g.mood = 'love'
+        sfx('love')
+        juice.burst(W / 2, 330, ['#f472b6', '#fde68a', '#a7f3d0', '#c4b5fd', '#ffffff'], { count: 60, speed: 280, life: 1.2, size: 6 })
+        juice.flash('#ffffff', 0.35)
+        juice.shake(0.3)
+      } else if (score >= 70) {
+        g.say = miss ? `¡Me encanta! (${miss[2].toLowerCase()})` : '¡Me encanta!'
+        g.mood = 'happy'
+        sfx('ok')
+        juice.burst(W / 2, 330, ['#f472b6', '#fde68a', '#ffffff'], { count: 30, speed: 200, life: 0.9, size: 5 })
+      } else if (score >= 45) {
+        g.say = `${miss ? miss[2] : 'Le faltó algo'}... pero está rico`
+        g.mood = 'calm'
+        sfx('ok')
+      } else {
+        g.say = `Mmm... ${miss ? miss[2].toLowerCase() : 'no era lo que pedí'}`
+        g.mood = 'sad'
+        sfx('meh')
+      }
+      juice.text(W / 2, 200, `+${pay}`, '#facc15', 16, 1.4)
+      g.phase = 'judge'
+      g.t = 2.8
+      sync()
+    }
+
+    const endJudge = () => {
+      if (g.served >= PER_DAY) {
         g.phase = 'over'
-        const avg = g.cakeScores.reduce((a, b) => a + b, 0) / g.cakeScores.length
-        const stars = avg >= 85 ? 3 : avg >= 65 ? 2 : avg >= 40 ? 1 : 0
-        if (g.coins > best) {
-          best = g.coins
-          saveBest(best)
-        }
-        setUi({ phase: 'over', cake: g.cake, coins: g.coins, best, stars, avg: Math.round(avg) })
+        save = { day: g.day + 1, coins: g.coins, best: Math.max(save.best, g.dayCoins) }
+        store(save)
+        sync()
+        g.day = save.day
         return
       }
-      g.order = newOrder()
-      g.step = 0
-      g.scores = []
-      g.blobs = []
-      g.placed = []
-      g.phase = 'intro'
-      g.t = 1.4
-      sync()
+      arrive()
     }
 
-    startRef.current = (d: boolean) => {
-      g = freshGame(d)
-      juice.reset()
-      sync()
-    }
-
-    // ---- entrada ----
+    // ---- entrada (multitáctil: cada dedo arrastra su adorno) ----
+    const drags = new Map<number, { kind: Kind; x: number; y: number; id: number | null }>()
     const toLocal = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect()
       return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H }
     }
+    const inRect = (x: number, y: number, b: { x: number; y: number; w: number; h: number }) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h
 
-    const addMix = (rad: number) => {
-      const before = Math.floor(g.mix * 10)
-      g.mix += rad / (Math.PI * 2 * (7 + g.cake))
-      g.swirl += rad
-      if (Math.floor(g.mix * 10) > before) sfx('swish')
-      if (g.mix >= 1) {
-        g.mix = 1
-        endStep(65 + 35 * clamp(g.t / 3, 0, 1))
-      }
-    }
-
-    const tapAt = (x: number, y: number) => {
-      if (g.phase !== 'step') return
-      const s = stepNow()
-      if (s === 'hornear' && g.tapped === null) {
-        g.tapped = g.needle
-        const d = Math.abs(g.needle - g.zone)
-        const score = d < 0.08 ? 100 - (d / 0.08) * 25 : Math.max(5, 70 - (d - 0.08) * 400)
-        juice.burst(W / 2, 330, ['#fde68a', '#fb923c'], { count: 16, speed: 140, life: 0.5, size: 4 })
-        endStep(score)
-      } else if (s === 'decorar') {
-        let hit = false
-        for (const sp of g.sparks) {
-          if (Math.hypot(sp.x - x, sp.y - y) < 30) {
-            sp.age = sp.life + 1
-            g.placed.push({ x: sp.x, y: sp.y })
-            g.hits++
-            hit = true
-            juice.burst(sp.x, sp.y, ['#fde047', '#ffffff', '#f472b6'], { count: 10, speed: 110, life: 0.4, size: 3 })
-            sfx('pop')
-            break
-          }
-        }
-        if (!hit) {
-          g.misses++
-          sfx('miss')
-        }
-      }
-    }
-
-    const moveAt = (x: number, y: number) => {
-      if (g.phase !== 'step') return
-      const s = stepNow()
-      if (s === 'batir') {
-        const a = Math.atan2(y - (BOWL.y - 30), x - BOWL.x)
-        if (g.ang !== null && Math.hypot(x - BOWL.x, y - (BOWL.y - 30)) > 18) {
-          let d = a - g.ang
-          if (d > Math.PI) d -= Math.PI * 2
-          if (d < -Math.PI) d += Math.PI * 2
-          addMix(Math.abs(d))
-        }
-        g.ang = a
-      } else if (s === 'crema') {
-        for (const d of g.dots) {
-          if (!d.hit && Math.hypot(d.x - x, d.y - y) < 24) {
-            d.hit = true
-            g.blobs.push({ x: d.x, y: d.y })
-            sfx('swish')
-          }
-        }
-        if (g.dots.length > 0 && g.dots.every((d) => d.hit)) endStep(70 + 30 * clamp(g.t / 3, 0, 1))
-      }
+    const trimTops = () => {
+      const before = g.cake.tops.length
+      g.cake.tops = g.cake.tops.filter((tp) => onCake(g.cake, tp.x, tp.y))
+      if (g.cake.tops.length < before) sfx('poof')
     }
 
     const onDown = (e: PointerEvent) => {
@@ -660,56 +658,115 @@ export default function Pasteleria() {
         g.paused = false
         return
       }
-      const p = toLocal(e)
-      g.down = true
-      g.px = p.x
-      g.py = p.y
-      g.ang = null
+      if (g.phase !== 'build') return
+      const { x, y } = toLocal(e)
       try {
         canvas.setPointerCapture(e.pointerId)
       } catch {
         // sin captura
       }
-      tapAt(p.x, p.y)
-      moveAt(p.x, p.y)
-    }
-    const onMove = (e: PointerEvent) => {
-      if (!g.down) return
-      const p = toLocal(e)
-      g.px = p.x
-      g.py = p.y
-      moveAt(p.x, p.y)
-    }
-    const onUp = () => {
-      g.down = false
-      g.ang = null
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (g.phase === 'menu' || g.phase === 'over') return
-      if (e.code === 'KeyP') {
-        g.paused = !g.paused
+      // pestañas
+      if (y >= TAB_Y && y <= TAB_Y + 26) {
+        const i = Math.floor(x / (W / 3))
+        g.tab = TABS[clamp(i, 0, 2)]
+        sfx('grab')
         return
       }
-      if (g.phase !== 'step') return
-      const s = stepNow()
-      if (s === 'batir' && e.code.startsWith('Arrow') && e.code !== g.lastKey) {
-        g.lastKey = e.code
-        addMix(1.1)
-        e.preventDefault()
-      } else if (e.code === 'Space') {
-        e.preventDefault()
-        if (s === 'hornear') tapAt(0, 0)
-        else if (s === 'decorar') {
-          const sp = g.sparks.find((q) => q.age < q.life)
-          if (sp) tapAt(sp.x, sp.y)
-        } else if (s === 'crema') {
-          const d = g.dots.find((q) => !q.hit)
-          if (d) moveAt(d.x, d.y)
+      if (inRect(x, y, BTN_LISTO)) {
+        if (g.cake.frost === null && g.cake.tops.length === 0) {
+          juice.text(W / 2, 380, '¡Decóralo primero!', '#ec4899', 11, 1)
+          sfx('meh')
+          return
+        }
+        judge()
+        return
+      }
+      if (inRect(x, y, BTN_TRASH)) {
+        if (g.cake.tops.length) {
+          for (const tp of g.cake.tops) juice.burst(tp.x, tp.y, ['#ffffff', '#fbcfe8'], { count: 4, speed: 80, life: 0.4, size: 3 })
+          g.cake.tops = []
+          sfx('poof')
+        }
+        return
+      }
+      // adorno ya puesto: se toma para moverlo (el de más arriba)
+      for (let i = g.cake.tops.length - 1; i >= 0; i--) {
+        const tp = g.cake.tops[i]
+        if (Math.hypot(tp.x - x, tp.y - y) < 18) {
+          g.cake.tops.splice(i, 1)
+          drags.set(e.pointerId, { kind: tp.kind, x, y, id: tp.id })
+          sfx('grab')
+          return
+        }
+      }
+      // panel
+      if (y >= PANEL_Y && y < 592) {
+        if (g.tab === 'ADORNOS') {
+          KINDS.forEach((k, i) => {
+            const p = trayPos(i)
+            if (Math.hypot(p.x - x, p.y - y) < 24) {
+              drags.set(e.pointerId, { kind: k, x, y, id: null })
+              sfx('grab')
+            }
+          })
+        } else if (g.tab === 'PAN') {
+          FLAVORS.forEach((f, i) => {
+            if (Math.hypot(40 + i * 58 - x, PANEL_Y + 34 - y) < 24) {
+              g.cake.flavor = f.id
+              sfx('splat')
+            }
+          })
+          if (Math.hypot(236 - x, PANEL_Y + 34 - y) < 20 && g.cake.tiers > 1) {
+            g.cake.tiers--
+            trimTops()
+            sfx('pop')
+          }
+          if (Math.hypot(320 - x, PANEL_Y + 34 - y) < 20 && g.cake.tiers < 3) {
+            g.cake.tiers++
+            sfx('pop')
+            juice.burst(W / 2, tierTop(g.cake.tiers - 1), ['#ffffff', '#fde68a'], { count: 10, speed: 90, life: 0.4, size: 3 })
+          }
+        } else {
+          FROSTS.forEach((f, i) => {
+            if (Math.hypot(30 + i * 46 - x, PANEL_Y + 30 - y) < 20) {
+              g.cake.frost = f.id
+              sfx('splat')
+              juice.burst(W / 2, tierTop(g.cake.tiers - 1), [f.color, '#ffffff'], { count: 14, speed: 120, life: 0.5, size: 4 })
+            }
+          })
+          if (inRect(x, y, { x: 20, y: PANEL_Y + 56, w: 150, h: 28 })) {
+            g.cake.drip = !g.cake.drip
+            sfx('splat')
+          }
         }
       }
     }
+    const onMove = (e: PointerEvent) => {
+      const d = drags.get(e.pointerId)
+      if (!d) return
+      const p = toLocal(e)
+      d.x = p.x
+      d.y = p.y - 10 // el adorno se ve un poco arriba del dedo
+    }
+    const onUp = (e: PointerEvent) => {
+      const d = drags.get(e.pointerId)
+      if (!d) return
+      drags.delete(e.pointerId)
+      if (g.phase === 'build' && onCake(g.cake, d.x, d.y)) {
+        g.cake.tops.push({ id: d.id ?? g.nextId++, kind: d.kind, x: d.x, y: d.y, pop: 1 })
+        sfx('pop')
+        juice.burst(d.x, d.y, ['#ffffff', '#fde68a'], { count: 6, speed: 70, life: 0.3, size: 2.5 })
+      } else {
+        sfx('poof')
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'KeyP' && g.phase !== 'menu' && g.phase !== 'over') g.paused = !g.paused
+      if (e.code === 'Enter' && g.phase === 'build') judge()
+    }
     const pauseNow = () => {
       if (g.phase !== 'menu' && g.phase !== 'over') g.paused = true
+      drags.clear()
     }
     const onVis = () => {
       if (document.hidden) pauseNow()
@@ -723,303 +780,216 @@ export default function Pasteleria() {
     document.addEventListener('visibilitychange', onVis)
 
     // ---- bucle ----
+    let raf = 0
+    let last = performance.now()
+    let t = 0
     const update = (dt: number) => {
+      for (const tp of g.cake.tops) tp.pop = Math.max(0, tp.pop - dt * 5)
       if (g.paused || g.phase === 'menu' || g.phase === 'over') return
+      g.cust.x += (90 - g.cust.x) * Math.min(1, dt * 8)
       g.t -= dt
-      if (g.phase === 'intro') {
-        if (g.t <= 0) beginStep()
-        return
-      }
-      if (g.phase === 'result') {
-        if (g.t <= 0) nextCakeOrOver()
-        return
-      }
-      const s = stepNow()
-      if (s === 'hornear' && g.tapped === null) {
-        const speed = 0.55 + g.cake * 0.18
-        g.needle += g.nDir * speed * dt
-        if (g.needle > 1) {
-          g.needle = 1
-          g.nDir = -1
-        } else if (g.needle < 0) {
-          g.needle = 0
-          g.nDir = 1
-        }
-      }
-      if (s === 'decorar') {
-        g.spawnT -= dt
-        if (g.spawnT <= 0) {
-          g.spawnT = 0.5 - g.cake * 0.06
-          g.sparks.push({
-            x: CAKE_X - CAKE_W / 2 + 24 + Math.random() * (CAKE_W - 48),
-            y: TOP_Y - 4 + Math.random() * 44,
-            age: 0,
-            life: 1.3 - g.cake * 0.15,
-          })
-        }
-        for (const sp of g.sparks) {
-          sp.age += dt
-          if (sp.age > sp.life && sp.age < sp.life + 0.5) {
-            sp.age = sp.life + 1
-            g.misses++
-          }
-        }
-        g.sparks = g.sparks.filter((sp) => sp.age <= sp.life)
-      }
-      if (g.phase === 'step' && g.t <= 0) {
-        g.t = 0
-        if (s === 'batir') endStep(g.mix * 60)
-        else if (s === 'hornear') endStep(10)
-        else if (s === 'crema') endStep((g.dots.filter((d) => d.hit).length / g.dots.length) * 75)
-        else endStep(g.hits === 0 ? 0 : (g.hits / (g.hits + g.misses)) * 100 * Math.min(1, g.hits / 6))
-      }
+      if (g.phase === 'arrive' && g.t <= 0) g.phase = 'build'
+      if (g.phase === 'judge' && g.t <= 0) endJudge()
     }
 
-    const meter = (frac: number, col: string) => {
-      ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    const drawPanel = () => {
+      // pestañas
+      TABS.forEach((tb, i) => {
+        const x = (i * W) / 3
+        const on = g.tab === tb
+        ctx.fillStyle = on ? '#ffffff' : '#f9d6e5'
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 2
+        rr(ctx, x + 6, TAB_Y, W / 3 - 12, 26, 12)
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = on ? '#ec4899' : '#a26a86'
+        ctx.font = `8px ${pf}`
+        ctx.fillText(tb, x + W / 6, TAB_Y + 17)
+      })
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'
+      rr(ctx, 8, PANEL_Y - 2, W - 16, 86, 16)
+      ctx.fill()
+      if (g.tab === 'PAN') {
+        FLAVORS.forEach((f, i) => {
+          const x = 40 + i * 58
+          ctx.fillStyle = f.color
+          ctx.strokeStyle = g.cake.flavor === f.id ? '#ec4899' : INK
+          ctx.lineWidth = g.cake.flavor === f.id ? 4 : 2
+          rr(ctx, x - 20, PANEL_Y + 14, 40, 36, 10)
+          ctx.fill()
+          ctx.stroke()
+          ctx.fillStyle = INK
+          ctx.font = 'bold 10px sans-serif'
+          ctx.fillText(f.name, x, PANEL_Y + 68)
+        })
+        for (const [x, s] of [
+          [236, '−'],
+          [320, '+'],
+        ] as const) {
+          ctx.fillStyle = '#ffffff'
+          ctx.strokeStyle = INK
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(x, PANEL_Y + 34, 17, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+          ctx.fillStyle = INK
+          ctx.font = 'bold 22px sans-serif'
+          ctx.fillText(s, x, PANEL_Y + 42)
+        }
+        ctx.font = `10px ${pf}`
+        ctx.fillText(String(g.cake.tiers), 278, PANEL_Y + 40)
+        ctx.font = 'bold 10px sans-serif'
+        ctx.fillText('pisos', 278, PANEL_Y + 68)
+      } else if (g.tab === 'CREMA') {
+        FROSTS.forEach((f, i) => {
+          const x = 30 + i * 46
+          ctx.fillStyle = f.color
+          ctx.strokeStyle = g.cake.frost === f.id ? '#ec4899' : INK
+          ctx.lineWidth = g.cake.frost === f.id ? 4 : 2
+          ctx.beginPath()
+          ctx.arc(x, PANEL_Y + 30, 17, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+        })
+        ctx.fillStyle = g.cake.drip ? '#f472b6' : '#ffffff'
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 2
+        rr(ctx, 20, PANEL_Y + 56, 150, 26, 13)
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = g.cake.drip ? '#ffffff' : INK
+        ctx.font = 'bold 11px sans-serif'
+        ctx.fillText(g.cake.drip ? '✓ Escurrido' : 'Escurrido', 95, PANEL_Y + 74)
+      } else {
+        KINDS.forEach((k, i) => {
+          const p = trayPos(i)
+          ctx.fillStyle = '#ffffff'
+          ctx.strokeStyle = 'rgba(91,42,58,0.3)'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, 19, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+          drawTopping(ctx, k, p.x, p.y + (k === 'vela' ? 6 : 0), 1.15, i, t)
+        })
+      }
+      // basura y listo
+      ctx.fillStyle = '#ffffff'
       ctx.strokeStyle = INK
-      ctx.lineWidth = 2.5
-      rr(ctx, 40, 540, W - 80, 22, 11)
+      ctx.lineWidth = 2
+      rr(ctx, BTN_TRASH.x, BTN_TRASH.y, BTN_TRASH.w, BTN_TRASH.h, 12)
       ctx.fill()
       ctx.stroke()
-      ctx.fillStyle = col
-      rr(ctx, 43, 543, Math.max(1, (W - 86) * clamp(frac, 0, 1)), 16, 8)
+      ctx.font = '18px sans-serif'
+      ctx.fillText('🧹', BTN_TRASH.x + BTN_TRASH.w / 2, BTN_TRASH.y + 25)
+      const ready = g.cake.frost !== null || g.cake.tops.length > 0
+      ctx.fillStyle = ready ? '#ec4899' : '#f9a8d4'
+      rr(ctx, BTN_LISTO.x, BTN_LISTO.y, BTN_LISTO.w, BTN_LISTO.h, 18)
       ctx.fill()
-    }
-
-    const drawStep = () => {
-      const s = stepNow()
-      if (s === 'batir') {
-        // tazón kawaii con masa que gira
-        ctx.save()
-        ctx.lineWidth = 3
-        ctx.strokeStyle = INK
-        ctx.fillStyle = '#bfdbfe'
-        ctx.beginPath()
-        ctx.arc(BOWL.x, BOWL.y - 30, BOWL.r, 0, Math.PI)
-        ctx.closePath()
-        ctx.fill()
-        ctx.stroke()
-        ctx.fillStyle = g.mix < 0.5 ? '#fef3c7' : g.order.sponge
-        ctx.beginPath()
-        ctx.ellipse(BOWL.x, BOWL.y - 30, BOWL.r - 8, 34, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.stroke()
-        ctx.strokeStyle = 'rgba(91,42,58,0.35)'
-        ctx.lineWidth = 3
-        for (let k = 0; k < 3; k++) {
-          ctx.beginPath()
-          ctx.ellipse(BOWL.x, BOWL.y - 30, 25 + k * 25, 8 + k * 8, 0, g.swirl + k, g.swirl + k + 2.2)
-          ctx.stroke()
-        }
-        face(ctx, BOWL.x, BOWL.y + 30, 1.4, g.mix > 0.7 ? 'happy' : 'wow', t)
-        if (g.phase === 'step') {
-          ctx.setLineDash([6, 8])
-          ctx.strokeStyle = 'rgba(244,114,182,0.6)'
-          ctx.lineWidth = 3
-          ctx.beginPath()
-          ctx.ellipse(BOWL.x, BOWL.y - 30, 85, 30, 0, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.setLineDash([])
-          const a = t * 4
-          ctx.fillStyle = '#f472b6'
-          ctx.beginPath()
-          ctx.arc(BOWL.x + Math.cos(a) * 85, BOWL.y - 30 + Math.sin(a) * 30, 7, 0, Math.PI * 2)
-          ctx.fill()
-        }
-        ctx.restore()
-        meter(g.mix, '#f472b6')
-      } else if (s === 'hornear') {
-        // horno con ventanita donde sube el pastel
-        ctx.save()
-        ctx.lineWidth = 3
-        ctx.strokeStyle = INK
-        ctx.fillStyle = '#fca5a5'
-        rr(ctx, 50, 190, W - 100, 300, 26)
-        ctx.fill()
-        ctx.stroke()
-        ctx.fillStyle = '#7c2d12'
-        rr(ctx, 80, 250, W - 160, 170, 18)
-        ctx.fill()
-        ctx.stroke()
-        const glow = ctx.createRadialGradient(W / 2, 400, 10, W / 2, 400, 140)
-        glow.addColorStop(0, `rgba(251,146,60,${0.4 + g.needle * 0.5})`)
-        glow.addColorStop(1, 'rgba(251,146,60,0)')
-        ctx.fillStyle = glow
-        ctx.fillRect(80, 250, W - 160, 170)
-        const rise = 0.35 + g.needle * 0.65
-        ctx.fillStyle = g.needle > g.zone + 0.12 ? '#78350f' : g.order.sponge
-        rr(ctx, W / 2 - 60, 405 - 70 * rise, 120, 70 * rise, 14)
-        ctx.fill()
-        ctx.stroke()
-        for (const dx of [-60, 0, 60]) {
-          ctx.fillStyle = '#fde68a'
-          ctx.beginPath()
-          ctx.arc(W / 2 + dx, 220, 9, 0, Math.PI * 2)
-          ctx.fill()
-          ctx.stroke()
-        }
-        face(ctx, W / 2, 455, 1.2, Math.abs(g.needle - g.zone) < 0.1 ? 'wow' : 'calm', t)
-        ctx.restore()
-        // termómetro
-        const bx = 40
-        const bw = W - 80
-        const by = 540
-        ctx.fillStyle = '#ffffff'
-        ctx.strokeStyle = INK
-        ctx.lineWidth = 2.5
-        rr(ctx, bx, by, bw, 26, 13)
-        ctx.fill()
-        ctx.stroke()
-        ctx.fillStyle = '#4ade80'
-        rr(ctx, bx + bw * (g.zone - 0.08), by + 3, bw * 0.16, 20, 8)
-        ctx.fill()
-        ctx.fillStyle = '#facc15'
-        ctx.fillRect(bx + bw * g.zone - 2, by + 3, 4, 20)
-        const nx = bx + bw * g.needle
-        ctx.fillStyle = INK
-        ctx.beginPath()
-        ctx.moveTo(nx, by - 2)
-        ctx.lineTo(nx - 9, by - 16)
-        ctx.lineTo(nx + 9, by - 16)
-        ctx.closePath()
-        ctx.fill()
-      } else {
-        drawCake(ctx, g, 1, s === 'decorar')
-        if (s === 'crema' && g.phase === 'step') {
-          const next = g.dots.find((d) => !d.hit)
-          for (const d of g.dots) {
-            if (d.hit) continue
-            ctx.fillStyle = d === next ? '#f472b6' : 'rgba(244,114,182,0.45)'
-            ctx.beginPath()
-            ctx.arc(d.x, d.y, d === next ? 7 + Math.sin(t * 8) * 1.5 : 5, 0, Math.PI * 2)
-            ctx.fill()
-          }
-          if (g.down) {
-            // manga pastelera que sigue al dedo
-            ctx.save()
-            ctx.translate(g.px, g.py)
-            ctx.rotate(-0.5)
-            ctx.fillStyle = g.order.frost
-            ctx.strokeStyle = INK
-            ctx.lineWidth = 2
-            ctx.beginPath()
-            ctx.moveTo(0, 0)
-            ctx.lineTo(-16, -44)
-            ctx.lineTo(16, -44)
-            ctx.closePath()
-            ctx.fill()
-            ctx.stroke()
-            ctx.restore()
-          }
-          meter(g.dots.filter((d) => d.hit).length / Math.max(1, g.dots.length), '#a78bfa')
-        }
-        if (s === 'decorar' && g.phase === 'step') {
-          for (const sp of g.sparks) {
-            const k = 1 - sp.age / sp.life
-            ctx.save()
-            ctx.globalAlpha = 0.4 + k * 0.6
-            ctx.strokeStyle = '#facc15'
-            ctx.lineWidth = 3
-            ctx.beginPath()
-            ctx.arc(sp.x, sp.y, 10 + 14 * k, 0, Math.PI * 2)
-            ctx.stroke()
-            ctx.fillStyle = '#fef08a'
-            ctx.beginPath()
-            for (let i = 0; i < 8; i++) {
-              const a = (i / 8) * Math.PI * 2 + t * 3
-              const r = i % 2 ? 4 : 10
-              ctx.lineTo(sp.x + Math.cos(a) * r, sp.y + Math.sin(a) * r)
-            }
-            ctx.closePath()
-            ctx.fill()
-            ctx.restore()
-          }
-          meter(Math.min(1, g.hits / 8), '#facc15')
-        }
-      }
+      ctx.stroke()
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `10px ${pf}`
+      ctx.fillText('¡LISTO!', BTN_LISTO.x + BTN_LISTO.w / 2, BTN_LISTO.y + 23)
+      ctx.textAlign = 'left'
+      ctx.fillStyle = INK
+      ctx.font = `8px ${pf}`
+      ctx.fillText(`CLIENTE ${Math.min(g.served + 1, PER_DAY)}/${PER_DAY}`, 14, 612)
+      ctx.fillText(`DÍA ${g.day}`, 14, 628)
+      ctx.textAlign = 'center'
     }
 
     const draw = () => {
       ctx.save()
       juice.applyShake(ctx)
-      drawKitchen(ctx, t)
-      const lastScore = g.cakeScores[g.cakeScores.length - 1] ?? 0
-      const mood = g.phase === 'result' ? (lastScore >= 45 ? 'happy' : 'sad') : g.phase === 'step' && g.t < 2 ? 'wow' : 'calm'
-      const hop = g.phase === 'result' ? -Math.abs(Math.sin(t * 9)) * 10 : Math.sin(t * 2) * 2
-      drawAnimal(ctx, g.order, 82, 96 + hop, 1, mood, t)
-      bubble(ctx, g, 170, 34)
-      if (g.phase === 'result') drawCake(ctx, g, 1, true)
-      else if (g.phase !== 'menu') drawStep()
-      // reloj del paso
-      if (g.phase === 'step') {
-        const dur = STEP_DUR[stepNow()]
-        ctx.fillStyle = 'rgba(91,42,58,0.15)'
-        ctx.fillRect(0, 156, W, 6)
-        ctx.fillStyle = g.t < 2 ? '#f87171' : '#4ade80'
-        ctx.fillRect(0, 156, W * clamp(g.t / dur, 0, 1), 6)
-      }
-      // pasos del pastel
-      for (let i = 0; i < STEPS.length; i++) {
-        const x = W / 2 - 54 + i * 36
-        const done = i < g.scores.length
-        const cur = i === g.step && g.phase !== 'result'
-        ctx.fillStyle = done ? (g.scores[i] >= 90 ? '#facc15' : '#f472b6') : cur ? '#ffffff' : 'rgba(255,255,255,0.5)'
-        ctx.strokeStyle = INK
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.arc(x, 600, cur ? 11 : 8, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.stroke()
-      }
       ctx.textAlign = 'center'
       ctx.textBaseline = 'alphabetic'
-      // cartel del paso
-      if (g.phase === 'intro') {
-        const s = stepNow()
-        const k = clamp((1.3 - g.t) * 5, 0, 1)
-        ctx.save()
-        ctx.translate(W / 2, 300)
-        ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k)
-        ctx.fillStyle = '#ffffff'
+      // cocina
+      ctx.fillStyle = '#ffe4ef'
+      ctx.fillRect(0, 0, W, H)
+      ctx.strokeStyle = 'rgba(244,114,182,0.16)'
+      ctx.lineWidth = 1
+      for (let y = 160; y < 470; y += 28) for (let x = (y / 28) % 2 ? 0 : -14; x < W; x += 28) ctx.strokeRect(x + 0.5, y + 0.5, 28, 28)
+      // repisas con frascos
+      ctx.fillStyle = '#e8b98a'
+      ctx.fillRect(16, 196, 70, 6)
+      ctx.fillRect(W - 86, 196, 70, 6)
+      const jars = ['#fbcfe8', '#a7f3d0', '#fde68a']
+      jars.forEach((c, i) => {
+        ctx.fillStyle = c
         ctx.strokeStyle = INK
-        ctx.lineWidth = 3
-        rr(ctx, -150, -60, 300, 120, 24)
+        ctx.lineWidth = 1.5
+        rr(ctx, 22 + i * 22, 176, 16, 20, 4)
         ctx.fill()
         ctx.stroke()
-        ctx.font = `20px ${pf}`
-        ctx.fillStyle = '#ec4899'
-        ctx.fillText(STEP_NAME[s], 0, -14)
-        ctx.font = 'bold 13px sans-serif'
-        ctx.fillStyle = INK
-        ctx.fillText(STEP_HELP[s], 0, 14)
-        if (g.duo) {
-          const p = player()
-          ctx.fillStyle = P_COLOR[p]
-          rr(ctx, -60, 28, 120, 22, 11)
-          ctx.fill()
-          ctx.fillStyle = '#ffffff'
-          ctx.font = `8px ${pf}`
-          ctx.fillText(`TURNO J${p + 1}`, 0, 43)
-        }
+        rr(ctx, W - 80 + i * 22, 176, 16, 20, 4)
+        ctx.fill()
+        ctx.stroke()
+      })
+      // ventanilla del cliente con toldo
+      ctx.fillStyle = '#bae6fd'
+      rr(ctx, 12, 12, W - 24, 140, 22)
+      ctx.fill()
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 3
+      ctx.stroke()
+      ctx.save()
+      rr(ctx, 12, 12, W - 24, 140, 22)
+      ctx.clip()
+      const mood: Mood = g.phase === 'judge' ? g.mood : g.phase === 'build' && g.cake.tops.length > 4 ? 'wow' : 'calm'
+      const hop = g.phase === 'judge' && g.lastScore >= 70 ? -Math.abs(Math.sin(t * 9)) * 10 : Math.sin(t * 2) * 2
+      if (g.phase !== 'menu') drawAnimal(ctx, g.cust.a, g.cust.fur, g.cust.x, 110 + hop, mood, t)
+      ctx.restore()
+      for (let i = 0; i < 9; i++) {
+        ctx.fillStyle = i % 2 ? '#ffffff' : '#f472b6'
+        const x = 12 + (i * (W - 24)) / 9
+        const w = (W - 24) / 9
+        ctx.beginPath()
+        ctx.moveTo(x, 12)
+        ctx.lineTo(x + w, 12)
+        ctx.lineTo(x + w, 24)
+        ctx.arc(x + w / 2, 24, w / 2, 0, Math.PI)
+        ctx.closePath()
+        ctx.fill()
+      }
+      // globo de diálogo
+      if (g.phase !== 'menu' && g.say) {
+        ctx.fillStyle = '#ffffff'
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 2.5
+        rr(ctx, 152, 44, 192, 92, 18)
+        ctx.fill()
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(154, 92)
+        ctx.lineTo(136, 104)
+        ctx.lineTo(156, 106)
+        ctx.fill()
+        ctx.fillStyle = g.phase === 'judge' ? (g.lastScore >= 70 ? '#db2777' : '#7c3aed') : INK
+        ctx.font = 'bold 14px sans-serif'
+        wrap(ctx, g.say, 248, 92, 172, 18)
+      }
+      // pastel
+      const cakeMood: Mood = g.phase === 'judge' ? (g.lastScore >= 70 ? 'happy' : 'calm') : g.cake.tops.length > 0 ? 'happy' : 'calm'
+      drawCake(ctx, g.cake, t, cakeMood)
+      // fantasma de dónde caerá el adorno
+      for (const d of drags.values()) {
+        const ok = onCake(g.cake, d.x, d.y)
+        ctx.save()
+        ctx.globalAlpha = ok ? 1 : 0.55
+        drawTopping(ctx, d.kind, d.x, d.y, 1.6, 0, t)
         ctx.restore()
       }
-      if (g.phase === 'step' && g.duo) {
-        const p = player()
-        ctx.fillStyle = P_COLOR[p]
-        rr(ctx, W - 76, 612, 64, 20, 10)
-        ctx.fill()
-        ctx.fillStyle = '#ffffff'
-        ctx.font = `7px ${pf}`
-        ctx.fillText(`J${p + 1}`, W - 44, 626)
-      }
-      if (g.phase === 'result') {
-        ctx.font = `15px ${pf}`
+      if (g.phase === 'build' || g.phase === 'arrive') drawPanel()
+      if (g.phase === 'judge') {
+        ctx.font = `13px ${pf}`
         ctx.lineWidth = 5
         ctx.strokeStyle = '#ffffff'
-        ctx.strokeText(g.grade, W / 2, 500)
-        ctx.fillStyle = '#ec4899'
-        ctx.fillText(g.grade, W / 2, 500)
+        const label = g.lastScore >= 90 ? '¡PERFECTO!' : g.lastScore >= 70 ? '¡MUY BIEN!' : g.lastScore >= 45 ? 'BIEN' : 'UPS...'
+        ctx.strokeText(`${label} ${g.lastScore}%`, W / 2, 530)
+        ctx.fillStyle = g.lastScore >= 70 ? '#ec4899' : '#7c3aed'
+        ctx.fillText(`${label} ${g.lastScore}%`, W / 2, 530)
       }
       juice.drawParticles(ctx)
       juice.drawTexts(ctx, pf)
@@ -1061,9 +1031,7 @@ export default function Pasteleria() {
 
   const hud = (
     <Hud>
-      <span style={{ color: ACCENT }}>
-        PASTEL {Math.min(ui.cake + 1, CAKES)}/{CAKES}
-      </span>
+      <span style={{ color: ACCENT }}>DÍA {ui.day}</span>
       <span style={{ color: '#fde047' }}>MONEDAS {ui.coins}</span>
     </Hud>
   )
@@ -1086,46 +1054,32 @@ export default function Pasteleria() {
           <StartOverlay
             title="PASTELERÍA EN PAREJA"
             accent={ACCENT}
-            hint="Pulsa ESPACIO para empezar"
-            touchHint="Toca Jugar"
-            onStart={() => startRef.current(duo)}
+            hint="Pulsa ESPACIO para abrir"
+            touchHint="Toca Jugar para abrir"
+            onStart={() => startRef.current()}
           >
             <p className="max-w-xs text-sm leading-relaxed text-white/80">
-              Tres pasteles para animalitos golosos: batir, hornear, poner crema y decorar. En pareja se turnan los
-              pasos.
+              Los animalitos piden cosas raras. Ustedes deciden cómo: sabor, pisos, crema y adornos que arrastran a donde
+              quieran. Pagan según qué tan bien entendieron el pedido.
             </p>
-            <div className="flex gap-2">
-              {[true, false].map((d) => (
-                <button
-                  key={String(d)}
-                  type="button"
-                  onClick={(e) => {
-                    e.currentTarget.blur()
-                    setDuo(d)
-                  }}
-                  className="whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold text-black transition active:scale-95"
-                  style={{ background: duo === d ? ACCENT : '#fbcfe8' }}
-                >
-                  {d ? '2 jugadores' : '1 jugador'}
-                </button>
-              ))}
-            </div>
-            {ui.best > 0 && <p className="text-xs text-amber-300">Récord: {ui.best} monedas</p>}
+            <p className="max-w-xs text-xs leading-relaxed text-white/60">
+              En pareja: cada quien arrastra adornos con su dedo al mismo tiempo.
+            </p>
           </StartOverlay>
         )}
         {ui.phase === 'over' && (
           <GameOverOverlay
-            title={ui.stars >= 2 ? '¡PASTELEROS ESTRELLA!' : ui.stars === 1 ? '¡BUEN TRABAJO!' : '¡A PRACTICAR!'}
+            title={`¡DÍA ${ui.day} CERRADO!`}
             accent={ACCENT}
-            score={ui.coins}
+            score={ui.dayCoins}
             best={ui.best}
             ranked={false}
             stats={[
-              { label: 'Calidad', value: `${ui.avg}%` },
-              { label: 'Estrellas', value: <span className="text-amber-300">{'★'.repeat(ui.stars) + '☆'.repeat(3 - ui.stars)}</span> },
+              { label: 'Clientes felices', value: `${ui.happy}/${PER_DAY}` },
+              { label: 'Ahorros', value: ui.coins },
             ]}
-            onRestart={() => startRef.current(duo)}
-            touchHint="o toca Jugar otra vez"
+            onRestart={() => startRef.current()}
+            touchHint="o toca para abrir el siguiente día"
           />
         )}
       </GameScreen>
