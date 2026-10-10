@@ -58,7 +58,7 @@ const CPU: Record<Diff, { react: number; speed: number; err: number; jump: numbe
 
 /** Ajusta la cancha al área de la pantalla. */
 function layout() {
-  const f = fitStage(W0, H0)
+  const f = fitStage(W0, H0, 1.9, 1.08)
   W = f.w
   H = f.h
   GY = H - 58
@@ -846,53 +846,78 @@ export default function FutbolCabezon() {
     }
 
     // ---------- dibujo ----------
+    const INK = '#2a1b3d'
     const drawField = () => {
+      // cielo de día con nubes
       const sky = ctx.createLinearGradient(0, 0, 0, GY)
-      sky.addColorStop(0, '#0b1233')
-      sky.addColorStop(1, '#1a2c52')
+      sky.addColorStop(0, '#7dd3fc')
+      sky.addColorStop(1, '#e0f2fe')
       ctx.fillStyle = sky
       ctx.fillRect(-20, -20, W + 40, GY + 20)
-      // reflectores
-      ctx.fillStyle = 'rgba(253,230,138,0.06)'
-      for (const x of [W * 0.2, W * 0.8]) {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'
+      for (let i = 0; i < 4; i++) {
+        const cx = ((i * 0.31 + g.t * 0.004) % 1.2) * W - 40
+        const cy = 30 + (i % 2) * 26
         ctx.beginPath()
-        ctx.moveTo(x, 0)
-        ctx.lineTo(x - 90, GY)
-        ctx.lineTo(x + 90, GY)
-        ctx.closePath()
+        ctx.arc(cx, cy, 14, 0, Math.PI * 2)
+        ctx.arc(cx + 16, cy - 6, 17, 0, Math.PI * 2)
+        ctx.arc(cx + 34, cy, 13, 0, Math.PI * 2)
         ctx.fill()
       }
+      // gradas: tres filas de afición, azul a la izquierda y rosa a la derecha
+      const standTop = GY * 0.42
+      const standBot = GY - 34
+      ctx.fillStyle = '#475569'
+      ctx.fillRect(-20, standTop, W + 40, standBot - standTop)
+      const rows = 4
+      const rowH = (standBot - standTop) / rows
+      for (let r = 0; r < rows; r++) {
+        const y = standTop + r * rowH
+        ctx.fillStyle = r % 2 ? '#64748b' : '#57667b'
+        ctx.fillRect(-20, y, W + 40, rowH)
+        for (let x = 6 + (r % 2) * 7; x < W; x += 14) {
+          const hop = Math.max(0, Math.sin(g.t * 7 + x * 0.3 + r)) * (g.phase === 'goal' ? 6 : 1.5)
+          const side = x < W / 2 ? BLUE : PINK
+          ctx.fillStyle = (x * 7 + r * 13) % 5 === 0 ? '#f8fafc' : side
+          ctx.beginPath()
+          ctx.arc(x, y + rowH * 0.62 - hop, 4.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#fde2c4'
+          ctx.beginPath()
+          ctx.arc(x, y + rowH * 0.3 - hop, 3, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      // vallas de publicidad
+      const adY = standBot
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = ['#a3e635', '#f472b6', '#60a5fa', '#facc15', '#fb923c', '#c084fc'][i]
+        ctx.fillRect((i * W) / 6, adY, W / 6 + 1, GY - adY)
+        ctx.fillStyle = 'rgba(255,255,255,0.75)'
+        ctx.fillRect((i * W) / 6 + 8, adY + (GY - adY) / 2 - 2, W / 6 - 16, 4)
+      }
+      ctx.fillStyle = INK
+      ctx.fillRect(-20, adY - 2, W + 40, 2)
       // césped con franjas
       const grass = ctx.createLinearGradient(0, GY, 0, H)
-      grass.addColorStop(0, '#2f9e5a')
-      grass.addColorStop(1, '#1d6b3d')
+      grass.addColorStop(0, '#4ade80')
+      grass.addColorStop(1, '#16a34a')
       ctx.fillStyle = grass
       ctx.fillRect(-20, GY, W + 40, H - GY + 20)
-      ctx.fillStyle = 'rgba(255,255,255,0.05)'
-      for (let i = 0; i < 8; i += 2) ctx.fillRect((i * W) / 8, GY, W / 8, H - GY)
-      // línea de banda y medio campo
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'
-      ctx.fillRect(0, GY, W, 2)
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)'
-      ctx.lineWidth = 2
-      ctx.setLineDash([8, 8])
-      ctx.beginPath()
-      ctx.moveTo(W / 2, 0)
-      ctx.lineTo(W / 2, GY)
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.beginPath()
-      ctx.arc(W / 2, GY, 46, Math.PI, Math.PI * 2)
-      ctx.stroke()
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'
+      for (let i = 0; i < 10; i += 2) ctx.fillRect((i * W) / 10, GY, W / 10, H - GY)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, GY, W, 3)
+      ctx.fillRect(W / 2 - 1.5, GY, 3, H - GY)
     }
 
-    /** Pared con portería: del techo al travesaño; la red queda detrás del hueco. */
+    /** Portería: postes blancos y red; arriba, la pared del estadio con franja del equipo. */
     const drawGoal = (defender: Side) => {
       const gap = gapOf(g, defender)
       const x0 = defender === 0 ? 0 : W - GD
-      ctx.fillStyle = 'rgba(15,23,42,0.85)'
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
       ctx.fillRect(x0, GY - gap, GD, gap)
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'
       ctx.lineWidth = 1
       ctx.beginPath()
       for (let x = x0 + 4; x < x0 + GD; x += 6) {
@@ -904,14 +929,19 @@ export default function FutbolCabezon() {
         ctx.lineTo(x0 + GD, y)
       }
       ctx.stroke()
-      ctx.fillStyle = '#1e293b'
+      ctx.fillStyle = '#334155'
       ctx.fillRect(x0, 0, GD, GY - gap)
-      // franja del color del equipo que defiende
       ctx.fillStyle = defender === 0 ? BLUE : PINK
-      ctx.fillRect(defender === 0 ? GD - 4 : x0, 0, 4, GY - gap)
-      // travesaño
-      ctx.fillStyle = '#f8fafc'
-      ctx.fillRect(x0, GY - gap - 5, GD, 5)
+      ctx.fillRect(defender === 0 ? GD - 5 : x0, 0, 5, GY - gap)
+      // postes y travesaño con contorno
+      const post = defender === 0 ? GD - 4 : x0
+      ctx.fillStyle = '#ffffff'
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 1.5
+      ctx.fillRect(x0, GY - gap - 6, GD, 6)
+      ctx.strokeRect(x0, GY - gap - 6, GD, 6)
+      ctx.fillRect(post, GY - gap - 6, 4, gap + 6)
+      ctx.strokeRect(post, GY - gap - 6, 4, gap + 6)
     }
 
     const drawPlayer = (p: Player) => {
@@ -960,6 +990,9 @@ export default function FutbolCabezon() {
       ctx.fillStyle = col
       rr(ctx, p.x - 13, p.y - 40, 26, 30, 9)
       ctx.fill()
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 2
+      ctx.stroke()
       ctx.fillStyle = 'rgba(255,255,255,0.8)'
       ctx.fillRect(p.x - 13, p.y - 30, 26, 3)
       // brazos: arriba al saltar
@@ -986,6 +1019,15 @@ export default function FutbolCabezon() {
       ctx.arc(hx, hy, hr, Math.PI * 1.02, Math.PI * 1.98)
       ctx.closePath()
       ctx.fill()
+      // visera de la gorra
+      ctx.beginPath()
+      ctx.ellipse(hx + look * hr * 0.55, hy - hr * 0.05, hr * 0.5, hr * 0.13, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 2.2
+      ctx.beginPath()
+      ctx.arc(hx, hy, hr, 0, Math.PI * 2)
+      ctx.stroke()
       ctx.fillStyle = '#0f172a'
       ctx.beginPath()
       ctx.ellipse(hx - hr * 0.38 + look * 2, hy + hr * 0.12, 3.2, 4.4 * (hr / HR), 0, 0, Math.PI * 2)
@@ -1151,8 +1193,20 @@ export default function FutbolCabezon() {
       for (const s of sides) {
         const cx = g.mode === 1 ? W / 2 : s === 0 ? W * 0.25 : W * 0.75
         ctx.fillStyle = s === 0 ? BLUE : PINK
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 4
+        ctx.lineJoin = 'round'
+        ctx.strokeText('MANTEN PARA MOVER', cx, 110)
         ctx.fillText('MANTEN PARA MOVER', cx, 110)
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 4
+        ctx.lineJoin = 'round'
+        ctx.strokeText('DESLIZA: SALTAR', cx, 126)
         ctx.fillText('DESLIZA: SALTAR', cx, 126)
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 4
+        ctx.lineJoin = 'round'
+        ctx.strokeText('TOCA: PATEAR', cx, 142)
         ctx.fillText('TOCA: PATEAR', cx, 142)
         // flechas junto a su muñeco
         const p = g.players[s]
@@ -1175,7 +1229,11 @@ export default function FutbolCabezon() {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = '#ffffff'
-      ctx.fillText(String(Math.min(3, n)), W / 2, H * 0.34)
+      ctx.strokeStyle = INK
+        ctx.lineWidth = 4
+        ctx.lineJoin = 'round'
+        ctx.strokeText(String(Math.min(3, n)), W / 2, H * 0.34)
+        ctx.fillText(String(Math.min(3, n)), W / 2, H * 0.34)
       ctx.restore()
     }
 
