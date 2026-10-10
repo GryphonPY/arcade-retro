@@ -20,7 +20,7 @@ const H0 = 640
 let W = W0
 let H = H0
 
-const BAR_H = 54 // barra de cartas + marcador de cada lado
+const BAR_H = 66 // barra de cartas (nombres y costo) + marcador de oro/daño de cada lado
 const PAD = 150 // espacio para castillos y barras, a cada extremo
 const TOWER_S = 110 // distancia de cada torre a su castillo
 const CASTLE_HP = 1000
@@ -29,6 +29,7 @@ const TOWER_RANGE = 120
 const TOWER_DMG = 14
 const TOWER_CD = 1
 const DURATION = 180 // segundos de partida
+const OVERTIME = 30 // tiempo extra corto si hay empate de daño al final
 const LAST_MIN = 120 // desde aquí (último minuto) el oro sale doble
 const START_GOLD = 120
 
@@ -138,6 +139,7 @@ interface Game {
   mode: 1 | 2
   level: number
   t: number
+  endT: number // segundo en que se acaba el tiempo (sube si hay tiempo extra)
   sides: [Side, Side]
   units: Unit[]
   nextId: number
@@ -186,6 +188,7 @@ function newGame(mode: 1 | 2, level: number): Game {
     mode,
     level,
     t: 0,
+    endT: DURATION,
     sides: [newSide(), newSide()],
     units: [],
     nextId: 1,
@@ -536,10 +539,16 @@ export default function GuerraCastillos() {
       if (g.phase !== 'playing') return
       updateTowers(dt)
       // castillo destruido en torres/unidades ya llama finish; aquí solo el tiempo
-      if (g.phase === 'playing' && g.t >= DURATION) {
+      if (g.phase === 'playing' && g.t >= g.endT) {
         const d0 = g.sides[0].dmg
         const d1 = g.sides[1].dmg
-        if (d0 === d1) finish(null, 'time')
+        if (d0 === d1 && g.endT === DURATION) {
+          // empate de daño: tiempo extra corto antes de decidir
+          g.endT = DURATION + OVERTIME
+          juice.flash(GOLD, 0.25)
+          juice.text(W / 2, H / 2 - 30, 'TIEMPO EXTRA', GOLD, 9, 1.4)
+          sfxBoom()
+        } else if (d0 === d1) finish(null, 'time')
         else finish(d0 > d1 ? 0 : 1, 'time')
       }
     }
@@ -674,88 +683,226 @@ export default function GuerraCastillos() {
     document.addEventListener('visibilitychange', onVis)
 
     // ---------- dibujo ----------
-    /** Figura de soldado en pixeles (8x9). Los pies quedan en (0,0). */
-    const BODY = [
-      '..kkkk..',
-      '.khhhhk.',
-      '.kessesk',
-      '.kkkkkk.',
-      'kbbbbbbk',
-      'kbddddbk',
-      'kbbbbbbk',
-      '.kllllk.',
-    ]
-    const drawFigure = (def: UnitDef, x: number, y: number, scale: number, walk: number, flash: boolean) => {
-      const cell = 2 * scale
-      const hood = def.id === 'mago' ? '#7c3aed' : def.id === 'arquero' ? '#166534' : def.id === 'ladron' ? '#1f2937' : '#cbd5e1'
-      const pal: Record<string, string> = {
-        k: '#111827',
-        h: hood,
-        e: '#0f172a',
-        s: '#fcd9b6',
-        b: flash ? '#ffffff' : def.color,
-        d: 'rgba(0,0,0,0.28)',
-        l: '#4b3b2a',
-      }
-      const rows = [...BODY, walk ? '.kl..lk.' : '.kk..kk.']
-      const x0 = x - 4 * cell
-      const y0 = y - 9 * cell
-      for (let r = 0; r < rows.length; r++) {
-        for (let c = 0; c < 8; c++) {
-          const ch = rows[r][c]
-          if (ch === '.' || !pal[ch]) continue
-          ctx.fillStyle = pal[ch]
-          ctx.fillRect(x0 + c * cell, y0 + r * cell, cell, cell)
-        }
-      }
-      // accesorios por unidad
-      ctx.fillStyle = '#e2e8f0'
-      if (def.id === 'soldado') {
-        ctx.fillRect(x0 + 8 * cell, y0 - 2 * cell, cell, 9 * cell)
-      } else if (def.id === 'arquero') {
-        ctx.fillStyle = '#a16207'
-        ctx.fillRect(x0 - cell, y0 + 2 * cell, cell, 5 * cell)
-      } else if (def.id === 'caballero') {
-        ctx.fillStyle = '#3b82f6'
-        ctx.fillRect(x0 - 2 * cell, y0 + 3 * cell, 3 * cell, 4 * cell)
-        ctx.fillStyle = '#e2e8f0'
-        ctx.fillRect(x0 - cell, y0 + 4 * cell, cell, 2 * cell)
-        ctx.fillStyle = '#ef4444'
-        ctx.fillRect(x0 + 3 * cell, y0 - 2 * cell, 2 * cell, cell)
-      } else if (def.id === 'mago') {
-        ctx.fillStyle = '#78350f'
-        ctx.fillRect(x0 + 8 * cell, y0 - 3 * cell, cell, 11 * cell)
-        ctx.fillStyle = '#c084fc'
-        ctx.fillRect(x0 + 8 * cell - cell / 2, y0 - 4 * cell, 2 * cell, 2 * cell)
-      } else if (def.id === 'ladron') {
-        ctx.fillStyle = '#facc15'
-        ctx.fillRect(x0 + 6 * cell, y0 + 6 * cell, 2 * cell, 2 * cell)
-      }
-    }
-
-    /** Catapulta de cuatro cuadros: caja, ruedas y brazo que se levanta al disparar. */
-    const drawCatapult = (x: number, y: number, scale: number, swing: number) => {
+    const INK = '#2a1b3d' // contorno cacao, nunca negro puro
+    /**
+     * Personajito chibi redondo (pies en x,y; ~26 px de alto a escala 1).
+     * El cuerpo lleva el color del EQUIPO; el sombrero y el arma dicen QUÉ unidad es.
+     */
+    const drawFigure = (def: UnitDef, x: number, y: number, scale: number, walk: number, flash: boolean, team = def.color) => {
       ctx.save()
       ctx.translate(x, y)
       ctx.scale(scale, scale)
-      ctx.fillStyle = '#78350f'
-      rr(ctx, -12, -12, 24, 8, 2)
-      ctx.fill()
-      ctx.fillStyle = '#111827'
+      ctx.lineWidth = 1.4
+      ctx.strokeStyle = INK
+      const blob = (cx: number, cy: number, rx: number, ry: number, fill: string) => {
+        ctx.fillStyle = fill
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      }
+      // sombra con aro del equipo
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'
       ctx.beginPath()
-      ctx.arc(-8, -2, 3, 0, Math.PI * 2)
-      ctx.arc(8, -2, 3, 0, Math.PI * 2)
+      ctx.ellipse(0, 0, 9, 3, 0, 0, Math.PI * 2)
       ctx.fill()
+      // arma detrás (lado derecho)
+      if (def.id === 'soldado') {
+        ctx.fillStyle = '#a16207'
+        ctx.fillRect(7, -24, 2, 22)
+        ctx.fillStyle = '#e2e8f0'
+        ctx.beginPath()
+        ctx.moveTo(8, -30)
+        ctx.lineTo(11, -23)
+        ctx.lineTo(5, -23)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+      } else if (def.id === 'mago') {
+        ctx.fillStyle = '#92400e'
+        ctx.fillRect(7, -24, 2, 22)
+        const glow = 0.6 + 0.4 * Math.sin(g.t * 6)
+        ctx.fillStyle = `rgba(216,180,254,${glow})`
+        ctx.beginPath()
+        ctx.arc(8, -26, 4.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      }
+      // patitas
+      const st = walk ? 1.5 : 0
+      blob(-3.5, -1.5 - st, 2.6, 1.8, INK)
+      blob(3.5, -1.5 + st - 1.5 * (walk ? 1 : 0), 2.6, 1.8, INK)
+      // cuerpo frijolito del color del equipo
+      blob(0, -8, 7, 6.5, flash ? '#ffffff' : team)
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      ctx.beginPath()
+      ctx.ellipse(-2.5, -10, 2.2, 1.5, -0.5, 0, Math.PI * 2)
+      ctx.fill()
+      // cabeza grande
+      blob(0, -18, 7.5, 7, flash ? '#ffffff' : '#fde2c8')
+      // ojitos y cachetes
+      ctx.fillStyle = INK
+      if (def.id === 'ladron') {
+        ctx.fillStyle = '#1f2937'
+        ctx.fillRect(-7, -20, 14, 4) // antifaz
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(-4, -19, 2, 2)
+        ctx.fillRect(2, -19, 2, 2)
+      } else {
+        ctx.beginPath()
+        ctx.arc(-2.8, -17.5, 1.3, 0, Math.PI * 2)
+        ctx.arc(2.8, -17.5, 1.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(-3.3, -18.5, 0.9, 0.9)
+        ctx.fillRect(2.3, -18.5, 0.9, 0.9)
+      }
+      ctx.fillStyle = 'rgba(244,114,182,0.55)'
+      ctx.beginPath()
+      ctx.arc(-4.6, -15, 1.4, 0, Math.PI * 2)
+      ctx.arc(4.6, -15, 1.4, 0, Math.PI * 2)
+      ctx.fill()
+      // sombrero según la unidad
+      if (def.id === 'soldado') {
+        ctx.fillStyle = '#cbd5e1' // casquito de metal
+        ctx.beginPath()
+        ctx.arc(0, -20, 7.8, Math.PI, 0)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillRect(-8.5, -20.5, 17, 2)
+      } else if (def.id === 'arquero') {
+        ctx.fillStyle = '#22c55e' // capucha con punta
+        ctx.beginPath()
+        ctx.moveTo(-8, -18)
+        ctx.quadraticCurveTo(-8, -27, 0, -27)
+        ctx.lineTo(6, -31)
+        ctx.lineTo(5, -26)
+        ctx.quadraticCurveTo(8, -24, 8, -18)
+        ctx.quadraticCurveTo(0, -23, -8, -18)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        // arco a la izquierda
+        ctx.strokeStyle = '#a16207'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(-8, -9, 7, -1.3, 1.3)
+        ctx.stroke()
+        ctx.strokeStyle = '#f1f5f9'
+        ctx.lineWidth = 0.8
+        ctx.beginPath()
+        ctx.moveTo(-6.1, -15.7)
+        ctx.lineTo(-6.1, -2.3)
+        ctx.stroke()
+      } else if (def.id === 'caballero') {
+        ctx.fillStyle = '#94a3b8' // yelmo completo con visera y pluma
+        ctx.beginPath()
+        ctx.arc(0, -18.5, 8, Math.PI * 0.95, Math.PI * 2.05)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = INK
+        ctx.fillRect(-5, -19, 10, 1.6)
+        ctx.fillStyle = '#ef4444'
+        ctx.beginPath()
+        ctx.ellipse(0, -28, 2.5, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        // escudo grande del equipo
+        ctx.fillStyle = team
+        ctx.beginPath()
+        ctx.moveTo(-14, -14)
+        ctx.lineTo(-5, -14)
+        ctx.lineTo(-5, -7)
+        ctx.quadraticCurveTo(-9.5, -1, -9.5, -1)
+        ctx.quadraticCurveTo(-14, -5, -14, -7)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = '#fde047'
+        ctx.fillRect(-10.3, -12.5, 1.6, 8)
+        ctx.fillRect(-12.5, -10, 6, 1.6)
+      } else if (def.id === 'mago') {
+        ctx.fillStyle = '#8b5cf6' // sombrero puntiagudo con estrella
+        ctx.beginPath()
+        ctx.moveTo(-9, -21)
+        ctx.lineTo(9, -21)
+        ctx.lineTo(2, -35)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = '#fde047'
+        ctx.beginPath()
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2 - Math.PI / 2
+          const r = i % 2 ? 1.2 : 2.6
+          ctx.lineTo(1 + Math.cos(a) * r, -26 + Math.sin(a) * r)
+        }
+        ctx.closePath()
+        ctx.fill()
+      } else if (def.id === 'ladron') {
+        ctx.fillStyle = '#334155' // gorrito
+        ctx.beginPath()
+        ctx.arc(0, -21, 7, Math.PI, 0)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+        // costal de monedas
+        blob(-9, -7, 4, 4.5, '#d97706')
+        ctx.fillStyle = '#fde047'
+        ctx.font = 'bold 5px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('$', -9, -6.5)
+      }
+      ctx.restore()
+    }
+
+    /** Catapulta redondita: carro de madera con franja del equipo, ruedas y brazo con roca. */
+    const drawCatapult = (x: number, y: number, scale: number, swing: number, team = '#fb923c') => {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(scale, scale)
+      ctx.lineWidth = 1.4
+      ctx.strokeStyle = INK
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      ctx.beginPath()
+      ctx.ellipse(0, 0, 15, 3.5, 0, 0, Math.PI * 2)
+      ctx.fill()
+      // brazo detrás del carro
       ctx.save()
       ctx.translate(0, -12)
       ctx.rotate(-0.7 + swing * 1.1)
-      ctx.fillStyle = '#92400e'
-      ctx.fillRect(-1.5, -22, 3, 22)
-      ctx.fillStyle = '#9ca3af'
-      ctx.beginPath()
-      ctx.arc(0, -24, 3, 0, Math.PI * 2)
+      ctx.fillStyle = '#b45309'
+      rr(ctx, -2, -22, 4, 22, 2)
       ctx.fill()
+      ctx.stroke()
+      ctx.fillStyle = '#a8a29e'
+      ctx.beginPath()
+      ctx.arc(0, -24, 4.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
       ctx.restore()
+      // carro
+      ctx.fillStyle = '#d97706'
+      rr(ctx, -14, -15, 28, 11, 4)
+      ctx.fill()
+      ctx.stroke()
+      ctx.fillStyle = team
+      ctx.fillRect(-13, -11, 26, 3)
+      // ruedas
+      for (const wx of [-9, 9]) {
+        ctx.fillStyle = '#78350f'
+        ctx.beginPath()
+        ctx.arc(wx, -3.5, 4.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = '#fde68a'
+        ctx.beginPath()
+        ctx.arc(wx, -3.5, 1.3, 0, Math.PI * 2)
+        ctx.fill()
+      }
       ctx.restore()
     }
 
@@ -772,6 +919,22 @@ export default function GuerraCastillos() {
       ctx.fill()
       rr(ctx, 52, -34, 22, 62, 2)
       ctx.fill()
+      // techitos cónicos del color del bando y ventanitas
+      for (const tx of [-63, 63]) {
+        ctx.fillStyle = color
+        ctx.beginPath()
+        ctx.moveTo(tx - 14, -34)
+        ctx.lineTo(tx + 14, -34)
+        ctx.lineTo(tx, -56)
+        ctx.closePath()
+        ctx.fill()
+        ctx.strokeStyle = INK
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+        ctx.fillStyle = '#fde68a'
+        rr(ctx, tx - 3, -22, 6, 9, 3)
+        ctx.fill()
+      }
       ctx.fillStyle = '#1f2937'
       ctx.fillRect(-12, 6, 24, 22) // puerta
       ctx.beginPath()
@@ -868,7 +1031,8 @@ export default function GuerraCastillos() {
       UNIT_ORDER.forEach((id, i) => {
         const def = UNITS[id]
         const cx = i * cw
-        const can = g.phase === 'playing' && side.gold >= def.cost
+        // en 1 jugador las cartas rojas son de la CPU: se ven apagadas, no jugables
+        const can = g.phase === 'playing' && side.gold >= def.cost && (owner === 0 || g.mode === 2)
         const sel = g.selected && g.selected.owner === owner && g.selected.unit === id
         ctx.save()
         ctx.globalAlpha = can ? 1 : 0.42
@@ -878,8 +1042,8 @@ export default function GuerraCastillos() {
         ctx.strokeStyle = sel ? '#ffffff' : def.color
         ctx.lineWidth = sel ? 2 : 1
         ctx.stroke()
-        if (id === 'catapulta') drawCatapult(cx + cw / 2, 26, 0.7, 0)
-        else drawFigure(def, cx + cw / 2, 30, 1, 0, false)
+        if (id === 'catapulta') drawCatapult(cx + cw / 2, 31, 0.72, 0, TEAM[owner])
+        else drawFigure(def, cx + cw / 2, 33, 0.82, 0, false, TEAM[owner])
         ctx.restore()
         ctx.textAlign = 'center'
         ctx.textBaseline = 'alphabetic'
@@ -983,9 +1147,9 @@ export default function GuerraCastillos() {
           ctx.translate(-x, -y)
         }
         if (u.def.id === 'catapulta') {
-          drawCatapult(x, y, 1, u.atkT > 0 ? 1 - u.atkT / 0.25 : 0)
+          drawCatapult(x, y, 1, u.atkT > 0 ? 1 - u.atkT / 0.25 : 0, TEAM[u.owner])
         } else {
-          drawFigure(u.def, x, y + lunge, 1, walk ? 1 : 0, u.hitT > 0)
+          drawFigure(u.def, x, y + lunge, 1.05, walk ? 1 : 0, u.hitT > 0, TEAM[u.owner])
           if (u.atkT > 0 && u.def.range <= 40) {
             ctx.strokeStyle = '#ffffff'
             ctx.lineWidth = 2
@@ -1010,7 +1174,7 @@ export default function GuerraCastillos() {
           ctx.rotate(Math.PI)
           ctx.translate(-d.x, -d.y)
         }
-        drawFigure(UNITS[d.unit], d.x, d.y + 4, 1, 0, false)
+        drawFigure(UNITS[d.unit], d.x, d.y + 4, 1, 0, false, TEAM[d.owner])
         ctx.restore()
       }
 
@@ -1027,7 +1191,7 @@ export default function GuerraCastillos() {
 
       // tiempo al centro
       if (g.phase === 'playing') {
-        const left = Math.max(0, DURATION - g.t)
+        const left = Math.max(0, g.endT - g.t)
         const mm = Math.floor(left / 60)
         const ss = Math.floor(left % 60).toString().padStart(2, '0')
         ctx.textAlign = 'center'
@@ -1035,7 +1199,11 @@ export default function GuerraCastillos() {
         ctx.font = `10px ${pf}`
         ctx.fillStyle = left <= 60 ? '#fde047' : 'rgba(255,255,255,0.7)'
         ctx.fillText(`${mm}:${ss}`, W / 2, H / 2)
-        if (left <= 60) {
+        if (g.t >= DURATION) {
+          ctx.font = `6px ${pf}`
+          ctx.fillStyle = GOLD
+          ctx.fillText('TIEMPO EXTRA', W / 2, H / 2 + 16)
+        } else if (left <= 60) {
           ctx.font = `6px ${pf}`
           ctx.fillStyle = '#fde047'
           ctx.fillText('ORO DOBLE', W / 2, H / 2 + 16)
@@ -1131,7 +1299,7 @@ export default function GuerraCastillos() {
           <StartOverlay
             title="GUERRA DE CASTILLOS"
             accent={ACCENT}
-            subtitle="Destruye el castillo enemigo. Si se acaba el tiempo, gana quien haga más daño."
+            subtitle="Destruye el castillo enemigo. Si se acaba el tiempo, gana quien haga más daño (con tiempo extra si empatan)."
             hint="Elige un modo o pulsa ESPACIO"
             touchHint="Elige un modo"
           >
@@ -1184,8 +1352,19 @@ export default function GuerraCastillos() {
                 { label: 'Fin', value: ui.reason === 'castle' ? 'Castillo' : 'Tiempo' },
               ]}
               onRestart={() => restartRef.current()}
+              touchHint="Toca el botón para seguir"
               ranked={false}
             />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.currentTarget.blur()
+                menuRef.current()
+              }}
+              className="absolute left-1/2 top-[76%] z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 px-4 py-1.5 text-xs text-white/70 transition active:scale-95"
+            >
+              Cambiar modo
+            </button>
           </>
         )}
       </GameScreen>

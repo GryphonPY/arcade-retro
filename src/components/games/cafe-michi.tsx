@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
-import { GameOverOverlay, Hud, StartOverlay } from './overlay'
+import { Hud, useIsTouch } from './overlay'
 import { Juice } from './juice'
 import { rr, setupCanvas } from './game-utils'
 import { noise, tone } from './sfx'
@@ -13,11 +13,12 @@ const ACCENT = '#f9a8d4'
 const SAVE_KEY = 'arcade-cafe-michi'
 const DIA_T = 120 // duración de un día, en segundos
 const COLA_MAX = 2 // gatitos esperando de pie junto a la puerta
-const PACIENCIA = 38 // segundos de paciencia por gatito
+const PACIENCIA = 60 // segundos de paciencia por gatito (generosa: irse solo cuesta la propina)
 const BANDEJA_CAP = 3
 
 const W0 = 360
 const H0 = 560
+const SC = 1.4 // escala de los gatitos sobre sus dibujos base
 // Mundo lógico: se ajusta a la pantalla (ver layout). Todo se dibuja en proporción a W y H.
 let W = W0
 let H = H0
@@ -42,7 +43,7 @@ interface Geo {
 
 /** Zonas de la cafetería según el mundo lógico actual. */
 function buildGeo(): Geo {
-  const pisoT = H * 0.14
+  const pisoT = H * 0.22
   const pisoB = H * 0.6
   const fila = (pisoB - pisoT) / 3
   // seis asientos: dos columnas, tres filas (la mesa N se activa al comprar mesas)
@@ -119,11 +120,12 @@ interface Look {
   panza: string
   oreja: string
   rayas?: boolean
+  parche?: string // mancha de otro color (gatitos manchados)
 }
 const LOOKS: Look[] = [
   { cuerpo: '#f7c27a', panza: '#fff4df', oreja: '#f8a9a0' },
-  { cuerpo: '#c9c4d0', panza: '#f4f1f7', oreja: '#f3b5c0' },
-  { cuerpo: '#fbf6ef', panza: '#ffffff', oreja: '#f6b8c6' },
+  { cuerpo: '#c9c4d0', panza: '#f4f1f7', oreja: '#f3b5c0', parche: '#a9a3b5' },
+  { cuerpo: '#fbf6ef', panza: '#ffffff', oreja: '#f6b8c6', parche: '#f7a8bb' },
   { cuerpo: '#d9a87f', panza: '#f7e6d4', oreja: '#eea7a0', rayas: true },
   { cuerpo: '#aebde8', panza: '#e9eefc', oreja: '#f3b5d4' },
 ]
@@ -437,67 +439,270 @@ function corazon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number,
   ctx.fill()
 }
 
-/** Icono de bebida o postre centrado en (x, y); `s` es el radio aproximado. */
-function icono(ctx: CanvasRenderingContext2D, x: number, y: number, id: Item, s: number) {
-  const info = INFO[id]
-  if (esBebida(id)) {
-    ctx.fillStyle = id === 'espuma' ? '#ffffff' : '#fff8f2'
-    ctx.beginPath()
-    ctx.moveTo(x - s * 0.7, y - s * 0.4)
-    ctx.lineTo(x + s * 0.7, y - s * 0.4)
-    ctx.lineTo(x + s * 0.45, y + s * 0.7)
-    ctx.lineTo(x - s * 0.45, y + s * 0.7)
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = '#fff8f2'
-    ctx.lineWidth = Math.max(1, s * 0.22)
-    ctx.beginPath()
-    ctx.arc(x + s * 0.7, y + s * 0.15, s * 0.3, -Math.PI / 2, Math.PI / 2)
-    ctx.stroke()
-    ctx.fillStyle = info.color
-    ctx.beginPath()
-    ctx.ellipse(x, y - s * 0.4, s * 0.7, s * 0.22, 0, 0, Math.PI * 2)
-    ctx.fill()
-    if (id === 'espuma') corazon(ctx, x, y - s * 0.45, s * 0.35, '#f472b6')
-  } else if (id === 'pastel') {
-    rr(ctx, x - s * 0.7, y - s * 0.2, s * 1.4, s * 0.8, s * 0.2)
-    ctx.fillStyle = info.color
-    ctx.fill()
-    rr(ctx, x - s * 0.7, y - s * 0.45, s * 1.4, s * 0.3, s * 0.15)
+const PI2 = Math.PI * 2
+
+/** Taza o vaso de bebida centrado en (x, y); `s` es el radio aproximado. */
+function taza(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, id: Bebida) {
+  const vaso = id === 'espuma' ? '#fde3ef' : id === 'chocolate' ? '#fbd6cc' : id === 'matcha' ? '#eaf7dc' : '#fffaf5'
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.ellipse(x, y + s * 0.78, s * 0.98, s * 0.2, 0, 0, PI2)
+  ctx.fill()
+  ctx.strokeStyle = vaso
+  ctx.lineWidth = Math.max(1.2, s * 0.22)
+  ctx.beginPath()
+  ctx.arc(x + s * 0.7, y + s * 0.12, s * 0.3, -Math.PI / 2, Math.PI / 2)
+  ctx.stroke()
+  ctx.fillStyle = vaso
+  ctx.beginPath()
+  ctx.moveTo(x - s * 0.72, y - s * 0.45)
+  ctx.lineTo(x + s * 0.72, y - s * 0.45)
+  ctx.lineTo(x + s * 0.5, y + s * 0.68)
+  ctx.lineTo(x - s * 0.5, y + s * 0.68)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = INFO[id].color
+  ctx.beginPath()
+  ctx.ellipse(x, y - s * 0.45, s * 0.72, s * 0.2, 0, 0, PI2)
+  ctx.fill()
+  if (id === 'chocolate') {
+    // crema batida encima
     ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.fillStyle = '#ef4444'
     ctx.beginPath()
-    ctx.arc(x, y - s * 0.6, s * 0.14, 0, Math.PI * 2)
+    ctx.arc(x, y - s * 0.72, s * 0.3, 0, PI2)
     ctx.fill()
-  } else if (id === 'galleta') {
-    ctx.fillStyle = info.color
+    ctx.fillStyle = '#f472b6'
     ctx.beginPath()
-    ctx.arc(x, y, s * 0.7, 0, Math.PI * 2)
+    ctx.arc(x, y - s * 1.0, s * 0.11, 0, PI2)
     ctx.fill()
-    ctx.fillStyle = '#7a4a2a'
-    for (const [dx, dy] of [
-      [-0.3, -0.2],
-      [0.25, -0.3],
-      [0.05, 0.3],
-    ]) {
-      ctx.beginPath()
-      ctx.arc(x + dx * s, y + dy * s, s * 0.1, 0, Math.PI * 2)
-      ctx.fill()
-    }
+  } else if (id === 'espuma') {
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.ellipse(x, y - s * 0.5, s * 0.66, s * 0.22, 0, 0, PI2)
+    ctx.fill()
+    corazon(ctx, x, y - s * 0.5, s * 0.3, '#f472b6')
   } else {
-    ctx.fillStyle = info.color
+    // vapor de bebida caliente
+    ctx.strokeStyle = 'rgba(244,114,182,0.75)'
+    ctx.lineWidth = Math.max(0.8, s * 0.1)
     ctx.beginPath()
-    ctx.arc(x, y, s * 0.75, 0, Math.PI * 2)
+    ctx.moveTo(x - s * 0.2, y - s * 0.9)
+    ctx.quadraticCurveTo(x - s * 0.5, y - s * 1.2, x - s * 0.2, y - s * 1.5)
+    ctx.moveTo(x + s * 0.25, y - s * 0.9)
+    ctx.quadraticCurveTo(x + s * 0.55, y - s * 1.2, x + s * 0.25, y - s * 1.5)
+    ctx.stroke()
+  }
+}
+
+/** Rebanada de pastel de fresa con cereza. */
+function pastelito(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  ctx.fillStyle = '#fde2c4'
+  rr(ctx, x - s * 0.72, y - s * 0.12, s * 1.44, s * 0.72, s * 0.14)
+  ctx.fill()
+  ctx.fillStyle = '#fff7fb'
+  ctx.fillRect(x - s * 0.7, y + s * 0.2, s * 1.4, s * 0.14)
+  ctx.fillStyle = '#f9a8d4'
+  rr(ctx, x - s * 0.8, y - s * 0.5, s * 1.6, s * 0.42, s * 0.18)
+  ctx.fill()
+  for (const dx of [-0.5, 0, 0.5]) {
+    ctx.beginPath()
+    ctx.arc(x + dx * s, y - s * 0.1, s * 0.13, 0, PI2)
     ctx.fill()
-    ctx.fillStyle = '#fff8f2'
+  }
+  ctx.fillStyle = '#ef4444'
+  ctx.beginPath()
+  ctx.arc(x, y - s * 0.66, s * 0.18, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(x - s * 0.06, y - s * 0.7, s * 0.05, 0, PI2)
+  ctx.fill()
+}
+
+/** Galleta de mantequilla con chispas de chocolate. */
+function galleta(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  ctx.fillStyle = '#d9a46a'
+  ctx.beginPath()
+  ctx.arc(x, y, s * 0.74, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#ecc28c'
+  ctx.beginPath()
+  ctx.arc(x, y, s * 0.62, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#5b3420'
+  for (const [dx, dy] of [
+    [-0.3, -0.22],
+    [0.26, -0.3],
+    [0.04, 0.12],
+    [0.34, 0.2],
+    [-0.28, 0.28],
+  ]) {
     ctx.beginPath()
-    ctx.arc(x, y, s * 0.25, 0, Math.PI * 2)
+    ctx.ellipse(x + dx * s, y + dy * s, s * 0.11, s * 0.08, 0.5, 0, PI2)
     ctx.fill()
   }
 }
 
-/** Gatito de frente a los pies (x, y). Cola, orejas, cachetes y accesorios de los especiales. */
+/** Donita rosa con glaseado y chispitas. */
+function donita(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  ctx.fillStyle = '#e8ae68'
+  ctx.beginPath()
+  ctx.arc(x, y, s * 0.8, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#f9a8d4'
+  ctx.beginPath()
+  ctx.arc(x, y, s * 0.64, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#fff4e9'
+  ctx.beginPath()
+  ctx.arc(x, y, s * 0.24, 0, PI2)
+  ctx.fill()
+  const colores = ['#60a5fa', '#fde047', '#86efac', '#c4b5fd', '#ffffff']
+  colores.forEach((c, k) => {
+    const a = 0.4 + k * 1.25
+    ctx.strokeStyle = c
+    ctx.lineWidth = Math.max(1, s * 0.13)
+    ctx.beginPath()
+    ctx.moveTo(x + Math.cos(a) * s * 0.36, y + Math.sin(a) * s * 0.36)
+    ctx.lineTo(x + Math.cos(a) * s * 0.54, y + Math.sin(a) * s * 0.54)
+    ctx.stroke()
+  })
+}
+
+/** Icono de bebida o postre centrado en (x, y); `s` es el radio aproximado. */
+function icono(ctx: CanvasRenderingContext2D, x: number, y: number, id: Item, s: number) {
+  if (esBebida(id)) taza(ctx, x, y, s, id)
+  else if (id === 'pastel') pastelito(ctx, x, y, s)
+  else if (id === 'galleta') galleta(ctx, x, y, s)
+  else donita(ctx, x, y, s)
+}
+
+/** Candadito de las cosas que aún no se compran. */
+function candado(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
+  ctx.fillStyle = color
+  rr(ctx, x - s * 0.5, y - s * 0.05, s, s * 0.8, s * 0.18)
+  ctx.fill()
+  ctx.strokeStyle = color
+  ctx.lineWidth = Math.max(1.2, s * 0.16)
+  ctx.beginPath()
+  ctx.arc(x, y - s * 0.05, s * 0.32, Math.PI, 0)
+  ctx.stroke()
+}
+
+/** Moneda y precio (en mayúsculas de la fuente pixel ya fijada en ctx.font). */
+function precio(ctx: CanvasRenderingContext2D, x: number, y: number, costo: number) {
+  ctx.fillStyle = '#fde047'
+  ctx.beginPath()
+  ctx.arc(x - 7, y, 4, 0, PI2)
+  ctx.fill()
+  ctx.strokeStyle = '#ca8a04'
+  ctx.lineWidth = 0.8
+  ctx.stroke()
+  ctx.fillStyle = '#7a4a3a'
+  ctx.textAlign = 'left'
+  ctx.fillText(String(costo), x - 2, y)
+  ctx.textAlign = 'center'
+}
+
+/** Máquina de bebidas de frente, dibujada según cuál es. Bloqueada: gris y tenue. */
+function maquina(ctx: CanvasRenderingContext2D, id: Bebida, bx: number, by: number, bw: number, bh: number, abierta: boolean) {
+  const cx = bx + bw / 2
+  const cuerpo = abierta ? INFO[id].maquina : '#dcd3d6'
+  ctx.fillStyle = cuerpo
+  ctx.strokeStyle = '#9a6a5a'
+  ctx.lineWidth = 1.6
+  if (id === 'chocolate') {
+    // olla de chocolate con tapa de bolita y asas
+    ctx.beginPath()
+    ctx.arc(bx + bw * 0.1, by + bh * 0.62, bh * 0.14, Math.PI / 2, (Math.PI * 3) / 2)
+    ctx.arc(bx + bw * 0.9, by + bh * 0.62, bh * 0.14, -Math.PI / 2, Math.PI / 2)
+    ctx.stroke()
+    rr(ctx, bx + bw * 0.1, by + bh * 0.46, bw * 0.8, bh * 0.54, 10)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.ellipse(cx, by + bh * 0.46, bw * 0.42, bh * 0.12, 0, 0, PI2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#6b3a2a'
+    ctx.beginPath()
+    ctx.ellipse(cx, by + bh * 0.46, bw * 0.34, bh * 0.08, 0, 0, PI2)
+    ctx.fill()
+    ctx.fillStyle = '#6b3a2a'
+    ctx.beginPath()
+    ctx.arc(cx - bw * 0.2, by + bh * 0.6, 1.6, 0, PI2)
+    ctx.arc(cx + bw * 0.16, by + bh * 0.66, 1.3, 0, PI2)
+    ctx.fill()
+    return
+  }
+  rr(ctx, bx, by + 2, bw, bh - 2, 8)
+  ctx.fill()
+  ctx.stroke()
+  if (id === 'cafe') {
+    // cafetera espresso: manómetro, botón y cabezal
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(bx + bw * 0.22, by + bh * 0.56, 4.6, 0, PI2)
+    ctx.fill()
+    ctx.strokeStyle = '#ef4444'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(bx + bw * 0.22, by + bh * 0.56)
+    ctx.lineTo(bx + bw * 0.22 + 3, by + bh * 0.56 - 2.5)
+    ctx.stroke()
+    ctx.fillStyle = '#f472b6'
+    ctx.beginPath()
+    ctx.arc(bx + bw * 0.8, by + bh * 0.56, 2.4, 0, PI2)
+    ctx.fill()
+    ctx.fillStyle = '#8a5a4a'
+    rr(ctx, cx - 7, by + bh * 0.7, 14, 5, 2)
+    ctx.fill()
+    rr(ctx, cx - 2.2, by + bh * 0.7 + 5, 4.4, 3.5, 1.2)
+    ctx.fill()
+  } else if (id === 'matcha') {
+    // batidora de matcha: cuenco verde y chasen (batidor de bambú)
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.ellipse(cx, by + bh * 0.74, bw * 0.34, bh * 0.14, 0, 0, PI2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#5a9e4b'
+    ctx.beginPath()
+    ctx.ellipse(cx, by + bh * 0.72, bw * 0.3, bh * 0.08, 0, 0, PI2)
+    ctx.fill()
+    ctx.strokeStyle = '#b8895a'
+    ctx.lineWidth = 1.8
+    ctx.beginPath()
+    ctx.moveTo(cx, by + bh * 0.26)
+    ctx.lineTo(cx, by + bh * 0.6)
+    ctx.stroke()
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.ellipse(cx, by + bh * 0.46, 3, 5, 0, 0, PI2)
+    ctx.stroke()
+  } else {
+    // espumador de leche: jarra con corazón y vapor
+    ctx.fillStyle = '#ffffff'
+    rr(ctx, cx - bw * 0.22, by + bh * 0.42, bw * 0.44, bh * 0.44, 5)
+    ctx.fill()
+    ctx.stroke()
+    corazon(ctx, cx, by + bh * 0.7, 3.2, '#f472b6')
+    ctx.strokeStyle = '#9ca3af'
+    ctx.lineWidth = 2.2
+    ctx.beginPath()
+    ctx.moveTo(bx + bw * 0.78, by + bh * 0.26)
+    ctx.lineTo(bx + bw * 0.9, by + bh * 0.72)
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.beginPath()
+    ctx.arc(bx + bw * 0.3, by + bh * 0.3, 2.4, 0, PI2)
+    ctx.arc(bx + bw * 0.4, by + bh * 0.2, 1.6, 0, PI2)
+    ctx.fill()
+  }
+}
+
+/** Gatito sentado de frente, a escala SC. (x, y) son sus patas. Cola, cachetes y accesorios de los especiales. */
 function dibujarGato(ctx: CanvasRenderingContext2D, x: number, y: number, look: Look, esp: Esp | null, st: CatSt, t: number) {
   const salto = st === 'entra' || st === 'sale' || st === 'triste' ? Math.abs(Math.sin(t * 10)) * 3 : st === 'feliz' ? Math.abs(Math.sin(t * 14)) * 6 : 0
   const respira = st === 'espera' ? Math.sin(t * 2.6) * 0.8 : 0
@@ -508,161 +713,193 @@ function dibujarGato(ctx: CanvasRenderingContext2D, x: number, y: number, look: 
 
   ctx.save()
   ctx.translate(x, y - salto + respira)
-  ctx.scale(escala, escala)
+  ctx.scale(escala * SC, escala * SC)
   ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
 
-  // cola
+  // cola, que se mueve al ronronear
   ctx.strokeStyle = look.cuerpo
-  ctx.lineWidth = 4
+  ctx.lineWidth = 3.4
   ctx.beginPath()
-  ctx.moveTo(8, -7)
-  ctx.quadraticCurveTo(22, -7, 18 + cola * 0.3, -22)
+  ctx.moveTo(7, -5)
+  ctx.bezierCurveTo(19, -4, 18 + cola * 0.2, -14, 14 + cola * 0.3, -22)
   ctx.stroke()
 
-  // cuerpo, panza y patitas
+  // cuerpo chiquito, panza y patitas
   ctx.fillStyle = look.cuerpo
   ctx.beginPath()
-  ctx.ellipse(0, -11, 12, 10, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, -10, 10, 9, 0, 0, PI2)
   ctx.fill()
   ctx.beginPath()
-  ctx.ellipse(-5, -1.5, 4, 2.5, 0, 0, Math.PI * 2)
-  ctx.ellipse(5, -1.5, 4, 2.5, 0, 0, Math.PI * 2)
+  ctx.ellipse(-4.5, -1.6, 3.6, 2.2, 0, 0, PI2)
+  ctx.ellipse(4.5, -1.6, 3.6, 2.2, 0, 0, PI2)
   ctx.fill()
   ctx.fillStyle = look.panza
   ctx.beginPath()
-  ctx.ellipse(0, -9, 6.5, 6, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, -8.5, 5.5, 5, 0, 0, PI2)
   ctx.fill()
+  if (look.parche) {
+    ctx.fillStyle = look.parche
+    ctx.beginPath()
+    ctx.ellipse(4.5, -13, 3.6, 3.2, 0.3, 0, PI2)
+    ctx.fill()
+  }
 
-  // orejas
+  // orejas: exterior, interior y luego la cabeza encima
   ctx.fillStyle = look.cuerpo
   ctx.beginPath()
-  ctx.moveTo(-10, -31)
-  ctx.lineTo(-11, -41)
-  ctx.lineTo(-2, -35)
-  ctx.moveTo(10, -31)
-  ctx.lineTo(11, -41)
-  ctx.lineTo(2, -35)
+  ctx.moveTo(-10, -33)
+  ctx.lineTo(-11.5, -44)
+  ctx.lineTo(-2.5, -37.5)
+  ctx.moveTo(10, -33)
+  ctx.lineTo(11.5, -44)
+  ctx.lineTo(2.5, -37.5)
   ctx.fill()
   ctx.fillStyle = look.oreja
   ctx.beginPath()
-  ctx.moveTo(-8.5, -33)
-  ctx.lineTo(-9.5, -38)
-  ctx.lineTo(-4.5, -34.5)
-  ctx.moveTo(8.5, -33)
-  ctx.lineTo(9.5, -38)
-  ctx.lineTo(4.5, -34.5)
+  ctx.moveTo(-8.2, -35.5)
+  ctx.lineTo(-9.4, -40.6)
+  ctx.lineTo(-4.6, -37.2)
+  ctx.moveTo(8.2, -35.5)
+  ctx.lineTo(9.4, -40.6)
+  ctx.lineTo(4.6, -37.2)
   ctx.fill()
 
-  // cabeza
+  // cabeza grande y redonda
   ctx.fillStyle = look.cuerpo
   ctx.beginPath()
-  ctx.arc(0, -27, 10.5, 0, Math.PI * 2)
+  ctx.arc(0, -28, 12.5, 0, PI2)
   ctx.fill()
+  if (look.parche) {
+    ctx.fillStyle = look.parche
+    ctx.beginPath()
+    ctx.ellipse(-6.5, -33, 4.2, 3.6, -0.4, 0, PI2)
+    ctx.fill()
+  }
   if (look.rayas) {
     ctx.strokeStyle = 'rgba(120,70,40,0.5)'
     ctx.lineWidth = 1.4
     ctx.beginPath()
-    ctx.moveTo(-2, -37)
-    ctx.lineTo(-1, -33.5)
-    ctx.moveTo(2, -37)
-    ctx.lineTo(3, -33.5)
-    ctx.moveTo(-5.5, -36)
-    ctx.lineTo(-5, -32.5)
+    ctx.moveTo(-3, -39)
+    ctx.lineTo(-2.2, -35.5)
+    ctx.moveTo(0, -40)
+    ctx.lineTo(0, -36)
+    ctx.moveTo(3, -39)
+    ctx.lineTo(2.2, -35.5)
     ctx.stroke()
   }
 
-  // ojos
+  // ojos grandes con brillo
   ctx.strokeStyle = '#3b2a3a'
   ctx.fillStyle = '#3b2a3a'
-  ctx.lineWidth = 1.2
-  for (const ex of [-4, 4]) {
+  ctx.lineWidth = 1.5
+  for (const ex of [-4.6, 4.6]) {
     if (st === 'feliz') {
       ctx.beginPath()
-      ctx.arc(ex, -26, 2, Math.PI * 1.1, Math.PI * 1.9)
+      ctx.arc(ex, -28, 2.3, Math.PI * 1.1, Math.PI * 1.9)
       ctx.stroke()
     } else if (st === 'triste') {
       ctx.beginPath()
-      ctx.arc(ex, -26.5, 1.6, 0, Math.PI * 2)
+      ctx.arc(ex, -27.5, 1.8, 0, PI2)
       ctx.fill()
       ctx.beginPath()
-      ctx.moveTo(ex - 2.5, -31)
-      ctx.lineTo(ex + 2.5, -29.8)
+      ctx.moveTo(ex - 2.8, -32.5)
+      ctx.lineTo(ex + 2.8, -31.2)
       ctx.stroke()
     } else if (parpadea) {
       ctx.beginPath()
-      ctx.moveTo(ex - 2, -26.5)
-      ctx.lineTo(ex + 2, -26.5)
+      ctx.moveTo(ex - 2.4, -27.5)
+      ctx.lineTo(ex + 2.4, -27.5)
       ctx.stroke()
     } else {
       ctx.beginPath()
-      ctx.arc(ex, -26.5, 1.7, 0, Math.PI * 2)
+      ctx.ellipse(ex, -27.5, 2.2, 2.7, 0, 0, PI2)
       ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.arc(ex + 0.7, -28.6, 0.85, 0, PI2)
+      ctx.fill()
+      ctx.fillStyle = '#3b2a3a'
     }
   }
 
-  // nariz, cachetes y bigotes
+  // nariz, cachetes, boquita y bigotes
   ctx.fillStyle = '#f472b6'
   ctx.beginPath()
-  ctx.moveTo(0, -24.5)
-  ctx.lineTo(-1.5, -25.8)
-  ctx.lineTo(1.5, -25.8)
+  ctx.moveTo(0, -24.6)
+  ctx.lineTo(-1.2, -25.8)
+  ctx.lineTo(1.2, -25.8)
   ctx.fill()
-  ctx.fillStyle = 'rgba(244,114,182,0.45)'
+  ctx.fillStyle = 'rgba(244,114,182,0.5)'
   ctx.beginPath()
-  ctx.arc(-6.5, -23, 2.2, 0, Math.PI * 2)
-  ctx.arc(6.5, -23, 2.2, 0, Math.PI * 2)
+  ctx.ellipse(-7.5, -23, 2.6, 1.6, 0, 0, PI2)
+  ctx.ellipse(7.5, -23, 2.6, 1.6, 0, 0, PI2)
   ctx.fill()
+  ctx.strokeStyle = '#3b2a3a'
+  ctx.lineWidth = 0.9
+  ctx.beginPath()
+  ctx.arc(-1.5, -23.2, 1.5, 0, Math.PI)
+  ctx.arc(1.5, -23.2, 1.5, 0, Math.PI)
+  ctx.stroke()
   ctx.strokeStyle = 'rgba(60,40,60,0.35)'
   ctx.lineWidth = 0.6
   ctx.beginPath()
   for (const s of [-1, 1]) {
-    ctx.moveTo(s * 7, -24.5)
-    ctx.lineTo(s * 13, -25.5)
-    ctx.moveTo(s * 7, -23)
-    ctx.lineTo(s * 13, -22.5)
+    ctx.moveTo(s * 8, -24.5)
+    ctx.lineTo(s * 15, -25.8)
+    ctx.moveTo(s * 8, -22.8)
+    ctx.lineTo(s * 15, -22.2)
   }
   ctx.stroke()
 
   // accesorios de los gatitos especiales
   if (esp === 'mochi') {
+    // moñito rosa
     ctx.fillStyle = acento
     ctx.beginPath()
-    ctx.moveTo(8, -37)
-    ctx.lineTo(2, -41)
-    ctx.lineTo(2, -33)
-    ctx.moveTo(8, -37)
-    ctx.lineTo(14, -41)
-    ctx.lineTo(14, -33)
+    ctx.moveTo(9, -41)
+    ctx.lineTo(3, -45)
+    ctx.lineTo(3, -37)
+    ctx.moveTo(9, -41)
+    ctx.lineTo(15, -45)
+    ctx.lineTo(15, -37)
     ctx.fill()
     ctx.beginPath()
-    ctx.arc(8, -37, 1.6, 0, Math.PI * 2)
+    ctx.arc(9, -41, 2, 0, PI2)
     ctx.fill()
   } else if (esp === 'pelusa') {
+    // corona de florecitas
     ctx.fillStyle = '#fde68a'
     for (let k = 0; k < 5; k++) {
-      const a = (k / 5) * Math.PI * 2
+      const a = (k / 5) * PI2
       ctx.beginPath()
-      ctx.arc(-7 + Math.cos(a) * 2, -36 + Math.sin(a) * 2, 1.8, 0, Math.PI * 2)
+      ctx.arc(Math.cos(a) * 4.5, -43 + Math.sin(a) * 2, 2, 0, PI2)
       ctx.fill()
     }
+    ctx.fillStyle = '#fb7185'
+    ctx.beginPath()
+    ctx.arc(0, -43, 1.6, 0, PI2)
+    ctx.fill()
   } else if (esp === 'lunita') {
+    // estrellita sobre la cabeza
     ctx.fillStyle = acento
     ctx.beginPath()
     for (let k = 0; k < 10; k++) {
-      const r = k % 2 === 0 ? 4.5 : 2
-      const a = -Math.PI / 2 + (k / 10) * Math.PI * 2
-      ctx.lineTo(Math.cos(a) * r, -47 + Math.sin(a) * r)
+      const r = k % 2 === 0 ? 4.6 : 2
+      const a = -Math.PI / 2 + (k / 10) * PI2
+      ctx.lineTo(Math.cos(a) * r, -54 + Math.sin(a) * r)
     }
     ctx.closePath()
     ctx.fill()
   } else if (esp === 'bigotes') {
+    // monoclito
     ctx.strokeStyle = '#4b5563'
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.arc(-4, -27, 3, 0, Math.PI * 2)
-    ctx.arc(4, -27, 3, 0, Math.PI * 2)
-    ctx.moveTo(-1, -27)
-    ctx.lineTo(1, -27)
+    ctx.arc(-4.6, -27.5, 3.8, 0, PI2)
+    ctx.arc(4.6, -27.5, 3.8, 0, PI2)
+    ctx.moveTo(-0.8, -27.5)
+    ctx.lineTo(0.8, -27.5)
     ctx.stroke()
   }
   ctx.restore()
@@ -671,7 +908,7 @@ function dibujarGato(ctx: CanvasRenderingContext2D, x: number, y: number, look: 
 /** Burbuja del pedido con paciencia (barra) sobre el gatito sentado. */
 function dibujarBurbuja(ctx: CanvasRenderingContext2D, c: Cat, pf: string) {
   const x = c.x
-  const y = c.y - 46
+  const y = c.y - 84
   rr(ctx, x - 29, y - 13, 58, 26, 9)
   ctx.fillStyle = '#fffaf5'
   ctx.fill()
@@ -710,29 +947,63 @@ function dibujarBurbuja(ctx: CanvasRenderingContext2D, c: Cat, pf: string) {
   }
 }
 
-function mesa(ctx: CanvasRenderingContext2D, x: number, y: number, activa: boolean) {
+/** Silla con respaldo rosa; el gatito queda sentado delante del respaldo. */
+function silla(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = '#f7a6c1'
+  rr(ctx, x - 15, y - 44, 30, 34, 12)
+  ctx.fill()
+  ctx.fillStyle = '#fbc9da'
+  rr(ctx, x - 10, y - 38, 20, 22, 9)
+  ctx.fill()
+  ctx.fillStyle = '#f7a6c1'
   ctx.beginPath()
-  ctx.ellipse(x, y, 30, 10, 0, 0, Math.PI * 2)
-  if (activa) {
-    ctx.fillStyle = '#fff3e6'
+  ctx.ellipse(x, y + 2, 17, 5.5, 0, 0, PI2)
+  ctx.fill()
+}
+
+/** Cojín en el asiento. */
+function cojin(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = '#fde2ef'
+  ctx.beginPath()
+  ctx.ellipse(x, y, 14, 4.2, 0, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#f9a8d4'
+  for (const dx of [-6, 0, 6]) {
+    ctx.beginPath()
+    ctx.arc(x + dx, y, 1, 0, PI2)
     ctx.fill()
-    ctx.strokeStyle = '#e4b696'
-    ctx.lineWidth = 2
-    ctx.stroke()
-  } else {
+  }
+}
+
+/** Mesa redonda con mantel; las bloqueadas son un círculo punteado. */
+function mesa(ctx: CanvasRenderingContext2D, x: number, y: number, activa: boolean) {
+  if (!activa) {
+    ctx.beginPath()
+    ctx.ellipse(x, y, 24, 8, 0, 0, PI2)
     ctx.setLineDash([4, 4])
     ctx.strokeStyle = 'rgba(160,110,80,0.35)'
     ctx.lineWidth = 1.5
     ctx.stroke()
     ctx.setLineDash([])
+    return
   }
-}
-
-function cojin(ctx: CanvasRenderingContext2D, x: number, y: number) {
-  ctx.fillStyle = '#f9a8d4'
+  ctx.fillStyle = '#e4b696'
+  ctx.fillRect(x - 2.5, y, 5, 9)
   ctx.beginPath()
-  ctx.ellipse(x, y, 18, 6, 0, 0, Math.PI * 2)
+  ctx.ellipse(x, y + 9, 9, 2.8, 0, 0, PI2)
   ctx.fill()
+  ctx.beginPath()
+  ctx.ellipse(x, y, 25, 9, 0, 0, PI2)
+  ctx.fillStyle = '#fff3e6'
+  ctx.fill()
+  ctx.strokeStyle = '#f0b3c6'
+  ctx.lineWidth = 2.5
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.ellipse(x, y, 18.5, 6, 0, 0, PI2)
+  ctx.strokeStyle = 'rgba(249,168,212,0.55)'
+  ctx.lineWidth = 1
+  ctx.stroke()
 }
 
 function planta(ctx: CanvasRenderingContext2D, x: number, y: number) {
@@ -751,9 +1022,13 @@ function planta(ctx: CanvasRenderingContext2D, x: number, y: number) {
     [7, -11, 6],
   ]) {
     ctx.beginPath()
-    ctx.arc(x + dx, y + dy, r, 0, Math.PI * 2)
+    ctx.arc(x + dx, y + dy, r, 0, PI2)
     ctx.fill()
   }
+  ctx.fillStyle = '#f9a8d4'
+  ctx.beginPath()
+  ctx.arc(x + 2, y - 22, 2.6, 0, PI2)
+  ctx.fill()
 }
 
 function lucesDeHadas(ctx: CanvasRenderingContext2D, y: number, t: number) {
@@ -774,36 +1049,151 @@ function lucesDeHadas(ctx: CanvasRenderingContext2D, y: number, t: number) {
     ctx.globalAlpha = 0.25 * (0.55 + 0.45 * Math.sin(t * 3 + i))
     ctx.fillStyle = cols[i % cols.length]
     ctx.beginPath()
-    ctx.arc(x, yy, 8, 0, Math.PI * 2)
+    ctx.arc(x, yy, 8, 0, PI2)
     ctx.fill()
     ctx.globalAlpha = 1
     ctx.beginPath()
-    ctx.arc(x, yy, 3.2, 0, Math.PI * 2)
+    ctx.arc(x, yy, 3.2, 0, PI2)
     ctx.fill()
   }
   ctx.globalAlpha = 1
 }
 
-function cuadroGatito(ctx: CanvasRenderingContext2D, x: number, y: number) {
+/** Cuadrito en la pared: un gatito si ya se compró; si no, un corazón. */
+function cuadroGatito(ctx: CanvasRenderingContext2D, x: number, y: number, conGatito: boolean) {
   ctx.fillStyle = '#c9a27e'
-  rr(ctx, x - 24, y, 48, 36, 4)
+  rr(ctx, x, y, 30, 22, 4)
   ctx.fill()
   ctx.fillStyle = '#fff1e6'
-  rr(ctx, x - 20, y + 4, 40, 28, 3)
+  rr(ctx, x + 3, y + 3, 24, 16, 3)
   ctx.fill()
-  ctx.fillStyle = '#f7c27a'
+  if (conGatito) {
+    ctx.fillStyle = '#f7c27a'
+    ctx.beginPath()
+    ctx.arc(x + 15, y + 12, 5.5, 0, PI2)
+    ctx.moveTo(x + 10, y + 8)
+    ctx.lineTo(x + 9.5, y + 3.5)
+    ctx.lineTo(x + 13, y + 6.5)
+    ctx.moveTo(x + 20, y + 8)
+    ctx.lineTo(x + 20.5, y + 3.5)
+    ctx.lineTo(x + 17, y + 6.5)
+    ctx.fill()
+  } else {
+    corazon(ctx, x + 15, y + 12, 5, '#f9a8d4')
+  }
+}
+
+/** Ventana con cielo rosa, nube que pasa y cortinas. */
+function ventana(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number) {
+  ctx.fillStyle = '#ffffff'
+  rr(ctx, x - 4, y - 4, w + 8, h + 8, 8)
+  ctx.fill()
+  const cielo = ctx.createLinearGradient(0, y, 0, y + h)
+  cielo.addColorStop(0, '#bfe3ff')
+  cielo.addColorStop(1, '#ffd6e8')
+  ctx.fillStyle = cielo
+  rr(ctx, x, y, w, h, 5)
+  ctx.fill()
+  ctx.save()
+  rr(ctx, x, y, w, h, 5)
+  ctx.clip()
+  const nx = x - 20 + ((t * 7) % (w + 40))
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'
   ctx.beginPath()
-  ctx.ellipse(x, y + 26, 8, 5, 0, 0, Math.PI * 2)
-  ctx.arc(x, y + 17, 5.5, 0, Math.PI * 2)
+  ctx.arc(nx, y + h * 0.62, h * 0.12, 0, PI2)
+  ctx.arc(nx + h * 0.14, y + h * 0.52, h * 0.16, 0, PI2)
+  ctx.arc(nx + h * 0.3, y + h * 0.62, h * 0.12, 0, PI2)
+  ctx.fill()
+  ctx.restore()
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(x + w / 2 - 1.5, y, 3, h)
+  ctx.fillRect(x, y + h / 2 - 1.5, w, 3)
+  ctx.fillStyle = 'rgba(249,168,212,0.92)'
+  ctx.beginPath()
+  ctx.moveTo(x - 6, y - 8)
+  ctx.lineTo(x + w * 0.22, y - 8)
+  ctx.lineTo(x + w * 0.14, y + h * 0.85)
+  ctx.lineTo(x - 6, y + h * 0.7)
+  ctx.closePath()
   ctx.fill()
   ctx.beginPath()
-  ctx.moveTo(x - 5, y + 13)
-  ctx.lineTo(x - 6, y + 8)
-  ctx.lineTo(x - 2, y + 11.5)
-  ctx.moveTo(x + 5, y + 13)
-  ctx.lineTo(x + 6, y + 8)
-  ctx.lineTo(x + 2, y + 11.5)
+  ctx.moveTo(x + w + 6, y - 8)
+  ctx.lineTo(x + w * 0.78, y - 8)
+  ctx.lineTo(x + w * 0.86, y + h * 0.85)
+  ctx.lineTo(x + w + 6, y + h * 0.7)
+  ctx.closePath()
   ctx.fill()
+}
+
+/** Pizarrón con el menú a mano. */
+function pizarra(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, pf: string) {
+  ctx.fillStyle = '#c9956e'
+  rr(ctx, x - 4, y - 4, w + 8, h + 8, 6)
+  ctx.fill()
+  ctx.fillStyle = '#3f4f4c'
+  rr(ctx, x, y, w, h, 4)
+  ctx.fill()
+  ctx.fillStyle = '#f9f1e7'
+  ctx.font = `7px ${pf}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('MENU', x + w / 2, y + h * 0.2)
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+  ctx.lineWidth = 1.2
+  for (let k = 0; k < 3; k++) {
+    const yy = y + h * (0.46 + k * 0.18)
+    ctx.beginPath()
+    ctx.moveTo(x + w * 0.14, yy)
+    ctx.lineTo(x + w * (0.66 - k * 0.08), yy)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(x + w * 0.8, yy, 1.8, 0, PI2)
+    ctx.fillStyle = k === 1 ? '#f9a8d4' : '#fde047'
+    ctx.fill()
+  }
+  corazon(ctx, x + w * 0.84, y + h * 0.2, 3, '#f9a8d4')
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+}
+
+/** Lámpara colgante con brillo cálido. */
+function lampara(ctx: CanvasRenderingContext2D, x: number, t: number) {
+  ctx.strokeStyle = 'rgba(120,90,80,0.5)'
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.moveTo(x, 0)
+  ctx.lineTo(x, 14)
+  ctx.stroke()
+  const glow = ctx.createRadialGradient(x, 26, 2, x, 26, 46)
+  glow.addColorStop(0, `rgba(255,236,160,${0.35 + 0.05 * Math.sin(t * 2)})`)
+  glow.addColorStop(1, 'rgba(255,236,160,0)')
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(x, 26, 46, 0, PI2)
+  ctx.fill()
+  ctx.fillStyle = '#f9a8d4'
+  ctx.beginPath()
+  ctx.moveTo(x - 13, 26)
+  ctx.quadraticCurveTo(x, 4, x + 13, 26)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = '#fff7ad'
+  ctx.beginPath()
+  ctx.arc(x, 26, 3, 0, PI2)
+  ctx.fill()
+}
+
+/** Tapete ovalado en el piso. */
+function alfombra(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  ctx.fillStyle = '#f8cfe0'
+  rr(ctx, x, y, w, h, h * 0.5)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([6, 5])
+  rr(ctx, x + 6, y + 6, w - 12, h - 12, h * 0.42)
+  ctx.stroke()
+  ctx.setLineDash([])
 }
 
 // ---------- tienda (HTML) ----------
@@ -826,32 +1216,39 @@ function Tienda({
   const grupos = ['Máquinas', 'Mesas', 'Bebidas', 'Postres', 'Decoración']
   return (
     <div
-      className="absolute inset-0 z-10 overflow-y-auto overscroll-contain"
-      style={{ background: `radial-gradient(circle at 50% 20%, ${ACCENT}33, transparent 70%), rgba(40,22,32,0.9)` }}
+      className="absolute inset-0 z-10 overflow-y-auto overscroll-contain bg-[#fde4cf]/95 text-[#5b2350]"
+      style={{ background: 'radial-gradient(circle at 50% 0%, #fbcfe8 0%, transparent 65%), #fff4ea' }}
     >
       <div className="mx-auto flex min-h-full max-w-sm flex-col gap-3 px-5 py-4">
-        <p className="pt-2 text-center text-sm" style={{ ...pixel, color: ACCENT, textShadow: '2px 2px 0 #000' }}>
+        <p className="pt-2 text-center text-sm" style={{ ...pixel, color: '#db2777', textShadow: '2px 2px 0 #ffffff' }}>
           TIENDA
         </p>
-        <p className="text-center text-xs text-white/70">
-          Monedas: <span className="font-semibold text-amber-200">{save.monedas}</span>
+        <p className="text-center text-xs text-[#7c2d5e]">
+          Monedas: <span className="font-semibold text-amber-600">{save.monedas}</span>
         </p>
-        {aviso && <p className="rounded-xl bg-pink-200/15 px-3 py-2 text-center text-xs text-pink-100">{aviso}</p>}
+        {aviso && (
+          <p className="rounded-xl border border-pink-200 bg-white/80 px-3 py-2 text-center text-xs font-medium text-[#be185d]">
+            {aviso}
+          </p>
+        )}
         {grupos.map((grupo) => (
           <section key={grupo} className="flex flex-col gap-2">
-            <h3 className="text-[11px] uppercase tracking-[0.2em] text-white/50">{grupo}</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.2em] text-[#b0628a]">{grupo}</h3>
             {ops
               .filter((o) => o.grupo === grupo)
               .map((o) => {
                 const puede = o.aplicar !== null && o.costo !== null && save.monedas >= o.costo
                 return (
-                  <div key={o.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                  <div
+                    key={o.id}
+                    className="flex items-center gap-3 rounded-2xl border-2 border-white bg-white/85 px-3 py-2 shadow-[0_3px_10px_rgba(190,80,140,0.12)]"
+                  >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-white">{o.titulo}</p>
-                      <p className="text-[11px] leading-snug text-white/60">{o.detalle}</p>
+                      <p className="text-sm font-medium text-[#5b2350]">{o.titulo}</p>
+                      <p className="text-[11px] leading-snug text-[#7c2d5e]/75">{o.detalle}</p>
                     </div>
                     {o.costo === null ? (
-                      <span className="shrink-0 text-xs text-white/40">Listo</span>
+                      <span className="shrink-0 text-xs text-[#a78bb0]">Listo</span>
                     ) : (
                       <button
                         type="button"
@@ -860,7 +1257,7 @@ function Tienda({
                           e.currentTarget.blur()
                           onComprar(o)
                         }}
-                        className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-black transition enabled:active:scale-95 disabled:bg-white/15 disabled:text-white/40"
+                        className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-[#5b2350] shadow-[0_2px_0_rgba(190,80,140,0.35)] transition enabled:active:translate-y-0.5 disabled:bg-[#eadbe6] disabled:text-[#a78bb0] disabled:shadow-none"
                         style={puede ? { background: ACCENT } : undefined}
                       >
                         {o.costo}
@@ -878,8 +1275,7 @@ function Tienda({
               e.currentTarget.blur()
               onAbrir()
             }}
-            className="rounded-full px-6 py-2.5 text-sm font-semibold text-black transition active:scale-95"
-            style={{ background: ACCENT, boxShadow: `0 0 24px ${ACCENT}66` }}
+            className="rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-400 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-95"
           >
             Abrir el día {save.dia}
           </button>
@@ -889,11 +1285,61 @@ function Tienda({
               e.currentTarget.blur()
               onVolver()
             }}
-            className="text-xs text-white/60 underline-offset-4 hover:underline"
+            className="rounded-full px-4 py-1.5 text-xs text-[#7c2d5e] underline underline-offset-4 transition active:scale-95"
           >
             Volver
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------- menú de inicio (pastel, como el resto de pantallas) ----------
+function MenuInicio({ save, onJugar, onTienda }: { save: Save; onJugar: () => void; onTienda: () => void }) {
+  const touch = useIsTouch()
+  return (
+    <div
+      className="absolute inset-0 z-10 overflow-y-auto overscroll-contain bg-[#fde4cf]/95 text-[#5b2350]"
+      style={{ background: 'radial-gradient(circle at 50% 35%, #fbcfe8 0%, transparent 65%), #fff4ea' }}
+    >
+      <div className="flex min-h-full flex-col items-center justify-center gap-3 px-5 py-4 text-center">
+        <p className="text-base leading-relaxed sm:text-xl" style={{ ...pixel, color: '#db2777', textShadow: '2px 2px 0 #ffffff' }}>
+          CAFE MICHI
+        </p>
+        <p className="max-w-xs text-sm leading-relaxed text-[#7c2d5e]">
+          Prepara cafés, chocolates y postres para los gatitos. Toca una máquina y luego al gatito con su pedido.
+        </p>
+        <p className="text-xs text-[#7c2d5e]/80">
+          Día {save.dia} · {save.monedas} monedas
+        </p>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.currentTarget.blur()
+            onJugar()
+          }}
+          className="mt-1 rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-400 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-95"
+        >
+          Jugar
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.currentTarget.blur()
+            onTienda()
+          }}
+          className="rounded-full border border-[#7c2d5e]/30 bg-white/80 px-5 py-2 text-xs transition active:scale-95"
+          style={{ color: '#7c2d5e' }}
+        >
+          Tienda
+        </button>
+        <p className="max-w-[17rem] text-[11px] leading-relaxed text-[#7c2d5e]/75">
+          Los gatitos se van tristes si esperan mucho. Con teclado: 1-7 máquinas, A S D elige en la bandeja, Q W E R T Y entrega a cada mesa.
+        </p>
+        <p className="blink text-[10px] text-[#be185d]" style={pixel}>
+          {touch ? 'Toca Jugar para abrir el día' : 'Pulsa ESPACIO para abrir el día'}
+        </p>
       </div>
     </div>
   )
@@ -1097,6 +1543,7 @@ export default function CafeMichi() {
         g.propinas += propina
         g.ganado += total
         saveRef.current.monedas += total
+        writeSave(saveRef.current) // que las monedas del día sobrevivan a una recarga
         c.st = 'feliz'
         c.t = 0
         c.seat = -1
@@ -1341,72 +1788,90 @@ export default function CafeMichi() {
       const cx = (R.x0 + R.x1) / 2
       const ancho = R.x1 - R.x0
       const pulso = 0.5 + 0.5 * Math.sin(g.t * 8)
+      const costo = abierta ? 0 : (opciones(sv).find((o) => o.id === id)?.costo ?? info.precio)
       ctx.save()
-      ctx.globalAlpha = abierta ? 1 : 0.6
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       if (esBebida(id)) {
-        const vx = cx - 12
-        const vy = R.y0 + 14
-        rr(ctx, R.x0 + 8, R.y0 + 2, ancho - 16, 38, 8)
-        ctx.fillStyle = abierta ? info.maquina : '#d9d0cc'
-        ctx.fill()
-        ctx.strokeStyle = '#9a6a5a'
-        ctx.lineWidth = 2
-        ctx.stroke()
-        ctx.fillStyle = '#7a4a3a'
+        // máquina con su nombre en la tapa; el vaso de abajo se llena mientras prepara
+        const bx = R.x0 + ancho * 0.16
+        const by = R.y0 + 3
+        const bw = ancho * 0.68
+        const bh = R.y1 - R.y0 - 22
+        ctx.globalAlpha = abierta ? 1 : 0.6
+        maquina(ctx, id, bx, by, bw, bh, abierta)
         ctx.font = `6px ${pf}`
-        ctx.fillText(abierta ? info.etiqueta : 'TIENDA', cx, R.y0 + 8)
-        rr(ctx, vx, vy, 24, 18, 4)
+        ctx.fillStyle = '#7a4a3a'
+        if (abierta) ctx.fillText(info.etiqueta, cx, by + 9)
+        else precio(ctx, cx, by + 9, costo)
+        if (!abierta) candado(ctx, cx, by + bh * 0.7, 7, 'rgba(90,70,80,0.7)')
+        const vx = cx - 11
+        const vy = R.y1 - 20
+        const vw = 22
+        const vh = 15
+        ctx.globalAlpha = abierta ? 1 : 0.6
+        rr(ctx, vx, vy, vw, vh, 5)
         ctx.fillStyle = '#fff8f2'
         ctx.fill()
-        const nivel = e.ocupado ? 1 - e.t / tiempoPreparar(saveRef.current, id) : e.listo ? 1 : 0
+        const nivel = e.ocupado ? 1 - e.t / tiempoPreparar(sv, id) : e.listo ? 1 : 0
         if (nivel > 0) {
           ctx.save()
-          rr(ctx, vx, vy, 24, 18, 4)
+          rr(ctx, vx, vy, vw, vh, 5)
           ctx.clip()
           ctx.fillStyle = info.color
-          ctx.fillRect(vx, vy + 18 * (1 - nivel), 24, 18 * nivel)
+          ctx.fillRect(vx, vy + vh * (1 - nivel), vw, vh * nivel)
           ctx.restore()
         }
-        if (e.ocupado || e.listo) icono(ctx, cx, R.y0 + 50, id, 9)
+        rr(ctx, vx, vy, vw, vh, 5)
+        ctx.strokeStyle = '#d9a48f'
+        ctx.lineWidth = 1.2
+        ctx.stroke()
         if (e.listo) {
+          icono(ctx, cx, vy + vh / 2 - 1, id, 8)
           ctx.globalAlpha = pulso
           ctx.strokeStyle = '#fde047'
           ctx.lineWidth = 2
           ctx.beginPath()
-          ctx.arc(cx, R.y0 + 50, 13, 0, Math.PI * 2)
+          ctx.arc(cx, vy + vh / 2, 13, 0, PI2)
           ctx.stroke()
         }
       } else {
-        const ped = { x: R.x0 + 10, y: R.y0 + 2, w: ancho - 20, h: R.y1 - R.y0 - 16 }
-        rr(ctx, ped.x, ped.y, ped.w, ped.h, 8)
-        ctx.fillStyle = abierta ? '#fff7ef' : '#d9d0cc'
+        // postre sobre su platito; bloqueado: tenue, con candadito y precio
+        const ped = { x: R.x0 + 8, y: R.y0 + 2, w: ancho - 16, h: R.y1 - R.y0 - 16 }
+        rr(ctx, ped.x, ped.y, ped.w, ped.h, 10)
+        ctx.fillStyle = abierta ? '#fff7ef' : '#e6dde3'
         ctx.fill()
-        ctx.strokeStyle = '#c99a7c'
+        ctx.strokeStyle = abierta ? '#f0b8c8' : '#cfc4cc'
         ctx.lineWidth = 2
         ctx.stroke()
+        const py = ped.y + ped.h * 0.5
         if (abierta) {
           ctx.globalAlpha = e.ocupado ? 0.45 : 1
-          icono(ctx, cx, ped.y + ped.h / 2, id, 11)
+          icono(ctx, cx, py, id, 11)
+        } else {
+          ctx.globalAlpha = 0.3
+          icono(ctx, cx, py, id, 11)
           ctx.globalAlpha = 1
+          candado(ctx, cx, py, 9, 'rgba(90,70,80,0.7)')
         }
+        ctx.globalAlpha = 1
         if (e.ocupado) {
           ctx.fillStyle = info.color
-          ctx.fillRect(ped.x + 6, ped.y + ped.h - 6, (ped.w - 12) * clamp(1 - e.t / tiempoPreparar(sv, id), 0, 1), 3)
+          ctx.fillRect(ped.x + 6, ped.y + ped.h - 5, (ped.w - 12) * clamp(1 - e.t / tiempoPreparar(sv, id), 0, 1), 3)
         }
         if (e.listo) {
           ctx.globalAlpha = pulso
           ctx.strokeStyle = '#fde047'
           ctx.lineWidth = 2
           ctx.beginPath()
-          ctx.arc(cx, ped.y + ped.h / 2, 15, 0, Math.PI * 2)
+          ctx.arc(cx, py, 16, 0, PI2)
           ctx.stroke()
+          ctx.globalAlpha = 1
         }
-        ctx.globalAlpha = abierta ? 1 : 0.6
-        ctx.fillStyle = '#7a4a3a'
         ctx.font = `6px ${pf}`
-        ctx.fillText(abierta ? info.etiqueta : 'TIENDA', cx, R.y1 - 6)
+        ctx.fillStyle = abierta ? '#7a4a3a' : '#8a7a85'
+        if (abierta) ctx.fillText(info.etiqueta, cx, R.y1 - 6)
+        else precio(ctx, cx, R.y1 - 6, costo)
       }
       ctx.restore()
     }
@@ -1417,16 +1882,19 @@ export default function CafeMichi() {
       ctx.save()
       juice.applyShake(ctx)
 
-      // pared y piso
-      ctx.fillStyle = '#fde4cf'
+      // pared rosa a franjas con zócalo, y piso de madera clara
+      ctx.fillStyle = '#fff0f6'
       ctx.fillRect(-20, -20, W + 40, G.pisoT + 20)
-      ctx.fillStyle = 'rgba(255,255,255,0.4)'
-      for (let x = 0; x < W; x += 36) ctx.fillRect(x, 0, 12, G.pisoT - 6)
-      ctx.fillStyle = '#f6c3ad'
+      ctx.fillStyle = '#fbd6e6'
+      for (let x = 0; x < W; x += 36) ctx.fillRect(x, 0, 18, G.pisoT - 16)
+      if (tiene('luces')) lucesDeHadas(ctx, 6, g.t)
+      ctx.fillStyle = '#f5b9d0'
+      ctx.fillRect(-20, G.pisoT - 16, W + 40, 10)
+      ctx.fillStyle = '#f9a8c4'
       ctx.fillRect(-20, G.pisoT - 6, W + 40, 6)
-      ctx.fillStyle = '#f7d7ad'
+      ctx.fillStyle = '#fbe0cf'
       ctx.fillRect(-20, G.pisoT, W + 40, G.pisoB - G.pisoT + 20)
-      ctx.strokeStyle = 'rgba(180,120,70,0.16)'
+      ctx.strokeStyle = 'rgba(200,130,110,0.14)'
       ctx.lineWidth = 1
       ctx.beginPath()
       for (let y = G.pisoT + 18; y < G.pisoB; y += 18) {
@@ -1435,21 +1903,33 @@ export default function CafeMichi() {
       }
       ctx.stroke()
 
-      // decoración de pared y macetas
-      if (tiene('luces')) lucesDeHadas(ctx, G.pisoT * 0.3, g.t)
-      if (tiene('cuadro')) cuadroGatito(ctx, W * 0.5 - 24, G.pisoT * 0.42)
+      // decoración de pared: ventanas, pizarrón con menú, lámpara y cuadrito
+      const yV = G.pisoT * 0.2
+      const hV = G.pisoT * 0.6
+      ventana(ctx, W * 0.05, yV, W * 0.18, hV, g.t)
+      ventana(ctx, W * 0.77, yV, W * 0.18, hV, g.t + 1.3)
+      lampara(ctx, W * 0.5, g.t)
+      pizarra(ctx, W * 0.3, G.pisoT * 0.27, W * 0.4, G.pisoT * 0.42, pf)
+      cuadroGatito(ctx, W * 0.5 - 15, G.pisoT * 0.72, tiene('cuadro'))
       if (tiene('plantitas')) {
         planta(ctx, 20, G.pisoT + 34)
         planta(ctx, W - 20, G.pisoT + 34)
-        planta(ctx, W - 20, G.pisoB - 8)
       }
+      planta(ctx, W - 20, G.pisoB - 8)
 
-      // mesas (las bloqueadas se ven como contorno punteado)
+      // alfombra bajo las mesas
+      const yA = G.pisoT + (G.pisoB - G.pisoT) * 0.3
+      alfombra(ctx, W * 0.14, yA, W * 0.72, (G.pisoB - G.pisoT) * 0.56)
+
+      // mesas redondas con su silla (las bloqueadas son un contorno punteado)
       for (let i = 0; i < G.asientos.length; i++) {
         const a = G.asientos[i]
         const activa = i < sv.mesas
+        if (activa) {
+          silla(ctx, a.x, a.y)
+          if (tiene('cojines')) cojin(ctx, a.x, a.y + 2)
+        }
         mesa(ctx, a.x, a.y + 10, activa)
-        if (activa && tiene('cojines')) cojin(ctx, a.x, a.y + 6)
       }
 
       // gatitos: los de la partida, o unos tranquilos sentados en el menú
@@ -1463,45 +1943,99 @@ export default function CafeMichi() {
       vistas.sort((a, b) => a.y - b.y)
       for (const v of vistas) dibujarGato(ctx, v.x, v.y, v.look, v.esp, v.st, v.t)
 
-      // barra con máquinas
-      ctx.fillStyle = '#f2b7a0'
+      // gatito dormido en su cojincito, en medio de la alfombra
+      const bx = W * 0.5
+      const by = G.pisoT + (G.pisoB - G.pisoT) * 0.62
+      ctx.fillStyle = '#f9a8d4'
+      ctx.beginPath()
+      ctx.ellipse(bx, by, 22, 7, 0, 0, PI2)
+      ctx.fill()
+      ctx.fillStyle = '#fde2ef'
+      ctx.beginPath()
+      ctx.ellipse(bx, by - 2, 17, 5, 0, 0, PI2)
+      ctx.fill()
+      ctx.save()
+      ctx.translate(bx, by - 2)
+      ctx.scale(0.9, 0.9)
+      ctx.fillStyle = LOOKS[0].cuerpo
+      ctx.beginPath()
+      ctx.ellipse(0, -6, 14, 6, 0, 0, PI2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(-9, -9, 6.5, 0, PI2)
+      ctx.fill()
+      ctx.fillStyle = LOOKS[0].oreja
+      ctx.beginPath()
+      ctx.moveTo(-14, -12)
+      ctx.lineTo(-15, -18)
+      ctx.lineTo(-10, -15)
+      ctx.fill()
+      ctx.strokeStyle = '#3b2a3a'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(-11.5, -9.5)
+      ctx.lineTo(-9.5, -9.5)
+      ctx.moveTo(-7, -9)
+      ctx.lineTo(-5.5, -9.2)
+      ctx.stroke()
+      ctx.restore()
+
+      // mostrador con su tapa de mármol y la repisa de pasteles
+      ctx.fillStyle = '#f5b3c8'
       ctx.fillRect(-20, H * 0.6, W + 40, H * 0.2 + 40)
-      ctx.fillStyle = '#fbd3c2'
-      ctx.fillRect(-20, H * 0.6, W + 40, 5)
-      ctx.fillStyle = 'rgba(255,255,255,0.35)'
-      ctx.fillRect(-20, H * 0.72, W + 40, 2)
+      ctx.fillStyle = '#fff0f6'
+      ctx.fillRect(-20, H * 0.6, W + 40, 6)
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'
+      ctx.fillRect(-20, H * 0.8, W + 40, 2)
       for (const id of ITEMS) dibujarEstacion(id, sv)
 
-      // bandeja y bote de basura
-      rr(ctx, 6, G.bandejaT, W - 12, G.bandejaB - G.bandejaT, 12)
-      ctx.fillStyle = '#e9b98f'
+      // bandeja de madera con sus lugares
+      rr(ctx, 6, G.bandejaT, W - 12, G.bandejaB - G.bandejaT, 14)
+      ctx.fillStyle = '#e8b48a'
       ctx.fill()
-      ctx.strokeStyle = '#c4905f'
-      ctx.lineWidth = 2
+      ctx.strokeStyle = '#c98f63'
+      ctx.lineWidth = 2.5
+      ctx.stroke()
+      ctx.strokeStyle = 'rgba(160,100,60,0.2)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let k = 1; k < 4; k++) {
+        const yy = G.bandejaT + ((G.bandejaB - G.bandejaT) * k) / 4
+        ctx.moveTo(10, yy)
+        ctx.lineTo(W - 10, yy)
+      }
       ctx.stroke()
       G.ranuras.forEach((r, i) => {
-        rr(ctx, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 8)
-        ctx.fillStyle = '#fff4e9'
+        rr(ctx, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 12)
+        ctx.fillStyle = '#fff9f4'
         ctx.fill()
-        if (g.sel === i) {
-          ctx.strokeStyle = '#fde047'
-          ctx.lineWidth = 3
-          ctx.stroke()
-        }
+        ctx.strokeStyle = g.sel === i ? '#fde047' : '#e9c7a8'
+        ctx.lineWidth = g.sel === i ? 3 : 1.5
+        ctx.stroke()
         if (i < g.bandeja.length) {
           const bob = g.sel === i ? Math.sin(g.t * 8) * 2 : 0
-          icono(ctx, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + bob, g.bandeja[i], 13)
+          icono(ctx, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + bob, g.bandeja[i], 14)
         }
       })
+      // bote para tirar lo que no sirve
       const b = G.basura
-      rr(ctx, b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0, 8)
-      ctx.fillStyle = '#cbd5e1'
+      rr(ctx, b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0, 10)
+      ctx.fillStyle = '#d8d0f5'
       ctx.fill()
-      ctx.fillStyle = '#475569'
+      ctx.strokeStyle = '#a5a0d6'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+      ctx.fillStyle = '#7c74b8'
       ctx.font = `6px ${pf}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('TIRAR', (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2)
+      ctx.fillText('TIRAR', (b.x0 + b.x1) / 2, b.y1 - 9)
+      ctx.strokeStyle = '#7c74b8'
+      ctx.lineWidth = 1.4
+      ctx.beginPath()
+      ctx.moveTo((b.x0 + b.x1) / 2 - 8, b.y0 + 12)
+      ctx.lineTo((b.x0 + b.x1) / 2 + 8, b.y0 + 12)
+      ctx.stroke()
 
       // burbujas de pedido
       if (g.fase === 'dia') {
@@ -1641,50 +2175,69 @@ export default function CafeMichi() {
           aria-label="Juego Café Michi"
         />
         {ui.fase === 'menu' && (
-          <StartOverlay
-            title="CAFE MICHI"
-            accent={ACCENT}
-            subtitle="Prepara cafés, chocolates y postres para los gatitos. Toca una máquina y luego al gatito con su pedido."
-            hint="Pulsa ESPACIO para abrir el día"
-            touchHint="Toca Jugar para abrir el día"
-            onStart={() => actionsRef.current.iniciarDia()}
-          >
-            <p className="text-xs text-white/70">
-              Día {ui.save.dia} · {ui.save.monedas} monedas
-            </p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                actionsRef.current.abrirTienda()
-              }}
-              className="rounded-full border border-white/25 px-5 py-2 text-xs text-white/85 transition active:scale-95"
-            >
-              Tienda
-            </button>
-            <p className="max-w-[17rem] text-[11px] leading-relaxed text-white/60">
-              Los gatitos se van tristes si esperan mucho. Con teclado: 1-7 máquinas, A S D elige en la bandeja, Q W E R T Y entrega a cada mesa.
-            </p>
-          </StartOverlay>
+          <MenuInicio
+            save={ui.save}
+            onJugar={() => actionsRef.current.iniciarDia()}
+            onTienda={() => actionsRef.current.abrirTienda()}
+          />
         )}
         {ui.fase === 'resumen' && (
-          <GameOverOverlay
-            title={`DIA ${ui.dia} LISTO`}
-            accent={ACCENT}
-            score={ui.ganado}
-            best={0}
-            newBest={false}
-            ranked={false}
-            stats={[
-              { label: 'Clientes', value: ui.servidos },
-              { label: 'Propinas', value: ui.propinas },
-              { label: 'Se fueron', value: ui.perdidos },
-            ]}
-            onRestart={() => {
-              setUi((u) => ({ ...u, aviso: null }))
-              actionsRef.current.abrirTienda()
-            }}
-          />
+          <div className="absolute inset-0 z-20 overflow-y-auto overscroll-contain bg-[#fde4cf]/95 text-[#5b2350]">
+            <div
+              className="flex min-h-full flex-col items-center justify-center gap-2.5 px-5 py-4 text-center"
+              style={{ background: 'radial-gradient(circle at 50% 30%, #fbcfe8 0%, transparent 65%)' }}
+            >
+              <div className="flex w-full max-w-xs flex-col items-center gap-2.5 rounded-[2rem] border-2 border-white bg-white/85 px-5 py-5 shadow-[0_10px_30px_rgba(190,80,140,0.25)]">
+                <p className="text-base" style={{ ...pixel, color: '#db2777', textShadow: '2px 2px 0 #ffffff' }}>
+                  DIA {ui.dia} LISTO
+                </p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#7c2d5e]/70">Ganado hoy</p>
+                <p className="text-4xl font-semibold tabular-nums" style={{ color: '#db2777' }}>
+                  {ui.ganado}
+                </p>
+                <dl className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs">
+                  <div className="flex gap-1.5">
+                    <dt className="text-[#7c2d5e]/70">Clientes</dt>
+                    <dd className="font-medium tabular-nums">{ui.servidos}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="text-[#7c2d5e]/70">Propinas</dt>
+                    <dd className="font-medium tabular-nums">{ui.propinas}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="text-[#7c2d5e]/70">Se fueron</dt>
+                    <dd className="font-medium tabular-nums">{ui.perdidos}</dd>
+                  </div>
+                </dl>
+                <p className="text-xs font-medium text-amber-600">Monedas: {ui.save.monedas}</p>
+                <div className="mt-1 flex w-full flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.currentTarget.blur()
+                      setUi((u) => ({ ...u, aviso: null }))
+                      actionsRef.current.abrirTienda()
+                    }}
+                    className="rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-400 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-95"
+                  >
+                    Ir a la tienda
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.currentTarget.blur()
+                      setUi((u) => ({ ...u, aviso: null }))
+                      actionsRef.current.iniciarDia()
+                    }}
+                    className="rounded-full border border-[#7c2d5e]/30 bg-white/80 px-5 py-2 text-xs transition active:scale-95"
+                    style={{ color: '#7c2d5e' }}
+                  >
+                    Siguiente día
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
         {ui.fase === 'tienda' && (
           <Tienda

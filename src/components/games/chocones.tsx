@@ -174,6 +174,13 @@ const BOTS = [
   { name: 'BOT 2', color: '#fb923c' },
   { name: 'BOT 3', color: '#f472b6' },
 ]
+/** Aclara (+) u oscurece (−) un color hex. */
+const shade = (hex: string, amt: number) => {
+  const n = parseInt(hex.slice(1), 16)
+  const f = (v: number) => Math.round(Math.max(0, Math.min(255, amt >= 0 ? v + (255 - v) * amt : v * (1 + amt))))
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`
+}
+
 const metaOf = (mode: Mode) => (mode === 'duo' ? [P1, P2] : [{ name: 'TU', color: P1.color }, ...BOTS.slice(0, mode)])
 
 const MENU: { label: string; mode: Mode; color: string }[] = [
@@ -1029,23 +1036,65 @@ export default function Chocones() {
         ctx.closePath()
         ctx.fill()
       }
-      // llanta de goma (el parachoques)
-      ctx.fillStyle = '#0f0a1a'
-      ctx.beginPath()
-      ctx.arc(0, 0, CAR_R + 2.5, 0, TAU)
+      // carrito chocón visto desde arriba: falda de goma, carrocería, asiento, conductor y antena
+      const L = CAR_R * 1.25 // medio largo
+      const Wd = CAR_R * 0.95 // medio ancho
+      // falda de goma (parachoques que rodea todo)
+      ctx.fillStyle = '#1e1b2e'
+      rr(ctx, -L - 3, -Wd - 3, (L + 3) * 2, (Wd + 3) * 2, Wd + 3)
       ctx.fill()
-      ctx.fillStyle = c.color
-      ctx.beginPath()
-      ctx.arc(0, 0, CAR_R, 0, TAU)
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+      // carrocería con brillo
+      const body = ctx.createLinearGradient(0, -Wd, 0, Wd)
+      body.addColorStop(0, shade(c.color, 0.35))
+      body.addColorStop(0.5, c.color)
+      body.addColorStop(1, shade(c.color, -0.3))
+      ctx.fillStyle = body
+      rr(ctx, -L, -Wd, L * 2, Wd * 2, Wd * 0.9)
       ctx.fill()
-      // cabina y faro
-      ctx.fillStyle = 'rgba(15,10,26,0.45)'
-      ctx.beginPath()
-      ctx.arc(-1, 0, CAR_R * 0.5, 0, TAU)
+      // franja deportiva
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      rr(ctx, L * 0.15, -2, L * 0.75, 4, 2)
       ctx.fill()
+      // asiento
+      ctx.fillStyle = shade(c.color, -0.45)
+      rr(ctx, -L * 0.75, -Wd * 0.62, L * 0.7, Wd * 1.24, 4)
+      ctx.fill()
+      // conductor: cabecita redonda con pelo
+      ctx.fillStyle = '#fcd9b6'
+      ctx.beginPath()
+      ctx.arc(-L * 0.38, 0, Wd * 0.48, 0, TAU)
+      ctx.fill()
+      ctx.fillStyle = '#4a2c2a'
+      ctx.beginPath()
+      ctx.arc(-L * 0.46, 0, Wd * 0.46, Math.PI * 0.5, Math.PI * 1.5)
+      ctx.fill()
+      // volante
+      ctx.strokeStyle = '#1e1b2e'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(L * 0.05, 0, Wd * 0.32, -1.2, 1.2)
+      ctx.stroke()
+      // faros
       ctx.fillStyle = '#fef9c3'
+      for (const s of [-1, 1]) {
+        ctx.beginPath()
+        ctx.arc(L - 2.5, s * Wd * 0.55, 2.2, 0, TAU)
+        ctx.fill()
+      }
+      // antena con chispa (como en la feria)
+      ctx.strokeStyle = '#e5e7eb'
+      ctx.lineWidth = 1.5
       ctx.beginPath()
-      ctx.arc(CAR_R - 3.5, 0, 2.6, 0, TAU)
+      ctx.moveTo(-L * 0.85, 0)
+      ctx.lineTo(-L * 1.05, 0)
+      ctx.stroke()
+      const spark = 0.6 + 0.4 * Math.sin(g.t * 30 + c.slot * 2)
+      ctx.fillStyle = `rgba(253,224,71,${spark})`
+      ctx.beginPath()
+      ctx.arc(-L * 1.08, 0, 2.6, 0, TAU)
       ctx.fill()
       if (c.flash > 0) {
         ctx.globalAlpha *= c.flash * 0.7
@@ -1093,22 +1142,46 @@ export default function Chocones() {
       bg.addColorStop(1, '#07040e')
       ctx.fillStyle = bg
       ctx.fillRect(-20, -20, W + 40, H + 40)
-      // pista
-      const floor = ctx.createRadialGradient(CX, CY, 0, CX, CY, rad)
-      floor.addColorStop(0, '#2c2150')
-      floor.addColorStop(1, '#170f2e')
+      // luces de feria alrededor de la arena
+      const nBulbs = 28
+      for (let i = 0; i < nBulbs; i++) {
+        const a = (i / nBulbs) * TAU + g.t * 0.15
+        const on = Math.floor(g.t * 3 + i) % 3 === 0
+        const bx = CX + Math.cos(a) * (R0 + 22)
+        const by = CY + Math.sin(a) * (R0 + 22)
+        ctx.fillStyle = on ? ['#fde047', '#f472b6', '#22d3ee'][i % 3] : 'rgba(255,255,255,0.12)'
+        ctx.beginPath()
+        ctx.arc(bx, by, on ? 3.2 : 2.4, 0, TAU)
+        ctx.fill()
+      }
+      // pista: piso metálico de feria a cuadros
+      ctx.save()
       ctx.beginPath()
       ctx.arc(CX, CY, rad, 0, TAU)
+      ctx.clip()
+      const floor = ctx.createRadialGradient(CX, CY, 0, CX, CY, rad)
+      floor.addColorStop(0, '#3b2f63')
+      floor.addColorStop(1, '#1d1538')
       ctx.fillStyle = floor
-      ctx.fill()
-      ctx.strokeStyle = 'rgba(196,181,253,0.09)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      for (const f of [0.25, 0.5, 0.75]) {
-        ctx.moveTo(CX + rad * f, CY)
-        ctx.arc(CX, CY, rad * f, 0, TAU)
+      ctx.fillRect(CX - rad, CY - rad, rad * 2, rad * 2)
+      const tile = 26
+      ctx.fillStyle = 'rgba(255,255,255,0.035)'
+      for (let ty = CY - rad - tile; ty < CY + rad + tile; ty += tile) {
+        for (let tx = CX - rad - tile; tx < CX + rad + tile; tx += tile) {
+          if ((Math.round((tx - CX) / tile) + Math.round((ty - CY) / tile)) % 2 === 0) ctx.fillRect(tx, ty, tile, tile)
+        }
       }
-      ctx.stroke()
+      // estrella central de la feria
+      ctx.fillStyle = 'rgba(244,114,182,0.12)'
+      ctx.beginPath()
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU - Math.PI / 2
+        const rr2 = i % 2 === 0 ? rad * 0.22 : rad * 0.1
+        ctx.lineTo(CX + Math.cos(a) * rr2, CY + Math.sin(a) * rr2)
+      }
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
       if (g.mode === 'duo') {
         ctx.setLineDash([8, 8])
         ctx.strokeStyle = 'rgba(255,255,255,0.07)'
@@ -1225,9 +1298,11 @@ export default function Chocones() {
         ctx.setLineDash([])
       }
 
-      for (const c of g.cars) drawCar(c)
+      // en el menú la pista queda sola: los autos y sus nombres no compiten con el texto del overlay
+      const showCars = g.phase !== 'menu' && g.phase !== 'over'
+      if (showCars) for (const c of g.cars) drawCar(c)
       for (const c of g.cars) {
-        if (c.state === 'gone') continue
+        if (!showCars || c.state === 'gone') continue
         ctx.font = `8px ${pf}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -1402,6 +1477,8 @@ export default function Chocones() {
   )
 
   const mw = ui.matchWinner ?? 0
+  // contra bots la marca es la del jugador (índice 0), aunque gane un bot
+  const me = ui.mode === 'duo' ? mw : 0
   return (
     <div className="flex h-full w-full flex-col items-center overflow-hidden">
       <GameScreen
@@ -1452,13 +1529,14 @@ export default function Chocones() {
                 ui.mode === 'duo' ? `GANA ${meta[mw].name}` : mw === 0 ? 'VICTORIA' : 'DERROTA'
               }
               accent={meta[mw].color}
-              score={(ui.wins[mw] ?? 0) * 100 + (ui.kos[mw] ?? 0) * 50}
+              score={(ui.wins[me] ?? 0) * 100 + (ui.kos[me] ?? 0) * 50}
               best={0}
               stats={[
                 { label: 'Marcador', value: ui.wins.join(' - ') },
-                { label: 'KOs', value: ui.kos[mw] ?? 0 },
+                { label: 'KOs', value: ui.kos[me] ?? 0 },
               ]}
               onRestart={() => startRef.current(ui.mode)}
+              touchHint="Toca el botón para seguir"
               ranked={false}
             />
             <button

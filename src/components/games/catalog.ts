@@ -339,7 +339,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'chocones',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     category: 'pareja',
     name: 'Chocones',
@@ -382,7 +381,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'futbol-cabezon',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     landscape: true,
     category: 'pareja',
@@ -406,7 +404,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'guerra-castillos',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     category: 'pareja',
     name: 'Guerra de Castillos',
@@ -428,7 +425,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'pasteleria',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     category: 'pareja',
     name: 'Pastelería en Pareja',
@@ -448,7 +444,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'dulce-match',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     category: 'tiernos',
     name: 'Dulce Match',
@@ -467,7 +462,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'cafe-michi',
-    wip: true, // en pruebas: oculto en producción
     isNew: true,
     category: 'tiernos',
     name: 'Café Michi',

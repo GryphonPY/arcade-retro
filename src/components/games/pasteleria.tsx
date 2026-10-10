@@ -22,10 +22,10 @@ import {
   type Spot,
 } from './pasteleria/logic'
 import {
+  Chefs,
   drawCounterBand,
   drawCursor,
   drawFloor,
-  drawHand,
   drawItem,
   drawKitchen,
   PLAYER_COLOR,
@@ -199,6 +199,9 @@ export default function Pasteleria() {
     let last = performance.now()
     let seenStage = stageVersion()
     const active = new Map<number, Ptr>()
+    const chefs = new Chefs()
+    /** Último puesto tocado por cada jugador (índice en g.spots); null = usa el cursor del teclado. */
+    const lastTouch: [number | null, number | null] = [null, null]
 
     setUi((u) => ({ ...u, progress: loadProgress() }))
 
@@ -241,7 +244,8 @@ export default function Pasteleria() {
 
     const finish = () => {
       running = false
-      const stars = starsFor(g.coins, LEVELS[lv].target)
+      // siempre da al menos 1 estrella si atendieron a algún cliente (nunca castiga)
+      const stars = Math.max(g.served > 0 ? 1 : 0, starsFor(g.coins, LEVELS[lv].target))
       lastStars = stars
       overT = 0
       const progress = saveResult(LEVELS[lv].n, stars)
@@ -278,6 +282,7 @@ export default function Pasteleria() {
       const sp = spotAt(g, p.x, p.y)
       if (!sp) return
       const s = handFor(g, sp, p.y, H)
+      lastTouch[s] = g.spots.indexOf(sp)
       try {
         canvas.setPointerCapture(e.pointerId)
       } catch {
@@ -340,6 +345,7 @@ export default function Pasteleria() {
       if (!k) return
       e.preventDefault()
       const s: 0 | 1 = solo ? 0 : k.s
+      lastTouch[s] = null
       if (paused) {
         paused = false
         return
@@ -391,7 +397,7 @@ export default function Pasteleria() {
       const hidden = drags.map((p) => p.s)
       for (const s of [0, 1] as const) {
         if (s === 1 && solo) continue
-        drawHand(ctx, W, H, s, hidden.includes(s) ? null : g.hands[s], pf)
+        chefs.draw(ctx, s, hidden.includes(s) ? null : g.hands[s], t)
       }
       for (const d of drags) {
         const it = g.hands[d.s]
@@ -424,6 +430,7 @@ export default function Pasteleria() {
       }
 
       juice.update(dt)
+      chefs.update(dt, g, W, H, [lastTouch[0] ?? g.cur[0], lastTouch[1] ?? g.cur[1]])
       if (running) {
         if (!paused) tick(g, dt)
         for (const f of g.fx) {
@@ -472,7 +479,7 @@ export default function Pasteleria() {
         width={W0}
         height={H0}
         className="rounded-2xl border-2 border-pink-300/50 bg-[#fff1f7] shadow-[0_0_30px_rgba(244,114,182,0.25)]"
-        hud={ui.phase === 'menu' ? undefined : hud}
+        hud={hud}
       >
         <canvas
           ref={canvasRef}
@@ -484,12 +491,15 @@ export default function Pasteleria() {
           <StartOverlay
             title="PASTELERÍA EN PAREJA"
             accent={ACCENT}
-            subtitle="Pedidos de animalitos golosos. Cada quien en su cocina: pásense cosas por el mostrador."
             hint="Elige nivel y pulsa ESPACIO"
             touchHint="Elige nivel y toca Jugar"
             onStart={() => startRef.current(sel, mode === 'solo')}
           >
-            <div className="flex gap-2">
+            <p className="max-w-xs text-sm leading-relaxed text-white/75 [@media(max-height:500px)]:hidden">
+              Pedidos de animalitos golosos. Cada quien en su cocina: pásense cosas por el mostrador.
+            </p>
+            <div className="flex w-full flex-col items-center gap-2 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:justify-center">
+            <div className="flex gap-2 [@media(max-height:500px)]:flex-col">
               {(['duo', 'solo'] as const).map((m) => (
                 <button
                   key={m}
@@ -498,14 +508,15 @@ export default function Pasteleria() {
                     e.currentTarget.blur()
                     pickMode(m)
                   }}
-                  className="rounded-full px-4 py-2 text-xs font-semibold text-black transition active:scale-95"
+                  className="whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold text-black transition active:scale-95 [@media(max-height:500px)]:px-2 [@media(max-height:500px)]:py-1"
                   style={{ background: mode === m ? ACCENT : '#fbcfe8' }}
                 >
-                  {m === 'duo' ? '2 jugadores' : '1 jugador'}
+                  <span className="[@media(max-height:500px)]:hidden">{m === 'duo' ? '2 jugadores' : '1 jugador'}</span>
+                  <span className="hidden [@media(max-height:500px)]:inline">{m === 'duo' ? '2 J' : '1 J'}</span>
                 </button>
               ))}
             </div>
-            <div className="grid w-full max-w-[17rem] grid-cols-3 gap-2">
+            <div className="grid w-full max-w-[17rem] grid-cols-3 gap-2 [@media(max-height:500px)]:gap-1 [@media(max-height:500px)]:w-auto [@media(max-height:500px)]:max-w-[15rem]">
               {LEVELS.map((L, i) => {
                 const open = i < ui.progress.unlocked
                 return (
@@ -517,21 +528,22 @@ export default function Pasteleria() {
                       e.currentTarget.blur()
                       pickLevel(i)
                     }}
-                    className="rounded-xl border px-1 py-2 text-center transition active:scale-95 disabled:opacity-40"
+                    className="rounded-xl border px-1 py-2 text-center transition active:scale-95 disabled:opacity-40 [@media(max-height:500px)]:flex [@media(max-height:500px)]:items-center [@media(max-height:500px)]:justify-center [@media(max-height:500px)]:gap-1 [@media(max-height:500px)]:py-1"
                     style={{
                       borderColor: sel === i ? ACCENT : 'rgba(255,255,255,0.2)',
                       background: sel === i ? `${ACCENT}33` : 'rgba(0,0,0,0.3)',
                     }}
                   >
-                    <span className="block text-xs font-semibold text-white">Nivel {L.n}</span>
-                    <span className="block text-[10px] text-amber-300">
+                    <span className="block text-xs font-semibold text-white [@media(max-height:500px)]:text-[11px]">Nivel {L.n}</span>
+                    <span className="block text-[10px] text-amber-300 [@media(max-height:500px)]:hidden">
                       {open ? starText(ui.progress.stars[i]) : 'Bloqueado'}
                     </span>
                   </button>
                 )
               })}
             </div>
-            <p className="max-w-[18rem] text-[11px] leading-relaxed text-white/60">
+            </div>
+            <p className="max-w-[18rem] text-[11px] leading-relaxed text-white/60 [@media(max-height:500px)]:hidden">
               Jugador 1 (abajo): WASD y E. Jugador 2 (arriba): flechas y Enter. En el celular, toca un puesto para
               tomarlo y arrástralo al mostrador o a un cliente.
             </p>
@@ -561,7 +573,7 @@ export default function Pasteleria() {
                     e.currentTarget.blur()
                     startRef.current(ui.lv + 1, ui.solo)
                   }}
-                  className="rounded-full bg-pink-400 px-4 py-1.5 text-xs font-semibold text-black transition active:scale-95"
+                  className="whitespace-nowrap rounded-full bg-pink-400 px-4 py-1.5 text-xs font-semibold text-black transition active:scale-95"
                 >
                   Siguiente nivel
                 </button>

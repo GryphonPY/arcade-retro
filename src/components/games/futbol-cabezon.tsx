@@ -1152,7 +1152,7 @@ export default function FutbolCabezon() {
         const cx = g.mode === 1 ? W / 2 : s === 0 ? W * 0.25 : W * 0.75
         ctx.fillStyle = s === 0 ? BLUE : PINK
         ctx.fillText('MANTEN PARA MOVER', cx, 110)
-        ctx.fillText('DESLIZA ARRIBA: SALTAR', cx, 126)
+        ctx.fillText('DESLIZA: SALTAR', cx, 126)
         ctx.fillText('TOCA: PATEAR', cx, 142)
         // flechas junto a su muñeco
         const p = g.players[s]
@@ -1317,7 +1317,7 @@ export default function FutbolCabezon() {
         width={W0}
         height={H0}
         className="rounded-xl border border-lime-400/30 bg-[#0b1233]"
-        hud={ui.phase === 'menu' ? undefined : hud}
+        hud={hud}
       >
         <canvas
           ref={canvasRef}

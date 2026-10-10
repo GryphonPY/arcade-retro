@@ -114,8 +114,8 @@ export interface LevelCfg {
 const ALL = Object.keys(RECIPES)
 
 export const LEVELS: LevelCfg[] = [
-  { n: 1, dur: 120, recipes: ['galleta', 'cupcake'], maxCust: 2, spawn: [9, 12], patience: [42, 50], target: 150 },
-  { n: 2, dur: 130, recipes: ['galleta', 'cupcake', 'dona'], maxCust: 2, spawn: [8, 11], patience: [40, 48], target: 260 },
+  { n: 1, dur: 120, recipes: ['galleta', 'cupcake'], maxCust: 2, spawn: [9, 12], patience: [55, 65], target: 150 },
+  { n: 2, dur: 130, recipes: ['galleta', 'cupcake', 'dona'], maxCust: 2, spawn: [8, 11], patience: [50, 58], target: 260 },
   { n: 3, dur: 150, recipes: ['cupcake', 'dona', 'macaron'], maxCust: 3, spawn: [7, 10], patience: [38, 46], target: 380 },
   { n: 4, dur: 160, recipes: ['galleta', 'dona', 'macaron', 'pastel'], maxCust: 3, spawn: [6, 9], patience: [36, 44], target: 520 },
   { n: 5, dur: 170, recipes: ALL, maxCust: 3, spawn: [5, 8], patience: [34, 42], target: 680 },

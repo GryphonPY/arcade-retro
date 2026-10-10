@@ -5,7 +5,7 @@ import { Lock } from 'lucide-react'
 import { useKeys } from './use-keys'
 import { GameScreen } from './game-screen'
 import { fitStage, publishLogical, requestRemount, stageVersion } from './stage'
-import { GameOverOverlay, Hud, useIsTouch } from './overlay'
+import { Hud, useIsTouch } from './overlay'
 import { Juice } from './juice'
 import { loadBest, saveBest, setupCanvas, rr } from './game-utils'
 import { noise, tone } from './sfx'
@@ -40,16 +40,16 @@ function layout() {
   publishLogical(f)
 }
 
-/** Dulces pastel: color base, brillo y si llevan hojita. */
+/** Dulces pastel: color base y brillo. Cada color tiene además su propia forma (ver dibujarForma). */
 const CANDY = [
-  { body: '#ff6b8b', hi: '#ffd0dc', leaf: true }, // fresa
-  { body: '#ffd54a', hi: '#fff4bf', leaf: false }, // limón
-  { body: '#b48cff', hi: '#e6dbff', leaf: false }, // uva
-  { body: '#4fd1a5', hi: '#c8f5e4', leaf: false }, // menta
-  { body: '#5aa7f7', hi: '#c4e2ff', leaf: false }, // arándano
-  { body: '#ff9b45', hi: '#ffdcb4', leaf: true }, // naranja
+  { body: '#ff4d6d', hi: '#ffc2cf' }, // fresa
+  { body: '#ffb020', hi: '#ffe7a3' }, // caramelo envuelto
+  { body: '#f9a8d4', hi: '#ffe4f3' }, // dona con glaseado rosa
+  { body: '#7ee0b8', hi: '#d6fbe9' }, // macaron de menta
+  { body: '#7fb8ff', hi: '#d4e8ff' }, // cupcake
+  { body: '#ffe04a', hi: '#fff9c4' }, // gomita estrella
 ]
-const COLOR_NAMES = ['FRESA', 'LIMON', 'UVA', 'MENTA', 'ARANDANO', 'NARANJA']
+const COLOR_NAMES = ['FRESA', 'CARAMELO', 'DONA', 'MACARON', 'CUPCAKE', 'ESTRELLA']
 const BURST = CANDY.map((c) => c.body)
 
 const INITIAL_UI: Ui = { view: 'map', level: 1, score: 0, moves: 0, mult: 1, over: null }
@@ -113,6 +113,7 @@ type Phase =
   | 'bonus'
   | 'win'
   | 'lose'
+  | 'offer'
   | 'done'
 interface Game {
   cfg: LevelCfg
@@ -139,6 +140,7 @@ interface Game {
   stars: number
   didShuffle: boolean
   pops: Pop[]
+  bonusUsed: boolean // +5 movimientos gratis (una vez por nivel)
 }
 type Progress = Partial<Record<number, { s: number; p: number }>>
 interface Result {
@@ -151,6 +153,8 @@ interface Result {
   prevBest: number
   newBest: boolean
   hasNext: boolean
+  /** true: se ofrece +5 movimientos gratis una vez por nivel antes de perder */
+  offer?: boolean
 }
 interface Ui {
   view: 'map' | 'play'
@@ -550,6 +554,153 @@ function drawFace(ctx: CanvasRenderingContext2D, x: number, y: number, rad: numb
   ctx.stroke()
 }
 
+/** Forma base de cada color: fresa, caramelo envuelto, dona, macaron, cupcake y gomita estrella. */
+function dibujarForma(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, col: number) {
+  const base = CANDY[col]
+  const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r * 1.05)
+  grad.addColorStop(0, base.hi)
+  grad.addColorStop(0.55, base.body)
+  grad.addColorStop(1, base.body)
+  ctx.fillStyle = grad
+  ctx.strokeStyle = base.body
+  if (col === 0) {
+    // fresa: cuerpo de corazón con semillitas y corona verde
+    ctx.beginPath()
+    ctx.moveTo(x, y + r)
+    ctx.quadraticCurveTo(x - r * 1.12, y + r * 0.2, x - r * 0.9, y - r * 0.35)
+    ctx.quadraticCurveTo(x - r * 0.5, y - r * 0.85, x, y - r * 0.5)
+    ctx.quadraticCurveTo(x + r * 0.5, y - r * 0.85, x + r * 0.9, y - r * 0.35)
+    ctx.quadraticCurveTo(x + r * 1.12, y + r * 0.2, x, y + r)
+    ctx.fill()
+    ctx.fillStyle = '#fff3c4'
+    for (const [dx, dy] of [
+      [-0.62, 0.05],
+      [0.62, 0.02],
+      [-0.4, 0.62],
+      [0.4, 0.62],
+      [0, 0.85],
+    ]) {
+      ctx.beginPath()
+      ctx.ellipse(x + dx * r, y + dy * r, r * 0.07, r * 0.1, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.fillStyle = '#3fcf86'
+    for (const [dx, rot] of [
+      [-0.45, -0.6],
+      [0.45, 0.6],
+      [0, 0],
+    ]) {
+      ctx.beginPath()
+      ctx.ellipse(x + dx * r, y - r * 0.55, r * 0.34, r * 0.13, rot, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  } else if (col === 1) {
+    // caramelo envuelto: bola con las puntas torcidas del papel
+    ctx.fillStyle = '#ffb020'
+    ctx.beginPath()
+    ctx.moveTo(x - r * 0.45, y - r * 0.12)
+    ctx.lineTo(x - r * 1.05, y - r * 0.5)
+    ctx.lineTo(x - r * 0.95, y + r * 0.5)
+    ctx.lineTo(x - r * 0.45, y + r * 0.12)
+    ctx.moveTo(x + r * 0.45, y - r * 0.12)
+    ctx.lineTo(x + r * 1.05, y - r * 0.5)
+    ctx.lineTo(x + r * 0.95, y + r * 0.5)
+    ctx.lineTo(x + r * 0.45, y + r * 0.12)
+    ctx.fill()
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(x, y, r * 0.76, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+    ctx.lineWidth = r * 0.14
+    ctx.beginPath()
+    ctx.arc(x, y, r * 0.5, Math.PI * 1.1, Math.PI * 1.45)
+    ctx.stroke()
+  } else if (col === 2) {
+    // dona: anillo de masa con glaseado rosa y chispitas
+    ctx.fillStyle = '#f0b86a'
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(x, y, r * 0.84, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#fff4fa'
+    ctx.beginPath()
+    ctx.arc(x, y, r * 0.22, 0, Math.PI * 2)
+    ctx.fill()
+    const sprinkles = ['#60a5fa', '#fde047', '#86efac', '#ffffff', '#c4b5fd']
+    sprinkles.forEach((c, k) => {
+      const a = 0.3 + k * 1.2
+      ctx.strokeStyle = c
+      ctx.lineWidth = Math.max(1.2, r * 0.12)
+      ctx.beginPath()
+      ctx.moveTo(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5)
+      ctx.lineTo(x + Math.cos(a) * r * 0.66, y + Math.sin(a) * r * 0.66)
+      ctx.stroke()
+    })
+  } else if (col === 3) {
+    // macaron: dos discos con relleno cremoso en medio
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.ellipse(x, y - r * 0.4, r * 0.88, r * 0.42, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(x, y + r * 0.4, r * 0.88, r * 0.42, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#fff7fb'
+    rr(ctx, x - r * 0.84, y - r * 0.2, r * 1.68, r * 0.4, r * 0.18)
+    ctx.fill()
+  } else if (col === 4) {
+    // cupcake: envoltura plisada, betún en espiral y cerecita
+    ctx.fillStyle = base.body
+    ctx.beginPath()
+    ctx.moveTo(x - r * 0.62, y + r * 0.02)
+    ctx.lineTo(x + r * 0.62, y + r * 0.02)
+    ctx.lineTo(x + r * 0.46, y + r * 0.92)
+    ctx.lineTo(x - r * 0.46, y + r * 0.92)
+    ctx.closePath()
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'
+    ctx.lineWidth = Math.max(1, r * 0.08)
+    ctx.beginPath()
+    for (const dx of [-0.3, 0, 0.3]) {
+      ctx.moveTo(x + dx * r, y + r * 0.1)
+      ctx.lineTo(x + dx * r * 0.8, y + r * 0.88)
+    }
+    ctx.stroke()
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.ellipse(x, y - r * 0.02, r * 0.86, r * 0.56, 0, Math.PI, 0)
+    ctx.quadraticCurveTo(x + r * 0.5, y - r * 0.1, x, y + r * 0.04)
+    ctx.quadraticCurveTo(x - r * 0.5, y - r * 0.1, x - r * 0.86, y - r * 0.02)
+    ctx.fill()
+    ctx.fillStyle = '#ef4444'
+    ctx.beginPath()
+    ctx.arc(x + r * 0.12, y - r * 0.66, r * 0.22, 0, Math.PI * 2)
+    ctx.fill()
+  } else {
+    // gomita estrella con puntas redondeadas
+    ctx.fillStyle = grad
+    ctx.strokeStyle = base.body
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = r * 0.3
+    ctx.beginPath()
+    for (let k = 0; k < 10; k++) {
+      const rad = k % 2 === 0 ? r * 1.02 : r * 0.5
+      const a = -Math.PI / 2 + (k * Math.PI) / 5
+      const px = x + Math.cos(a) * rad
+      const py = y + Math.sin(a) * rad
+      if (k === 0) ctx.moveTo(px, py)
+      else ctx.lineTo(px, py)
+    }
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
+}
+
 /** Dibuja un dulce (normal, rayita, bomba o arcoíris) centrado en x, y. */
 function drawCandy(
   ctx: CanvasRenderingContext2D,
@@ -563,12 +714,13 @@ function drawCandy(
 ) {
   if (rad <= 0.5) return
   const alpha = ctx.globalAlpha
-  const base = CANDY[Math.max(0, col)]
+  const k = Math.max(0, col)
+  const base = CANDY[k]
   ctx.save()
   if (sp) {
     // halo de brillo: los especiales se distinguen de un vistazo
     ctx.globalAlpha = alpha * (0.3 + 0.15 * Math.sin(t * 5 + id))
-    ctx.fillStyle = sp === 4 ? '#ffffff' : base.hi
+    ctx.fillStyle = sp === 4 ? '#ffffff' : sp === 3 ? '#fde047' : base.hi
     ctx.beginPath()
     ctx.arc(x, y, rad * 1.4, 0, Math.PI * 2)
     ctx.fill()
@@ -576,51 +728,34 @@ function drawCandy(
   }
   if (sp === 4) {
     // arcoíris: gajos de todos los colores que giran
-    CANDY.forEach((c, k) => {
+    CANDY.forEach((c, j) => {
       ctx.fillStyle = c.body
       ctx.beginPath()
       ctx.moveTo(x, y)
-      const a0 = t * 1.2 + (k * Math.PI * 2) / CANDY.length
+      const a0 = t * 1.2 + (j * Math.PI * 2) / CANDY.length
       ctx.arc(x, y, rad, a0, a0 + (Math.PI * 2) / CANDY.length)
       ctx.closePath()
       ctx.fill()
     })
-  } else {
-    const grad = ctx.createRadialGradient(x - rad * 0.35, y - rad * 0.4, rad * 0.1, x, y, rad)
-    grad.addColorStop(0, base.hi)
-    grad.addColorStop(0.55, base.body)
-    grad.addColorStop(1, base.body)
-    ctx.fillStyle = grad
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(x, y, rad * 0.26, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (sp === 3) {
+    // bomba: bola ciruela oscura con aro dorado y mecha con chispa
+    const g = ctx.createRadialGradient(x - rad * 0.35, y - rad * 0.4, rad * 0.1, x, y, rad)
+    g.addColorStop(0, '#b65c93')
+    g.addColorStop(1, '#4a1f3d')
+    ctx.fillStyle = g
     ctx.beginPath()
     ctx.arc(x, y, rad, 0, Math.PI * 2)
     ctx.fill()
-    if (base.leaf) {
-      ctx.fillStyle = '#4ade80'
-      ctx.beginPath()
-      ctx.ellipse(x + rad * 0.15, y - rad * 0.9, rad * 0.45, rad * 0.22, -0.4, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  }
-  // brillo general
-  ctx.fillStyle = 'rgba(255,255,255,0.7)'
-  ctx.beginPath()
-  ctx.ellipse(x - rad * 0.42, y - rad * 0.5, rad * 0.18, rad * 0.11, -0.6, 0, Math.PI * 2)
-  ctx.fill()
-  if (sp === 1 || sp === 2) {
-    // rayita: franja blanca horizontal o vertical
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    if (sp === 1) rr(ctx, x - rad * 0.95, y - rad * 0.5, rad * 1.9, rad * 0.22, rad * 0.11)
-    else rr(ctx, x - rad * 0.5, y - rad * 0.95, rad * 0.22, rad * 1.9, rad * 0.11)
-    ctx.fill()
-  }
-  if (sp === 3) {
-    // bomba: aro dorado y mecha con chispa que parpadea
     ctx.strokeStyle = '#fde047'
     ctx.lineWidth = Math.max(1.5, rad * 0.14)
     ctx.beginPath()
-    ctx.arc(x, y, rad * 0.86, 0, Math.PI * 2)
+    ctx.arc(x, y, rad * 0.8, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.strokeStyle = '#4a2c40'
+    ctx.strokeStyle = '#fde9b0'
     ctx.lineWidth = Math.max(1, rad * 0.08)
     ctx.beginPath()
     ctx.moveTo(x + rad * 0.55, y - rad * 0.75)
@@ -630,8 +765,22 @@ function drawCandy(
     ctx.beginPath()
     ctx.arc(x + rad * 1.05, y - rad * 1.0, rad * (0.14 + 0.05 * Math.sin(t * 20)), 0, Math.PI * 2)
     ctx.fill()
+  } else {
+    dibujarForma(ctx, x, y, rad, k)
   }
-  drawFace(ctx, x, y, rad)
+  if (sp === 1 || sp === 2) {
+    // rayita: franja blanca horizontal o vertical que cruza el dulce
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'
+    if (sp === 1) rr(ctx, x - rad * 1.02, y - rad * 0.16, rad * 2.04, rad * 0.32, rad * 0.16)
+    else rr(ctx, x - rad * 0.16, y - rad * 1.02, rad * 0.32, rad * 2.04, rad * 0.16)
+    ctx.fill()
+  }
+  // brillo general
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  ctx.beginPath()
+  ctx.ellipse(x - rad * 0.42, y - rad * 0.5, rad * 0.18, rad * 0.11, -0.6, 0, Math.PI * 2)
+  ctx.fill()
+  drawFace(ctx, x, y, rad * 0.86)
   ctx.restore()
 }
 
@@ -683,6 +832,7 @@ function makeGame(n: number): Game {
     stars: 1,
     didShuffle: false,
     pops: [],
+    bonusUsed: false,
   }
 }
 
@@ -705,11 +855,21 @@ function shuffleBoard(g: Game) {
 }
 
 // ---------- componente ----------
+/** Posición de cada nivel en un camino en zigzag (en % y en unidades del SVG de 100 x filas*20). */
+function camino(n: number): { x: number; y: number } {
+  const i = n - 1
+  const fila = Math.floor(i / 5)
+  const col = i % 5
+  const c = fila % 2 ? 4 - col : col
+  return { x: 10 + c * 20, y: fila * 20 + 10 }
+}
+
 export default function DulceMatch() {
   const { justPressedRef } = useKeys()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const startRef = useRef<(n: number) => void>(() => {})
   const mapRef = useRef<() => void>(() => {})
+  const extraRef = useRef<{ aceptar: () => void; rendirse: () => void }>({ aceptar: () => {}, rendirse: () => {} })
   const [ui, setUi] = useState<Ui>(INITIAL_UI)
   const [progress, setProgress] = useState<Progress>({})
   const touch = useIsTouch()
@@ -923,6 +1083,36 @@ export default function DulceMatch() {
       sync()
     }
 
+    /** Antes de perder se ofrece +5 movimientos gratis (solo una vez por nivel). */
+    const offerMoves = () => {
+      g.phase = 'offer'
+      setUi((u) => ({
+        ...u,
+        over: {
+          win: false,
+          n: g.n,
+          stars: 0,
+          points: g.score,
+          left: 0,
+          total: totalOf(prog),
+          prevBest: loadBest(GAME_ID),
+          newBest: false,
+          hasNext: false,
+          offer: true,
+        },
+      }))
+    }
+    const aceptarMovimientos = () => {
+      if (g.phase !== 'offer' || g.bonusUsed) return
+      g.bonusUsed = true
+      g.moves += 5
+      g.phase = 'check'
+      g.timer = 0
+      sSel()
+      setUi((u) => ({ ...u, over: null, moves: g.moves }))
+      sync()
+    }
+
     /** Cierra el nivel: guarda progreso y muestra el resultado. */
     const finish = (win: boolean) => {
       g.phase = 'done'
@@ -1030,7 +1220,10 @@ export default function DulceMatch() {
           break
         case 'lose':
           g.timer -= dt
-          if (g.timer <= 0) finish(false)
+          if (g.timer <= 0) {
+            if (g.bonusUsed) finish(false)
+            else offerMoves()
+          }
           break
       }
     }
@@ -1167,7 +1360,8 @@ export default function DulceMatch() {
     const relayoutLive = () => {
       layout()
       setupCanvas(canvas, W, H)
-      if (canPause()) g.paused = true
+      // al entrar al nivel el marco se vuelve a medir (cambia la franja del marcador): no es una rotación
+      if (canPause() && g.phase !== 'ready') g.paused = true
     }
 
     // ---------- dibujo ----------
@@ -1255,14 +1449,27 @@ export default function DulceMatch() {
 
     const drawBoard = () => {
       const size = CS * N
-      ctx.fillStyle = 'rgba(255,255,255,0.5)'
-      rr(ctx, BX0 - 7, BY0 - 7, size + 14, size + 14, CS * 0.3)
+      // bandeja de galleta: borde rosa con sombra
+      ctx.fillStyle = 'rgba(190,80,140,0.25)'
+      rr(ctx, BX0 - 5, BY0 - 3, size + 14, size + 14, CS * 0.34)
       ctx.fill()
+      ctx.fillStyle = '#fff6fb'
+      rr(ctx, BX0 - 7, BY0 - 7, size + 14, size + 14, CS * 0.34)
+      ctx.fill()
+      ctx.strokeStyle = '#f9a8d4'
+      ctx.lineWidth = 3
+      ctx.stroke()
+      // casillas tipo galleta: un bisel suave debajo de cada una
       for (let i = 0; i < N * N; i++) {
         const r = rowOf(i)
         const c = colOf(i)
-        ctx.fillStyle = (r + c) % 2 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.34)'
-        rr(ctx, BX0 + c * CS + 2, BY0 + r * CS + 2, CS - 4, CS - 4, CS * 0.2)
+        const x = BX0 + c * CS + 2
+        const y = BY0 + r * CS + 2
+        ctx.fillStyle = (r + c) % 2 ? '#f6cde5' : '#f0bfdc'
+        rr(ctx, x, y + 3, CS - 4, CS - 4, CS * 0.24)
+        ctx.fill()
+        ctx.fillStyle = (r + c) % 2 ? '#fff9fd' : '#fdf1f8'
+        rr(ctx, x, y, CS - 4, CS - 4, CS * 0.24)
         ctx.fill()
       }
       // los dulces que caen entran desde detrás del marco
@@ -1350,7 +1557,7 @@ export default function DulceMatch() {
     }
 
     const drawPause = () => {
-      ctx.fillStyle = 'rgba(255,240,250,0.75)'
+      ctx.fillStyle = 'rgba(255,240,250,0.9)'
       ctx.fillRect(0, 0, W, H)
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
@@ -1368,11 +1575,21 @@ export default function DulceMatch() {
       ctx.save()
       juice.applyShake(ctx)
       const bg = ctx.createLinearGradient(0, 0, 0, H)
-      bg.addColorStop(0, '#ffe3f2')
-      bg.addColorStop(0.5, '#f5d9ff')
-      bg.addColorStop(1, '#d4e3ff')
+      bg.addColorStop(0, '#ffd6e9')
+      bg.addColorStop(0.5, '#e9d3ff')
+      bg.addColorStop(1, '#ffe2cf')
       ctx.fillStyle = bg
       ctx.fillRect(-20, -20, W + 40, H + 40)
+      // patrón de puntitos sutiles
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'
+      ctx.beginPath()
+      for (let py = 8; py < H + 20; py += 26) {
+        for (let px = ((py / 26) % 2) * 13 + 6; px < W + 20; px += 26) {
+          ctx.moveTo(px + 2.4, py)
+          ctx.arc(px, py, 2.4, 0, Math.PI * 2)
+        }
+      }
+      ctx.fill()
       drawSparkles()
       if (g.phase === 'off') drawBackdrop()
       else {
@@ -1413,6 +1630,7 @@ export default function DulceMatch() {
     document.addEventListener('visibilitychange', onVis)
     startRef.current = startLevel
     mapRef.current = toMap
+    extraRef.current = { aceptar: aceptarMovimientos, rendirse: () => finish(false) }
 
     raf = requestAnimationFrame((t) => {
       prog = loadProgress()
@@ -1483,10 +1701,38 @@ export default function DulceMatch() {
                 DULCE MATCH
               </p>
               <p className="text-xs text-[#7c2d5e]">Elige un nivel para comenzar</p>
-              <div className="grid w-full max-w-sm grid-cols-5 gap-2">
+              <div className="relative w-full max-w-md" style={{ height: `max(${(LEVELS / 5) * 84}px, 74dvh)` }}>
+                <svg
+                  className="absolute inset-0 h-full w-full overflow-visible"
+                  viewBox={`0 0 100 ${(LEVELS / 5) * 20}`}
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  <polyline
+                    points={levels.map((n) => `${camino(n).x},${camino(n).y}`).join(' ')}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="7"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                    style={{ strokeWidth: 14 }}
+                  />
+                  <polyline
+                    points={levels.map((n) => `${camino(n).x},${camino(n).y}`).join(' ')}
+                    fill="none"
+                    stroke="#f9a8d4"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    strokeDasharray="1 7"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                    style={{ strokeWidth: 7 }}
+                  />
+                </svg>
                 {levels.map((n) => {
                   const s = progress[n]?.s ?? 0
                   const open = n === 1 || (progress[n - 1]?.s ?? 0) > 0
+                  const p = camino(n)
                   return (
                     <button
                       key={n}
@@ -1497,20 +1743,22 @@ export default function DulceMatch() {
                         startRef.current(n)
                       }}
                       aria-label={open ? `Nivel ${n}` : `Nivel ${n}, bloqueado`}
-                      className="flex aspect-square flex-col items-center justify-center rounded-2xl border-2 border-white text-sm font-bold shadow-md transition active:scale-95 disabled:opacity-60 disabled:shadow-none"
+                      className="absolute flex h-[52px] w-[52px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[3px] border-white text-sm font-bold shadow-[0_4px_0_rgba(190,80,140,0.35)] transition active:translate-y-0.5 active:scale-95 disabled:shadow-none"
                       style={{
+                        left: `${p.x}%`,
+                        top: `${(p.y / ((LEVELS / 5) * 20)) * 100}%`,
                         background: s
-                          ? 'linear-gradient(160deg,#fff7c2,#ffd3ea)'
+                          ? 'radial-gradient(circle at 35% 30%,#fffbe0,#ffd166 70%)'
                           : open
-                            ? 'linear-gradient(160deg,#ffffff,#fbd5ec)'
-                            : '#eadff2',
+                            ? 'radial-gradient(circle at 35% 30%,#ffffff,#ffc2dd 70%)'
+                            : '#e6dcef',
                         color: PLUM,
                       }}
                     >
                       {open ? (
                         <>
-                          <span className="text-base leading-none">{n}</span>
-                          <span className="mt-1 text-[10px] leading-none text-amber-500">
+                          <span className="text-sm leading-none">{n}</span>
+                          <span className="mt-0.5 text-[9px] leading-none text-amber-500">
                             {'★'.repeat(s) + '☆'.repeat(3 - s)}
                           </span>
                         </>
@@ -1528,32 +1776,98 @@ export default function DulceMatch() {
           </div>
         )}
         {playing && over && (
-          <>
-            <GameOverOverlay
-              title={over.win ? `NIVEL ${over.n} LISTO` : 'SIN MOVIMIENTOS'}
-              accent={ACCENT}
-              score={over.total}
-              best={over.prevBest}
-              newBest={over.newBest}
-              stats={[
-                { label: 'Estrellas', value: over.win ? '★'.repeat(over.stars) + '☆'.repeat(3 - over.stars) : 'ninguna' },
-                { label: 'Puntos del nivel', value: over.points },
-                ...(over.win ? [{ label: 'Movs. sobrantes', value: over.left }] : []),
-              ]}
-              onRestart={() => startRef.current(over.win && over.hasNext ? over.n + 1 : over.n)}
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.currentTarget.blur()
-                mapRef.current()
-              }}
-              className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[#7c2d5e]/30 bg-white/80 px-4 py-1.5 text-xs transition active:scale-95"
-              style={{ color: PLUM }}
-            >
-              Mapa de niveles
-            </button>
-          </>
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 overflow-y-auto bg-[#fdeaf6]/90 px-5 py-4 text-center text-[#5b2350]">
+            <div className="flex w-full max-w-xs flex-col items-center gap-2.5 rounded-[2rem] border-2 border-white bg-white/85 px-5 py-5 shadow-[0_10px_30px_rgba(190,80,140,0.25)]">
+            <p className="text-sm sm:text-base" style={{ ...pixel, color: '#db2777', textShadow: '2px 2px 0 #ffffff' }}>
+              {over.win ? `NIVEL ${over.n} LISTO` : 'SIN MOVIMIENTOS'}
+            </p>
+            {over.newBest && (
+              <p className="text-[10px] text-amber-500" style={pixel}>
+                ¡NUEVO RECORD!
+              </p>
+            )}
+            {!over.offer && (
+              <p className="text-2xl leading-none text-amber-400 drop-shadow-sm" aria-label={`${over.stars} de 3 estrellas`}>
+                {'★'.repeat(over.stars) + '☆'.repeat(3 - over.stars)}
+              </p>
+            )}
+            <p className="text-[11px] uppercase tracking-[0.2em] text-[#7c2d5e]/70">Puntos del nivel</p>
+            <p className="text-3xl font-semibold tabular-nums" style={{ color: '#db2777' }}>
+              {over.points.toLocaleString('es-MX')}
+            </p>
+            <p className="text-xs text-[#7c2d5e]/80 tabular-nums">
+              Total de Dulce Match {over.total.toLocaleString('es-MX')}
+              {over.win && ` · movimientos sobrantes ${over.left}`}
+            </p>
+            {over.offer ? (
+              <div className="mt-1 flex w-full max-w-xs flex-col items-center gap-2">
+                <p className="text-xs text-[#7c2d5e]/80">Te quedaste sin movimientos. Puedes seguir una vez más.</p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.currentTarget.blur()
+                    extraRef.current.aceptar()
+                  }}
+                  className="rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-400 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-95"
+                >
+                  +5 movimientos gratis
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.currentTarget.blur()
+                    extraRef.current.rendirse()
+                  }}
+                  className="rounded-full px-4 py-1.5 text-xs underline underline-offset-4 transition active:scale-95"
+                  style={{ color: PLUM }}
+                >
+                  Rendirse
+                </button>
+              </div>
+            ) : (
+            <div className="mt-1 flex w-full max-w-xs flex-col gap-2">
+              {over.win && over.hasNext && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.currentTarget.blur()
+                    startRef.current(over.n + 1)
+                  }}
+                  className="rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-400 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-95"
+                >
+                  Siguiente nivel
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  startRef.current(over.n)
+                }}
+                className={
+                  over.win && over.hasNext
+                    ? 'rounded-full border border-[#7c2d5e]/30 bg-white/80 px-6 py-2 text-xs transition active:scale-95'
+                    : 'rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-400 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-95'
+                }
+                style={over.win && over.hasNext ? { color: PLUM } : undefined}
+              >
+                {over.win ? 'Repetir nivel' : 'Reintentar'}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur()
+                  mapRef.current()
+                }}
+                className="rounded-full px-4 py-1.5 text-xs underline underline-offset-4 transition active:scale-95"
+                style={{ color: PLUM }}
+              >
+                Mapa de niveles
+              </button>
+            </div>
+            )}
+            </div>
+          </div>
         )}
       </GameScreen>
     </div>

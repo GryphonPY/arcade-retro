@@ -102,8 +102,8 @@ export function buildSpots(W: number, H: number): Spot[] {
       kind: 'shelf',
       side,
       x: W * fx,
-      y: H * (side === 1 ? 0.2 : 0.8),
-      w: W * 0.16,
+      y: H * (side === 1 ? 0.22 : 0.86),
+      w: W * 0.17,
       h: H * 0.1,
       ing: SHELVES[side][i],
     }))
@@ -112,17 +112,17 @@ export function buildSpots(W: number, H: number): Spot[] {
       kind,
       side,
       x: W * COL[j],
-      y: H * (side === 1 ? 0.32 : 0.68),
+      y: H * (side === 1 ? 0.36 : 0.66),
       w: W * 0.2,
-      h: H * 0.1,
+      h: H * 0.12,
     }))
   const custs: Spot[] = [0.2, 0.5, 0.8].map((fx, i) => ({
     kind: 'cust',
     side: -1,
     x: W * fx,
-    y: H * 0.075,
+    y: H * 0.09,
     w: W * 0.28,
-    h: H * 0.13,
+    h: H * 0.15,
     i,
   }))
   const counter: Spot[] = COL.map((fx, i) => ({
@@ -131,13 +131,28 @@ export function buildSpots(W: number, H: number): Spot[] {
     x: W * fx,
     y: H * 0.5,
     w: W * 0.2,
-    h: H * 0.09,
+    h: H * 0.12,
     i,
   }))
   return [...custs, ...shelves(1), ...stations(1), ...counter, ...stations(0), ...shelves(0)]
 }
 
-export function newGame(cfg: LevelCfg, solo: boolean, W: number, H: number): Game {
+/**
+ * En 1 jugador hay más tiempo, más paciencia y menos pedidos a la vez: una sola
+ * mano no da abasto con los de 2 jugadores (ver REFERENCIAS: Overcooked).
+ */
+export function soloCfg(c: LevelCfg): LevelCfg {
+  return {
+    ...c,
+    dur: Math.round(c.dur * 1.3),
+    maxCust: Math.min(c.maxCust, 2),
+    spawn: [c.spawn[0] * 1.4, c.spawn[1] * 1.4],
+    patience: [c.patience[0] * 1.3, c.patience[1] * 1.3],
+  }
+}
+
+export function newGame(base: LevelCfg, solo: boolean, W: number, H: number): Game {
+  const cfg = solo ? soloCfg(base) : base
   const spots = buildSpots(W, H)
   const own = (side: number) => spots.findIndex((s) => s.kind === 'bowl' && s.side === side)
   return {
