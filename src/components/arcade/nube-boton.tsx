@@ -8,7 +8,7 @@ import { IconButton } from './ui'
 
 const MENSAJES: Record<Resultado['kind'], { tono: 'ok' | 'aviso'; texto: string }> = {
   'sin-codigo': { tono: 'aviso', texto: 'Escribe un código para conectar este aparato.' },
-  'codigo-invalido': { tono: 'aviso', texto: 'Usa de 4 a 32 letras, números o guiones. Por ejemplo: axel-y-ana.' },
+  'codigo-invalido': { tono: 'aviso', texto: 'Usa de 4 a 32 letras, números o guiones. Por ejemplo: mi-codigo-secreto.' },
   'sin-conexion': { tono: 'aviso', texto: 'Sin conexión por ahora. Lo intentamos solos en cuanto vuelva.' },
   bajada: { tono: 'ok', texto: 'Cargamos tu progreso guardado.' },
   subida: { tono: 'ok', texto: 'Listo, tu progreso se respalda solo.' },
@@ -126,7 +126,7 @@ function NubeSheet({ onClose }: { onClose: () => void }) {
               ref={inputRef}
               value={borrador}
               onChange={(e) => setBorrador(e.target.value)}
-              placeholder="axel-y-ana"
+              placeholder="mi-codigo-secreto"
               autoComplete="off"
               autoCapitalize="none"
               autoCorrect="off"
