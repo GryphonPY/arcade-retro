@@ -9,6 +9,7 @@
  *   pointerdown/keydown para arrancar el AudioContext.
  */
 import { isMuted } from './sfx'
+import { pageHidden, registerAudioContext } from './audio-focus'
 
 let musicOn = true
 
@@ -46,6 +47,8 @@ let master: GainNode | null = null
 
 function ac(): AudioContext | null {
   if (typeof window === 'undefined') return null
+  // Con la página oculta no se crea ni se reanuda el contexto
+  if (pageHidden()) return null
   try {
     if (!ctx) {
       const AC =
@@ -53,8 +56,9 @@ function ac(): AudioContext | null {
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
       if (!AC) return null
       ctx = new AC()
+      registerAudioContext(ctx)
     }
-    if (ctx.state === 'suspended') void ctx.resume().catch(() => {})
+    if (ctx.state === 'suspended' && !pageHidden()) void ctx.resume().catch(() => {})
     return ctx
   } catch {
     return null
@@ -876,10 +880,14 @@ function scheduleStep(c: AudioContext, t: Built, i: number, when: number) {
 function ensureLoop() {
   if (timer || typeof window === 'undefined') return
   timer = setInterval(() => {
+    // En segundo plano no se programa ni se reanuda nada. Al volver, currentTime
+    // sigue donde se congeló al suspender y nextT no queda atrás, así que el
+    // bucle continúa sin recuperar notas perdidas (el chequeo nextT < currentTime - 0.25 cubre lo demás).
+    if (pageHidden()) return
     const c = ac()
     if (!c) return
     if (c.state === 'suspended') {
-      void c.resume().catch(() => {})
+      if (!pageHidden()) void c.resume().catch(() => {})
       return
     }
     if (!musicOn || isMuted() || !DEFS[currentId]) {
@@ -915,7 +923,7 @@ export function primeMusic(): void {
   if (primed || typeof window === 'undefined') return
   primed = true
   const kick = () => {
-    if (!musicOn || isMuted()) return
+    if (!musicOn || isMuted() || pageHidden()) return
     ac()
     ensureLoop()
     window.removeEventListener('pointerdown', kick)

@@ -5,6 +5,8 @@
  * Sin archivos externos. El estado de silencio se persiste en localStorage.
  */
 
+import { pageHidden, registerAudioContext } from './audio-focus'
+
 let ctx: AudioContext | null = null
 let muted = false
 
@@ -33,6 +35,8 @@ export function setMuted(v: boolean): void {
 
 function ac(): AudioContext | null {
   if (typeof window === 'undefined') return null
+  // Con la página oculta no suena nada y no se crea ni reanuda el contexto
+  if (pageHidden()) return null
   try {
     if (!ctx) {
       const AC =
@@ -40,8 +44,9 @@ function ac(): AudioContext | null {
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
       if (!AC) return null
       ctx = new AC()
+      registerAudioContext(ctx)
     }
-    if (ctx.state === 'suspended') void ctx.resume()
+    if (ctx.state === 'suspended' && !pageHidden()) void ctx.resume().catch(() => {})
     return ctx
   } catch {
     return null

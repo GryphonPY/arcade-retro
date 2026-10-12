@@ -5,6 +5,7 @@
  */
 import { isMuted } from '../sfx'
 import { isMusicEnabled } from '../music'
+import { pageHidden, registerAudioContext } from '../audio-focus'
 import { SONGS, type InstDef, type SongDef } from './songs'
 import type { SoundId } from './race'
 
@@ -168,12 +169,15 @@ export class SunsetAudio {
 
   private ac(): AudioContext | null {
     if (typeof window === 'undefined') return null
+    // Con la página oculta no se crea ni se reanuda el contexto
+    if (pageHidden()) return null
     try {
       if (!this.ctx) {
         const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
         if (!AC) return null
         const c = new AC()
         this.ctx = c
+        registerAudioContext(c)
         const comp = c.createDynamicsCompressor()
         comp.threshold.value = -16
         comp.knee.value = 18
@@ -229,7 +233,7 @@ export class SunsetAudio {
         for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1
         this.noiseBuf = buf
       }
-      if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {})
+      if (this.ctx.state === 'suspended' && !pageHidden()) void this.ctx.resume().catch(() => {})
       return this.ctx
     } catch {
       return null
@@ -269,6 +273,8 @@ export class SunsetAudio {
   }
 
   private tick() {
+    // En segundo plano no se programa nada
+    if (pageHidden()) return
     const c = this.ctx
     if (!c || !this.musicBus || !this.sfxBus) return
     if (c.state === 'suspended') return

@@ -4,6 +4,7 @@
  * ruido precalculado. Respeta el silencio global (isMuted de ../sfx).
  */
 import { isMuted } from '../sfx'
+import { pageHidden, registerAudioContext } from '../audio-focus'
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
@@ -15,6 +16,8 @@ let pulse12: PeriodicWave | null = null
 
 export function audio(): AudioContext | null {
   if (typeof window === 'undefined') return null
+  // Con la página oculta no se crea ni se reanuda el contexto
+  if (pageHidden()) return null
   try {
     if (!ctx) {
       const AC =
@@ -22,6 +25,7 @@ export function audio(): AudioContext | null {
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
       if (!AC) return null
       ctx = new AC()
+      registerAudioContext(ctx)
       master = ctx.createGain()
       master.gain.value = 0.9
       const comp = ctx.createDynamicsCompressor()
@@ -49,7 +53,7 @@ export function audio(): AudioContext | null {
       pulse25 = makePulse(ctx, 0.25)
       pulse12 = makePulse(ctx, 0.125)
     }
-    if (ctx.state === 'suspended') void ctx.resume().catch(() => {})
+    if (ctx.state === 'suspended' && !pageHidden()) void ctx.resume().catch(() => {})
     return ctx
   } catch {
     return null

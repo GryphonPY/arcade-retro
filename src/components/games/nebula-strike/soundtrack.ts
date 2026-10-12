@@ -6,6 +6,7 @@
 import { isMuted } from '../sfx'
 import { isMusicEnabled } from '../music'
 import { audio, drumHit, musicOut, setWave, type Wave } from './audio'
+import { pageHidden } from '../audio-focus'
 
 export type SongId = 'title' | 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 'boss'
 
@@ -451,11 +452,13 @@ let level = 0
 let target = 0
 
 function tick() {
+  // En segundo plano no se programa ni se reanuda la banda sonora
+  if (pageHidden()) return
   const c = audio()
   const out = musicOut()
   if (!c || !out) return
   if (c.state === 'suspended') {
-    void c.resume().catch(() => {})
+    if (!pageHidden()) void c.resume().catch(() => {})
     return
   }
   const on = isMusicEnabled() && !isMuted() && current !== null

@@ -5,6 +5,7 @@
  */
 import { isMuted } from '../sfx'
 import { isMusicEnabled } from '../music'
+import { pageHidden, registerAudioContext } from '../audio-focus'
 
 export type TrackId = 'calm' | 'combat' | 'boss' | null
 
@@ -124,6 +125,8 @@ export class Audio93 {
   /** Debe llamarse desde un gesto del usuario la primera vez. */
   unlock() {
     if (typeof window === 'undefined') return
+    // Con la página oculta no se crea ni se reanuda el contexto
+    if (pageHidden()) return
     try {
       if (!this.ctx) {
         const AC =
@@ -132,6 +135,7 @@ export class Audio93 {
         if (!AC) return
         const c = new AC()
         this.ctx = c
+        registerAudioContext(c)
         const comp = c.createDynamicsCompressor()
         comp.threshold.value = -14
         comp.knee.value = 10
@@ -173,7 +177,7 @@ export class Audio93 {
         this.noiseBuf = buf
         this.timer = setInterval(() => this.tick(), 30)
       }
-      if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {})
+      if (this.ctx.state === 'suspended' && !pageHidden()) void this.ctx.resume().catch(() => {})
     } catch {
       this.ctx = null
     }
@@ -191,6 +195,8 @@ export class Audio93 {
   }
 
   private tick() {
+    // En segundo plano no se programa nada
+    if (pageHidden()) return
     const c = this.ctx
     if (!c || !this.musicBus) return
     if (c.state === 'suspended') return
