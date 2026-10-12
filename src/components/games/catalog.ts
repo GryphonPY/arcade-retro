@@ -47,6 +47,7 @@ const MOVE: ControlHint = { keys: ['←', '↑', '→', '↓'], label: 'mover' }
 const ALL_GAMES: GameMeta[] = [
   {
     id: 'nebula-strike',
+    flagship: true,
     category: 'accion',
     name: 'Nebula Strike',
     genre: 'Shooter de naves',
@@ -64,6 +65,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'bunker-93',
+    flagship: true,
     landscape: true,
     category: 'accion',
     name: 'Búnker 93',
@@ -84,6 +86,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'sunset-run',
+    flagship: true,
     landscape: true,
     category: 'reflejos',
     name: 'Sunset Run',

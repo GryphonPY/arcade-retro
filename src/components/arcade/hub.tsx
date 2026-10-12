@@ -19,7 +19,9 @@ const favoritesFirst = (list: GameMeta[]) => [
   ...list.filter((g) => g.favorite && !g.isNew),
   ...list.filter((g) => !g.favorite),
 ]
-const SHOWCASE = favoritesFirst(GAMES)
+// Los juegos estrella tienen su propia sección, así que no se repiten en el carrusel ni en la lista.
+const NON_FLAGSHIP = GAMES.filter((g) => !g.flagship)
+const SHOWCASE = favoritesFirst(NON_FLAGSHIP)
 const FLAGSHIPS = GAMES.filter((g) => g.flagship)
 // Mínimo de partidas registradas (entre todos los juegos) para ordenar por popularidad.
 const POPULAR_MIN_TOTAL = 20
@@ -54,7 +56,7 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
   }, [popularity])
   const showcase = useMemo(() => (pop ? keepNewVisible(sortByPopularity(SHOWCASE, pop)) : SHOWCASE), [pop])
   const visible = useMemo(() => {
-    const base = filter === 'todos' ? SHOWCASE : GAMES.filter((g) => g.category === filter)
+    const base = filter === 'todos' ? SHOWCASE : NON_FLAGSHIP.filter((g) => g.category === filter)
     return pop ? sortByPopularity(base, pop) : base
   }, [filter, pop])
   const played = GAMES.filter((g) => bests[g.id] > 0).length
