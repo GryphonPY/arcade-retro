@@ -16,6 +16,9 @@ import { Badge as PasteleriaBadge } from './badges/pasteleria'
 import { Badge as DulceMatchBadge } from './badges/dulce-match'
 import { Badge as CafeMichiBadge } from './badges/cafe-michi'
 import { Badge as NiditoBadge } from './badges/nidito'
+import { Badge as CortaFrutasBadge } from './badges/corta-frutas'
+import { Badge as TopoLocoBadge } from './badges/topo-loco'
+import { Badge as GloboArribaBadge } from './badges/globo-arriba'
 
 export function CartridgeBadge({ gameId }: { gameId: string }) {
   switch (gameId) {
@@ -55,6 +58,12 @@ export function CartridgeBadge({ gameId }: { gameId: string }) {
       return <CafeMichiBadge />
     case 'nidito':
       return <NiditoBadge />
+    case 'corta-frutas':
+      return <CortaFrutasBadge />
+    case 'topo-loco':
+      return <TopoLocoBadge />
+    case 'globo-arriba':
+      return <GloboArribaBadge />
     case 'snake-neon':
       return (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -667,6 +667,48 @@ const DEFS: Record<string, TrackDef> = {
     bassVol: 0.045,
     drums: 'k---s---'.repeat(4),
   },
+  // Corta Frutas: energética en La menor, con sabor pentatónico (A C D E G)
+  'corta-frutas': {
+    bpm: 150,
+    bassType: 'sawtooth',
+    bass: bars('A2 - A2 A3 A2 - A2 A3', 'G2 - G2 G3 G2 - G2 G3', 'F2 - F2 F3 F2 - F2 F3', 'E2 - E2 E3 E2 - E2 E3'),
+    lead: bars('A4 C5 E5 - A5 G5 E5 C5', 'D5 E5 G5 - E5 - D5 C5', 'G4 A4 C5 - E5 C5 A4 -', 'E5 - D5 C5 A4 - G4 A4'),
+    leadType: 'square',
+    leadVol: 0.028,
+    bassVol: 0.045,
+    drums: R8.repeat(4),
+    bassB: bars('C3 - C3 C4 C3 - C3 C4', 'D3 - D3 D4 D3 - D3 D4', 'A2 - A2 A3 A2 - A2 A3', 'E2 - E2 E3 E2 - E2 E3'),
+    leadB: bars('A5 - C6 E6 - C6 A5 E5', 'G5 E5 D5 - C5 D5 E5 G5', 'A5 - G5 E5 - C5 D5 -', 'E5 D5 C5 A4 C5 E5 A5 -'),
+    drumsB: R8.repeat(3) + 'k-s-ssss',
+  },
+  // Topo Loco: polka tonta en Do mayor, bajo oom-pah (raíz - quinta)
+  'topo-loco': {
+    bpm: 140,
+    bassType: 'triangle',
+    bass: bars('C2 - G2 - C2 - G2 -', 'F2 - C3 - F2 - C3 -', 'G2 - D3 - G2 - D3 -', 'C2 - G2 - C2 - G2 -'),
+    lead: bars('E5 G5 C6 G5 E5 - G5 -', 'F5 - A5 - C6 - A5 -', 'G5 B5 D6 B5 G5 - D5 -', 'C5 E5 G5 C6 - G5 E5 C5'),
+    leadType: 'square',
+    leadVol: 0.026,
+    bassVol: 0.05,
+    drums: 'k-s-k-s-'.repeat(4),
+    bassB: bars('A1 - E2 - A1 - E2 -', 'F2 - C3 - F2 - C3 -', 'G2 - D3 - G2 - D3 -', 'G2 - D3 - C2 - G2 -'),
+    leadB: bars('G5 - E5 G5 C6 - G5 E5', 'A5 - F5 A5 C6 A5 F5 -', 'G5 B5 D6 - C6 B5 G5 -', 'E5 - G5 C6 - G5 E5 C5'),
+    drumsB: 'k-s-k-s-'.repeat(3) + 'k-s-k-ss',
+  },
+  // Globo Arriba: flotante en Fa mayor, compás de vals (6 pasos por compás)
+  'globo-arriba': {
+    bpm: 110,
+    bassType: 'triangle',
+    bass: bars('F2 - - C3 - -', 'C2 - - G2 - -', 'Bb2 - - F3 - -', 'C2 - - G2 - -'),
+    lead: bars('F4 - A4 C5 F5 -', 'E5 - D5 C5 A4 -', 'Bb4 - C5 D5 C5 -', 'A4 - C5 A4 F4 -'),
+    leadType: 'triangle',
+    leadVol: 0.03,
+    bassVol: 0.04,
+    drums: 'k-h-h-'.repeat(4),
+    bassB: bars('D2 - - A2 - -', 'Bb2 - - F3 - -', 'C2 - - G2 - -', 'F2 - - C3 - -'),
+    leadB: bars('C5 - F5 A5 F5 -', 'G5 - F5 E5 D5 -', 'C5 - E5 G5 C6 -', 'F5 - C5 A4 F4 -'),
+    drumsB: 'k-h-h-'.repeat(4),
+  },
 }
 
 const splitToks =(str: string | undefined) => (str ?? '').trim().split(/\s+/).filter(Boolean)

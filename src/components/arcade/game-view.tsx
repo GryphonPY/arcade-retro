@@ -41,6 +41,9 @@ const GAME_COMPONENTS: Record<string, ComponentType> = {
   'dulce-match': dynamic(() => import('@/components/games/dulce-match'), { ssr: false, loading }),
   'cafe-michi': dynamic(() => import('@/components/games/cafe-michi'), { ssr: false, loading }),
   nidito: dynamic(() => import('@/components/games/nidito'), { ssr: false, loading }),
+  'corta-frutas': dynamic(() => import('@/components/games/corta-frutas'), { ssr: false, loading }),
+  'topo-loco': dynamic(() => import('@/components/games/topo-loco'), { ssr: false, loading }),
+  'globo-arriba': dynamic(() => import('@/components/games/globo-arriba'), { ssr: false, loading }),
 }
 
 function subscribeFullscreen(cb: () => void) {
