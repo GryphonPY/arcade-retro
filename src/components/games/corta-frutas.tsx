@@ -170,6 +170,14 @@ const sPause = () => tone({ freq: 520, to: 440, dur: 0.09, vol: 0.04, type: 'tri
 // ---------- utilidades ----------
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+/** Vibración háptica corta, si el dispositivo la soporta. */
+const buzz = (p: number | number[]) => {
+  try {
+    navigator.vibrate?.(p)
+  } catch {
+    /* sin vibración */
+  }
+}
 
 /** Distancia del punto (cx, cy) al segmento (ax, ay)-(bx, by). */
 function segDist(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
@@ -245,6 +253,7 @@ export default function CortaFrutas() {
       const n = g.comboN
       g.comboN = 0
       if (n < 3) return
+      buzz([20, 40, 30])
       g.score += n
       g.banner = { text: `¡COMBO x${n}!`, sub: `+${n}`, t: 1 }
       sCombo()
@@ -268,6 +277,7 @@ export default function CortaFrutas() {
         juice.shake(1)
         juice.freeze(BOOM_FREEZE)
         sBomb()
+        buzz([80, 60, 160])
       } else {
         juice.flash('#ff3b3b', 0.35)
         juice.shake(0.6)
@@ -341,6 +351,7 @@ export default function CortaFrutas() {
     const missFruit = (x: number) => {
       g.missed += 1
       g.missPulse = 1
+      buzz(60)
       g.misses.push({ x: clamp(x, 24, W - 24), t: MISS_LIFE })
       sMiss()
       juice.shake(0.15)
@@ -387,6 +398,7 @@ export default function CortaFrutas() {
       g.bestCombo = Math.max(g.bestCombo, g.comboN)
       g.score += def.points
       g.cut += 1
+      buzz(kind === 'dorada' ? 35 : 12)
       if (kind === 'dorada') {
         g.golden += 1
         sGold()
@@ -707,10 +719,7 @@ export default function CortaFrutas() {
         height={H}
         className="rounded-xl border-2 border-[#ff5a6e]/40 bg-[#1a0f0a] shadow-[0_0_30px_rgba(255,90,110,0.18)]"
         hud={
-          <Hud>
-            <span style={{ color: ACCENT }}>PUNTOS {score}</span>
-            <span className="text-white/60">RECORD {Math.max(best, score)}</span>
-          </Hud>
+          <Hud><span /><span className="text-white/60">RECORD {Math.max(best, score)}</span></Hud>
         }
       >
         <canvas

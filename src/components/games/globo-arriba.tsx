@@ -147,6 +147,14 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const rnd = (a: number, b: number) => a + Math.random() * (b - a)
 /** Intervalo con variación de ±40%. */
 const jitter = (base: number) => base * rnd(0.6, 1.4)
+/** Vibración háptica corta, si el dispositivo la soporta. */
+const buzz = (p: number | number[]) => {
+  try {
+    navigator.vibrate?.(p)
+  } catch {
+    /* sin vibración */
+  }
+}
 
 /** ¿Se tocan dos círculos? */
 const overlaps = (ax: number, ay: number, ar: number, bx: number, by: number, br: number) => {
@@ -377,6 +385,7 @@ export default function GloboArriba() {
     const popBalloon = (): boolean => {
       const i = g.balloons - 1
       const s = SPOTS[i]
+      buzz(70)
       juice.burst(g.x + s.dx, g.py + s.dy, popColors(i), { count: 14, speed: 150, life: 0.6, size: 4, gravity: 400 })
       g.balloons--
       sPop()
@@ -401,6 +410,7 @@ export default function GloboArriba() {
       juice.freeze(80)
       juice.burst(g.x, g.py, ['#fbbf24', '#ffffff', '#ff9f43'], { count: 16, speed: 170, life: 0.6, size: 4, gravity: 500 })
       sfx.hurt()
+      buzz([80, 50, 160])
       const nb = saveBest(GAME_ID, g.alt)
       setBest(Math.max(loadBest(GAME_ID), g.alt))
       setResult({ alt: g.alt, newBest: nb, stars: g.stars, zone: g.zone })
@@ -424,11 +434,13 @@ export default function GloboArriba() {
         g.stars++
         g.bonus += STAR_BONUS
         sStar()
+        buzz(10)
         juice.text(p.x, p.y - 22, `+${STAR_BONUS}`, '#fde047', 14, 0.8)
         juice.burst(p.x, p.y, ['#fde047', '#fff3a6', '#ffffff'], { count: 14, speed: 140, life: 0.5, size: 3 })
       } else {
         if (g.balloons < 3) g.balloons++
         sBalloon()
+        buzz(25)
         juice.text(p.x, p.y - 24, '+1 globo', p.color, 12, 0.9)
         juice.burst(p.x, p.y, [p.color, '#ffffff'], { count: 14, speed: 130, life: 0.5, size: 4 })
       }
@@ -725,10 +737,7 @@ export default function GloboArriba() {
         height={H}
         className="rounded-xl border-2 border-[#4dc3ff]/40 bg-[#0b1020] shadow-[0_0_30px_rgba(77,195,255,0.18)]"
         hud={
-          <Hud>
-            <span style={{ color: ACCENT }}>ALTURA {score} m</span>
-            <span className="text-white/60">RECORD {Math.max(best, score)} m</span>
-          </Hud>
+          <Hud><span /><span className="text-white/60">RECORD {Math.max(best, score)} m</span></Hud>
         }
       >
         <canvas

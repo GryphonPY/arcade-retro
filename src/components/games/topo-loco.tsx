@@ -86,6 +86,14 @@ const HOLE_KEYS: Partial<Record<string, number>> = {
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+/** Vibración háptica corta, si el dispositivo la soporta. */
+const buzz = (p: number | number[]) => {
+  try {
+    navigator.vibrate?.(p)
+  } catch {
+    /* sin vibración */
+  }
+}
 
 type Phase = 'menu' | 'playing' | 'ending' | 'over'
 type Stage = 'rise' | 'up' | 'hit' | 'hide'
@@ -321,6 +329,7 @@ export default function TopoLoco() {
         g.timeLeft = Math.max(0, g.timeLeft - 3)
         g.streak = 0
         sMiau()
+        buzz([60, 40, 60])
         juice.flash('#ef4444', 0.35)
         juice.shake(0.25)
         juice.text(h.x, hd.y - 12, '-3s', '#ef4444', 16, 1)
@@ -338,6 +347,7 @@ export default function TopoLoco() {
         c.afterHit = 'up'
         c.dizzy = false
         sClank()
+        buzz(25)
         juice.shake(0.2)
         juice.burst(hd.x, hd.y, ['#e2e8f0', '#94a3b8'], { count: 8, speed: 110, life: 0.4, size: 3, gravity: 300 })
         g.impacts.push({ x: hd.x, y: hd.y, t: 0, color: '#e2e8f0' })
@@ -365,6 +375,7 @@ export default function TopoLoco() {
         juice.burst(hd.x, hd.y, ['#8b5a2b', '#c4834d', '#fde68a'], { count: 12, speed: 150, life: 0.5, size: 4, gravity: 400 })
       }
       addScore(pts)
+      buzz(dorado ? 35 : 15)
       juice.text(hd.x, hd.y - 12, `+${pts}`, dorado ? '#fde047' : '#ffffff', 16, 0.8)
       g.impacts.push({ x: hd.x, y: hd.y, t: 0, color: '#ffffff' })
       juice.shake(0.2)
@@ -421,6 +432,7 @@ export default function TopoLoco() {
       juice.flash('#ffffff', 0.5)
       juice.shake(0.5)
       sTimeUp()
+      buzz(120)
     }
 
     const finishRound = () => {
@@ -658,10 +670,7 @@ export default function TopoLoco() {
         height={H}
         className="rounded-xl border-2 border-[#a3e635]/40 bg-[#0b1020] shadow-[0_0_30px_rgba(163,230,53,0.18)]"
         hud={
-          <Hud>
-            <span style={{ color: ACCENT }}>PUNTOS {score}</span>
-            <span className="text-white/60">RECORD {Math.max(best, score)}</span>
-          </Hud>
+          <Hud><span /><span className="text-white/60">RECORD {Math.max(best, score)}</span></Hud>
         }
       >
         <canvas
