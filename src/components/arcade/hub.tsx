@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ChevronLeft, ChevronRight, Crown, Globe, Music, Play, Trophy, Tv, Volume2, VolumeX } from 'lucide-react'
 import { CATEGORIES, GAMES, type Category, type GameMeta } from '@/components/games/catalog'
 import { CartridgeBadge } from '@/components/games/cartridge-badge'
 import { updateSettings, useBests, useRecent, useSettings } from './store'
 import { fetchGameTop, useNickname, useOnlineSummary, type OnlineEntry } from './online'
+import { usePopularity } from './popular'
 import { NubeBoton } from './nube-boton'
 import { ControlList, GameArt, IconButton } from './ui'
 
@@ -20,15 +21,44 @@ const favoritesFirst = (list: GameMeta[]) => [
 ]
 const SHOWCASE = favoritesFirst(GAMES)
 const FLAGSHIPS = GAMES.filter((g) => g.flagship)
+// Mínimo de partidas registradas (entre todos los juegos) para ordenar por popularidad.
+const POPULAR_MIN_TOTAL = 20
+// Las novedades deben quedar dentro de las primeras posiciones del carrusel.
+const NEW_SLOTS = 4
+
+/** Ordena por partidas, de más a menos. Es estable: los empates conservan el orden previo. */
+function sortByPopularity(list: GameMeta[], pop: Record<string, number>) {
+  return [...list].sort((a, b) => (pop[b.id] ?? 0) - (pop[a.id] ?? 0))
+}
+
+/** Sube al puesto 2 en adelante las novedades que hayan quedado por debajo del puesto 4. */
+function keepNewVisible(list: GameMeta[]) {
+  const news = list.filter((g, i) => i >= NEW_SLOTS && g.isNew)
+  if (news.length === 0) return list
+  const rest = list.filter((g) => !news.includes(g))
+  return [rest[0], ...news, ...rest.slice(1)]
+}
 
 export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
   const settings = useSettings()
   const bests = useBests()
   const recent = useRecent()
   const world = useOnlineSummary()
+  const popularity = usePopularity()
   const [filter, setFilter] = useState<Category | 'todos'>('todos')
-  const visible = filter === 'todos' ? SHOWCASE : GAMES.filter((g) => g.category === filter)
+  // Solo se ordena por popularidad si hay suficientes datos (si no, orden de siempre).
+  const pop = useMemo(() => {
+    if (!popularity) return null
+    const total = Object.values(popularity).reduce((a, n) => a + n, 0)
+    return total >= POPULAR_MIN_TOTAL ? popularity : null
+  }, [popularity])
+  const showcase = useMemo(() => (pop ? keepNewVisible(sortByPopularity(SHOWCASE, pop)) : SHOWCASE), [pop])
+  const visible = useMemo(() => {
+    const base = filter === 'todos' ? SHOWCASE : GAMES.filter((g) => g.category === filter)
+    return pop ? sortByPopularity(base, pop) : base
+  }, [filter, pop])
   const played = GAMES.filter((g) => bests[g.id] > 0).length
+  const records = played > 0 ? `Has puesto récord en ${played} de ${GAMES.length}` : `${GAMES.length} juegos, listos para jugar`
 
   return (
     <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
@@ -71,7 +101,7 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6">
-        <Showcase recent={recent} bests={bests} world={world} onPlay={onPlay} />
+        <Showcase list={showcase} recent={recent} bests={bests} world={world} onPlay={onPlay} />
 
         {recent.length > 0 && (
           <section aria-labelledby="recent" className="mt-10">
@@ -136,7 +166,7 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
               Todos los juegos
             </h2>
             <p className="mt-1 text-sm text-dim">
-              {played > 0 ? `Has puesto récord en ${played} de ${GAMES.length}` : `${GAMES.length} juegos, listos para jugar`}
+              {pop ? `${records} · ordenados por los más jugados` : records}
             </p>
           </div>
 
@@ -218,11 +248,13 @@ function useReducedMotion() {
 }
 
 function Showcase({
+  list,
   recent,
   bests,
   world,
   onPlay,
 }: {
+  list: GameMeta[]
   recent: string[]
   bests: Record<string, number>
   world: Record<string, OnlineEntry[]> | null
@@ -232,24 +264,24 @@ function Showcase({
   const [paused, setPaused] = useState(false)
   const reduced = useReducedMotion()
   const touchX = useRef<number | null>(null)
-  const game = SHOWCASE[index]
+  const game = list[index]
 
   // Al volver de un juego, el carrusel muestra el último jugado.
   const last = recent[0]
   const [seenLast, setSeenLast] = useState(last)
   if (last !== seenLast) {
     setSeenLast(last)
-    const i = SHOWCASE.findIndex((g) => g.id === last)
+    const i = list.findIndex((g) => g.id === last)
     if (i >= 0) setIndex(i)
   }
 
   useEffect(() => {
     if (paused || reduced) return
-    const t = window.setTimeout(() => setIndex((i) => (i + 1) % SHOWCASE.length), ROTATE_MS)
+    const t = window.setTimeout(() => setIndex((i) => (i + 1) % list.length), ROTATE_MS)
     return () => window.clearTimeout(t)
-  }, [index, paused, reduced])
+  }, [index, paused, reduced, list.length])
 
-  const go = (d: number) => setIndex((i) => (i + d + SHOWCASE.length) % SHOWCASE.length)
+  const go = (d: number) => setIndex((i) => (i + d + list.length) % list.length)
   const top = world?.[game.id] ?? []
 
   return (
@@ -326,7 +358,7 @@ function Showcase({
 
       <div className="flex items-center justify-between gap-3 px-5 pb-4 sm:px-8 md:px-10">
         <div className="flex flex-1 items-center gap-1.5 overflow-hidden">
-          {SHOWCASE.map((g, i) => (
+          {list.map((g, i) => (
             <button
               key={g.id}
               type="button"

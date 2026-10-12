@@ -308,8 +308,34 @@ async function handlePlaysPost(db: D1Database, request: Request) {
   return new Response(null, { status: 204 })
 }
 
-/** Totales de los últimos N días: por juego (ordenado por partidas) y por día. */
+// Caché de borde de Cloudflare (solo para las lecturas de /api/plays).
+declare const caches: {
+  default: { match(req: Request): Promise<Response | undefined>; put(req: Request, res: Response): Promise<void> }
+}
+const PLAYS_CACHE_SECONDS = 600
+
+/**
+ * Totales de los últimos N días: por juego (ordenado por partidas) y por día.
+ * Se cachea en el borde por URL para no leer D1 en cada visita al hub.
+ */
 async function handlePlaysGet(db: D1Database, url: URL) {
+  const key = new Request(url.toString())
+  try {
+    const hit = await caches.default.match(key)
+    if (hit) return hit
+  } catch {
+    // sin Cache API: se consulta D1 directamente
+  }
+  const res = await playsTotals(db, url)
+  try {
+    await caches.default.put(key, res.clone())
+  } catch {
+    // sin Cache API: se responde igual
+  }
+  return res
+}
+
+async function playsTotals(db: D1Database, url: URL) {
   const days = Math.min(90, Math.max(1, Math.trunc(Number(url.searchParams.get('days'))) || 30))
   const since = utcDay(Date.now() - (days - 1) * DAY_MS)
   const [byGame, byDay] = await Promise.all([
@@ -333,7 +359,13 @@ async function handlePlaysGet(db: D1Database, url: URL) {
     .map((r) => ({ game: r.game, name: names.get(r.game) ?? r.game, sessions: r.sessions, rounds: r.rounds, seconds: r.seconds }))
     .sort((a, b) => b.rounds - a.rounds || b.seconds - a.seconds)
   const daily = byDay.results.map((r) => ({ day: r.day, sessions: r.sessions, rounds: r.rounds, seconds: r.seconds }))
-  return json({ days, games, daily }, 200, true)
+  return new Response(JSON.stringify({ days, games, daily }), {
+    status: 200,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': `public, max-age=${PLAYS_CACHE_SECONDS}`,
+    },
+  })
 }
 
 const worker = {
