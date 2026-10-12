@@ -26,11 +26,48 @@ export const viewport: Viewport = {
   themeColor: '#07070b',
 }
 
+const SITE_TITLE = 'Arcade Retro — 31 juegos gratis para niños y grandes'
+const SITE_DESCRIPTION =
+  'Juegos sencillos y divertidos para jugar gratis en el celular o la computadora, sin instalar nada: cruza el camino con el pollito, corta frutas con el dedo, golpea al topo, vuela con Flap Pixel, apila la torre y muchos más. Récords con amigos y música chiptune.'
+
 export const metadata: Metadata = {
-  title: 'Arcade Retro — 31 juegos arcade en tu navegador',
-  description:
-    'Treinta y un juegos arcade para jugar gratis en el navegador, en computadora o celular: un FPS retro, carreras estilo OutRun, shooter de naves, Pong para dos, bloques, Snake, invasores, laberinto con fantasmas, supervivencia y más. Tabla de récords mundial, música chiptune y controles táctiles.',
-  keywords: ['arcade', 'juegos retro', 'snake', 'space invaders', 'pac-man', 'breakout', 'asteroids', 'chiptune'],
+  metadataBase: new URL('https://arcade-retro-cool.periwinkle-cookie.workers.dev'),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  keywords: [
+    'juegos para niños',
+    'juegos gratis',
+    'juegos online',
+    'juegos para celular',
+    'cruza el camino',
+    'corta frutas',
+    'topo',
+    'flappy',
+    'arcade',
+    'juegos retro',
+  ],
+  openGraph: {
+    type: 'website',
+    locale: 'es_MX',
+    url: '/',
+    siteName: 'Arcade Retro',
+    title: 'Arcade Retro — juegos gratis para jugar en el celular',
+    description: 'Cruza el camino, corta frutas, golpea al topo y 28 juegos más. Gratis y sin instalar nada.',
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'Arcade Retro: el pollito, el pájaro, la sandía, el topo y el gatito del globo',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Arcade Retro — juegos gratis para jugar en el celular',
+    description: 'Cruza el camino, corta frutas, golpea al topo y 28 juegos más. Gratis y sin instalar nada.',
+    images: ['/og.png'],
+  },
   icons: {
     icon: [
       { url: '/logo.svg', type: 'image/svg+xml' },

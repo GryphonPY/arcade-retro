@@ -12,12 +12,13 @@ import { ControlList, GameArt, IconButton } from './ui'
 const fmt = (n: number) => n.toLocaleString('es-MX')
 const byId = (id: string) => GAMES.find((g) => g.id === id)
 const ROTATE_MS = 7000
-// Primero los juegos estrella, luego las novedades y el resto del catálogo.
-const SHOWCASE = [
-  ...GAMES.filter((g) => g.flagship),
-  ...GAMES.filter((g) => !g.flagship && g.isNew),
-  ...GAMES.filter((g) => !g.flagship && !g.isNew),
+// Favoritos primero (las novedades antes), luego el resto en orden de catálogo.
+const favoritesFirst = (list: GameMeta[]) => [
+  ...list.filter((g) => g.favorite && g.isNew),
+  ...list.filter((g) => g.favorite && !g.isNew),
+  ...list.filter((g) => !g.favorite),
 ]
+const SHOWCASE = favoritesFirst(GAMES)
 const FLAGSHIPS = GAMES.filter((g) => g.flagship)
 
 export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
@@ -26,8 +27,7 @@ export function Hub({ onPlay }: { onPlay: (id: string) => void }) {
   const recent = useRecent()
   const world = useOnlineSummary()
   const [filter, setFilter] = useState<Category | 'todos'>('todos')
-  const catalog = GAMES.filter((g) => !g.flagship)
-  const visible = filter === 'todos' ? catalog : catalog.filter((g) => g.category === filter)
+  const visible = filter === 'todos' ? SHOWCASE : GAMES.filter((g) => g.category === filter)
   const played = GAMES.filter((g) => bests[g.id] > 0).length
 
   return (

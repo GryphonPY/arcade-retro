@@ -29,6 +29,8 @@ export interface GameMeta {
   isNew?: boolean
   /** Juego estrella: aparece primero y con tarjeta grande en la sala. */
   flagship?: boolean
+  /** Favorito del público: va primero en la sala. */
+  favorite?: boolean
   /** Se juega mejor con el celular acostado. */
   landscape?: boolean
   /** En desarrollo: no se muestra en el build de producción. */
@@ -45,8 +47,6 @@ const MOVE: ControlHint = { keys: ['←', '↑', '→', '↓'], label: 'mover' }
 const ALL_GAMES: GameMeta[] = [
   {
     id: 'nebula-strike',
-    flagship: true,
-    isNew: true,
     category: 'accion',
     name: 'Nebula Strike',
     genre: 'Shooter de naves',
@@ -64,9 +64,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'bunker-93',
-    flagship: true,
     landscape: true,
-    isNew: true,
     category: 'accion',
     name: 'Búnker 93',
     genre: 'FPS retro',
@@ -86,9 +84,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'sunset-run',
-    flagship: true,
     landscape: true,
-    isNew: true,
     category: 'reflejos',
     name: 'Sunset Run',
     genre: 'Carreras',
@@ -169,6 +165,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'flap-pixel',
+    favorite: true,
     category: 'reflejos',
     name: 'Flap Pixel',
     genre: 'Un botón',
@@ -181,6 +178,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'corta-frutas',
+    favorite: true,
     category: 'reflejos',
     isNew: true,
     name: 'Corta Frutas',
@@ -197,6 +195,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'topo-loco',
+    favorite: true,
     category: 'reflejos',
     isNew: true,
     name: 'Topo Loco',
@@ -213,6 +212,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'globo-arriba',
+    favorite: true,
     category: 'reflejos',
     isNew: true,
     name: 'Globo Arriba',
@@ -229,6 +229,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'cruza-camino',
+    favorite: true,
     category: 'reflejos',
     name: 'Cruza el Camino',
     genre: 'Esquiva',
@@ -241,6 +242,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'torre-neon',
+    favorite: true,
     category: 'reflejos',
     name: 'Torre Neón',
     genre: 'Precisión',
@@ -344,6 +346,7 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'brick-breaker',
+    favorite: true,
     category: 'clasicos',
     name: 'Rompe Ladrillos',
     genre: 'Paleta',
@@ -387,7 +390,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'chocones',
-    isNew: true,
     category: 'pareja',
     name: 'Chocones',
     genre: 'Arena de choques',
@@ -407,7 +409,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'artilleria',
-    isNew: true,
     landscape: true,
     category: 'pareja',
     name: 'Artillería',
@@ -428,7 +429,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'futbol-cabezon',
-    isNew: true,
     landscape: true,
     category: 'pareja',
     name: 'Fútbol Cabezón',
@@ -451,7 +451,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'guerra-castillos',
-    isNew: true,
     category: 'pareja',
     name: 'Guerra de Castillos',
     genre: 'Estrategia en carriles',
@@ -472,7 +471,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'pasteleria',
-    isNew: true,
     category: 'pareja',
     name: 'Pastelería en Pareja',
     genre: 'Pastelería a lo Good Pizza',
@@ -488,7 +486,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'dulce-match',
-    isNew: true,
     category: 'tiernos',
     name: 'Dulce Match',
     genre: 'Combina 3',
@@ -506,7 +503,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'cafe-michi',
-    isNew: true,
     category: 'tiernos',
     name: 'Café Michi',
     genre: 'Café cozy de gatitos',
@@ -522,7 +518,6 @@ const ALL_GAMES: GameMeta[] = [
   },
   {
     id: 'nidito',
-    isNew: true,
     category: 'tiernos',
     name: 'Nidito',
     genre: 'Vida en pareja',
