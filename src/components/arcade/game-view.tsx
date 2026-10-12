@@ -8,6 +8,7 @@ import { updateSettings, useBests, useSettings } from './store'
 import { ActiveGameContext } from './online'
 import { ControlList, IconButton } from './ui'
 import { getRemountKey, subscribeStage } from '@/components/games/stage'
+import { beginSession, endSession } from './metrics'
 
 const loading = () => <div className="flex-1" />
 
@@ -79,6 +80,12 @@ export function GameView({ game, onExit }: { game: GameMeta; onExit: () => void 
   const Game = GAME_COMPONENTS[game.id]
   // Cambia cuando un juego en espera debe volver a montarse con la pantalla actual.
   const remount = useSyncExternalStore(subscribeStage, getRemountKey, () => 0)
+
+  // Métricas anónimas: una sesión por juego abierto (se envía al salir).
+  useEffect(() => {
+    beginSession(game.id)
+    return () => endSession()
+  }, [game.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

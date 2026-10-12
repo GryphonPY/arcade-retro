@@ -41,6 +41,14 @@ const SAVE_MAX_BYTES = 512 * 1024
 const SAVE_MAX_KEYS = 64
 const SAVE_MAX_KEY_LEN = 64
 
+// Métricas de juego anónimas: solo totales por juego y día (sin IP, sin cookies).
+const PLAYS_PATH = '/api/plays'
+const PLAYS_MAX_BYTES = 1024
+const PLAYS_MAX_ROUNDS = 300
+const PLAYS_MAX_SECONDS = 14_400
+const PLAYS_MIN_SECONDS = 3
+const DAY_MS = 86_400_000
+
 // Filtro básico de apodos ofensivos (comparación sin acentos ni símbolos).
 const BLOCKED = ['puto', 'puta', 'pendej', 'verga', 'culero', 'mierda', 'nazi', 'hitler', 'fuck', 'shit', 'nigg', 'maricon', 'joto', 'pinche']
 
@@ -63,6 +71,16 @@ function init(db: D1Database) {
       db.prepare('CREATE TABLE IF NOT EXISTS submissions (ip TEXT NOT NULL, at INTEGER NOT NULL)'),
       db.prepare('CREATE INDEX IF NOT EXISTS submissions_ip ON submissions (ip, at)'),
       db.prepare('CREATE TABLE IF NOT EXISTS saves (code TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)'),
+      db.prepare(
+        `CREATE TABLE IF NOT EXISTS plays (
+          day TEXT NOT NULL,
+          game TEXT NOT NULL,
+          sessions INTEGER NOT NULL,
+          rounds INTEGER NOT NULL,
+          seconds INTEGER NOT NULL,
+          PRIMARY KEY (day, game)
+        )`,
+      ),
     ])
     .then(() => undefined)
     .catch((err) => {
@@ -248,16 +266,92 @@ async function handleSave(db: D1Database, request: Request, code: string) {
   return json({ error: 'metodo-no-permitido' }, 405)
 }
 
+/** Lee un entero acotado; valores no numéricos cuentan como 0. */
+function clampInt(raw: unknown, max: number) {
+  const n = Math.round(Number(raw))
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.min(max, n)
+}
+
+/** Día UTC en formato YYYY-MM-DD. */
+function utcDay(ms: number) {
+  return new Date(ms).toISOString().slice(0, 10)
+}
+
+/** Registra una sesión de juego (una petición por sesión, al salir del juego). */
+async function handlePlaysPost(db: D1Database, request: Request) {
+  if (Number(request.headers.get('content-length')) > PLAYS_MAX_BYTES) return json({ error: 'demasiado-grande' }, 413)
+  // navigator.sendBeacon envía text/plain: se lee como texto y se parsea a mano.
+  const text = await request.text()
+  if (new TextEncoder().encode(text).byteLength > PLAYS_MAX_BYTES) return json({ error: 'demasiado-grande' }, 413)
+  let body: { game?: unknown; rounds?: unknown; seconds?: unknown }
+  try {
+    body = JSON.parse(text)
+  } catch {
+    return json({ error: 'json-invalido' }, 400)
+  }
+  const game = typeof body.game === 'string' ? body.game : ''
+  if (!GAME_IDS.has(game)) return json({ error: 'juego-desconocido' }, 400)
+  const rounds = clampInt(body.rounds, PLAYS_MAX_ROUNDS)
+  const seconds = clampInt(body.seconds, PLAYS_MAX_SECONDS)
+  // Sesiones muy cortas y sin partidas (p. ej. abrir y cerrar al instante) no cuentan.
+  if (seconds < PLAYS_MIN_SECONDS && rounds === 0) return new Response(null, { status: 204 })
+
+  await db
+    .prepare(
+      `INSERT INTO plays (day, game, sessions, rounds, seconds) VALUES (?, ?, 1, ?, ?)
+       ON CONFLICT (day, game) DO UPDATE SET
+         sessions = sessions + 1, rounds = rounds + excluded.rounds, seconds = seconds + excluded.seconds`,
+    )
+    .bind(utcDay(Date.now()), game, rounds, seconds)
+    .run()
+  return new Response(null, { status: 204 })
+}
+
+/** Totales de los últimos N días: por juego (ordenado por partidas) y por día. */
+async function handlePlaysGet(db: D1Database, url: URL) {
+  const days = Math.min(90, Math.max(1, Math.trunc(Number(url.searchParams.get('days'))) || 30))
+  const since = utcDay(Date.now() - (days - 1) * DAY_MS)
+  const [byGame, byDay] = await Promise.all([
+    db
+      .prepare(
+        `SELECT game, SUM(sessions) AS sessions, SUM(rounds) AS rounds, SUM(seconds) AS seconds
+         FROM plays WHERE day >= ? GROUP BY game`,
+      )
+      .bind(since)
+      .all<{ game: string; sessions: number; rounds: number; seconds: number }>(),
+    db
+      .prepare(
+        `SELECT day, SUM(sessions) AS sessions, SUM(rounds) AS rounds, SUM(seconds) AS seconds
+         FROM plays WHERE day >= ? GROUP BY day ORDER BY day ASC`,
+      )
+      .bind(since)
+      .all<{ day: string; sessions: number; rounds: number; seconds: number }>(),
+  ])
+  const names = new Map(GAMES.map((g) => [g.id, g.name]))
+  const games = byGame.results
+    .map((r) => ({ game: r.game, name: names.get(r.game) ?? r.game, sessions: r.sessions, rounds: r.rounds, seconds: r.seconds }))
+    .sort((a, b) => b.rounds - a.rounds || b.seconds - a.seconds)
+  const daily = byDay.results.map((r) => ({ day: r.day, sessions: r.sessions, rounds: r.rounds, seconds: r.seconds }))
+  return json({ days, games, daily }, 200, true)
+}
+
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request)
 
     const save = SAVE_PATH.exec(url.pathname)
-    if (url.pathname !== '/api/scores' && !save) return json({ error: 'no-encontrado' }, 404)
+    const plays = url.pathname === PLAYS_PATH
+    if (url.pathname !== '/api/scores' && !save && !plays) return json({ error: 'no-encontrado' }, 404)
     if (!env.DB) return json({ error: 'sin-base' }, 503)
     try {
       await init(env.DB)
+      if (plays) {
+        if (request.method === 'POST') return await handlePlaysPost(env.DB, request)
+        if (request.method === 'GET') return await handlePlaysGet(env.DB, url)
+        return json({ error: 'metodo-no-permitido' }, 405)
+      }
       if (save) return await handleSave(env.DB, request, save[1])
       if (request.method === 'GET') return await handleGet(env.DB, url)
       if (request.method === 'POST') return await handlePost(env.DB, request)

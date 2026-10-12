@@ -1,5 +1,7 @@
 'use client'
 
+import { countRound } from '@/components/arcade/metrics'
+
 /**
  * Factor de resolución interna del canvas. Se renderiza al menos a 2x para que
  * la pantalla siga nítida cuando se escala para llenar monitores grandes.
@@ -33,6 +35,8 @@ export function loadBest(gameId: string): number {
 }
 
 export function saveBest(gameId: string, score: number): boolean {
+  // Cada llamada equivale a una partida terminada (métricas anónimas).
+  countRound(gameId)
   if (typeof window === 'undefined') return false
   try {
     const prev = loadBest(gameId)
