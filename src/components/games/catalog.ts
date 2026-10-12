@@ -231,6 +231,23 @@ const ALL_GAMES: GameMeta[] = [
     viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(77,195,255,0.14), transparent), #060c16',
   },
   {
+    id: 'torre-espiral',
+    isNew: true,
+    favorite: true,
+    category: 'reflejos',
+    name: 'Torre Espiral',
+    genre: 'Caída libre',
+    year: '2018',
+    desc: 'Gira la torre y deja caer la pelotita por los huecos. Cae varios pisos seguidos para volverte bola de fuego, pero cuidado con lo rojo.',
+    controls: [
+      { keys: ['←', '→'], label: 'girar la torre' },
+      { keys: ['Mouse'], label: 'arrastra para girar' },
+    ],
+    touchHelp: 'Arrastra el dedo a los lados para girar la torre.',
+    accent: '#8a63ff',
+    viewBg: 'radial-gradient(900px 520px at 50% 0%, rgba(138,99,255,0.16), transparent), #0c0818',
+  },
+  {
     id: 'cruza-camino',
     favorite: true,
     category: 'reflejos',

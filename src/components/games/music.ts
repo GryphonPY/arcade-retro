@@ -709,6 +709,30 @@ const DEFS: Record<string, TrackDef> = {
     leadB: bars('C5 - F5 A5 F5 -', 'G5 - F5 E5 D5 -', 'C5 - E5 G5 C6 -', 'F5 - C5 A4 F4 -'),
     drumsB: 'k-h-h-'.repeat(4),
   },
+  // Torre Espiral: electro-pop chiptune rebotona, 128 bpm, Mi menor – Do – Sol – Re (sección B: La menor – Re – Sol – Do)
+  'torre-espiral': {
+    bpm: 128,
+    bassType: 'sawtooth',
+    bass: bars(gal8('E'), gal8('C'), gal8('G'), gal8('D')),
+    lead: bars(
+      'E5 - G5 B5 E6 B5 G5 -',
+      'C5 - E5 G5 C6 G5 E5 -',
+      'D5 - G5 B5 D6 B5 G5 -',
+      'A5 F#5 D5 F#5 A5 - D6 -',
+    ),
+    leadType: 'square',
+    leadVol: 0.028,
+    bassVol: 0.04,
+    drums: 'k-h-s-h-'.repeat(3) + 'k-h-s-hh',
+    bassB: bars(gal8('A'), gal8('D'), gal8('G'), gal8('C')),
+    leadB: bars(
+      'A5 - C6 E6 A6 E6 C6 -',
+      'F5 - A5 D6 F6 D6 A5 -',
+      'B5 - G5 D6 G6 D6 B5 -',
+      'G5 C6 E6 - G6 E6 C6 -',
+    ),
+    drumsB: 'k-hks-h-'.repeat(4),
+  },
 }
 
 const splitToks =(str: string | undefined) => (str ?? '').trim().split(/\s+/).filter(Boolean)

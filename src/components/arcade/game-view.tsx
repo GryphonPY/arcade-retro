@@ -45,6 +45,7 @@ const GAME_COMPONENTS: Record<string, ComponentType> = {
   'corta-frutas': dynamic(() => import('@/components/games/corta-frutas'), { ssr: false, loading }),
   'topo-loco': dynamic(() => import('@/components/games/topo-loco'), { ssr: false, loading }),
   'globo-arriba': dynamic(() => import('@/components/games/globo-arriba'), { ssr: false, loading }),
+  'torre-espiral': dynamic(() => import('@/components/games/torre-espiral'), { ssr: false, loading }),
 }
 
 function subscribeFullscreen(cb: () => void) {

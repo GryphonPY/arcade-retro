@@ -19,6 +19,7 @@ import { Badge as NiditoBadge } from './badges/nidito'
 import { Badge as CortaFrutasBadge } from './badges/corta-frutas'
 import { Badge as TopoLocoBadge } from './badges/topo-loco'
 import { Badge as GloboArribaBadge } from './badges/globo-arriba'
+import { Badge as TorreEspiralBadge } from './badges/torre-espiral'
 
 export function CartridgeBadge({ gameId }: { gameId: string }) {
   switch (gameId) {
@@ -64,6 +65,8 @@ export function CartridgeBadge({ gameId }: { gameId: string }) {
       return <TopoLocoBadge />
     case 'globo-arriba':
       return <GloboArribaBadge />
+    case 'torre-espiral':
+      return <TorreEspiralBadge />
     case 'snake-neon':
       return (
         <svg viewBox="0 0 64 64" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
