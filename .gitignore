@@ -19,3 +19,6 @@ next-env.d.ts
 
 # configuración local de Claude Code
 .claude/settings.local.json
+
+# datos de la API en despliegue propio
+/data/

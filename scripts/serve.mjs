@@ -2,7 +2,9 @@
 // Sirve para correr el sitio en un contenedor (Coolify) sin dependencias extra.
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
+import { loadDb, makeApi } from '../server/api.mjs'
 
 const ROOT = new URL('../out/', import.meta.url).pathname
 const PORT = Number(process.env.PORT || 3000)
@@ -50,7 +52,37 @@ async function resolveFile(pathname) {
   return null
 }
 
+/** Lee ids y nombres del catálogo de juegos desde el código fuente (fuente de verdad). */
+function readCatalog() {
+  const ids = new Set()
+  const names = new Map()
+  try {
+    const src = readFileSync(new URL('../src/components/games/catalog.ts', import.meta.url).pathname, 'utf8')
+    const start = src.indexOf('const ALL_GAMES')
+    const block = src.slice(start >= 0 ? start : src.indexOf('export const GAMES'))
+    for (const chunk of block.split(/\{\s*id:\s*'/).slice(1)) {
+      const id = chunk.slice(0, chunk.indexOf("'"))
+      const nameMatch = /name:\s*'([^']+)'/.exec(chunk)
+      if (id) {
+        ids.add(id)
+        if (nameMatch) names.set(id, nameMatch[1])
+      }
+    }
+  } catch (err) {
+    console.error('no se pudo leer el catálogo, la API rechazará juegos:', err.message)
+  }
+  return { ids, names }
+}
+
+const { ids, names } = readCatalog()
+await loadDb()
+const api = makeApi({ gameIds: ids, gameNames: names })
+console.log(`API lista con ${ids.size} juegos · datos en ${process.env.DATA_DIR || './data'}`)
+
 const server = createServer(async (req, res) => {
+  const pathname = (req.url || '/').split('?')[0]
+  if (pathname.startsWith('/api/')) return api.handle(req, res)
+
   try {
     const file = await resolveFile(req.url || '/')
     if (!file) {
