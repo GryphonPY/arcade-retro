@@ -35,7 +35,7 @@ const DAY_MS = 86_400_000
 
 const BLOCKED = ['puto', 'puta', 'pendej', 'verga', 'culero', 'mierda', 'nazi', 'hitler', 'fuck', 'shit', 'nigg', 'maricon', 'joto', 'pinche']
 
-const DATA_DIR = process.env.DATA_DIR || new URL('../data/', import.meta.url).pathname
+export const DATA_DIR = process.env.DATA_DIR || new URL('../data/', import.meta.url).pathname
 const DATA_FILE = join(DATA_DIR, 'data.json')
 
 /** { scores: {'game|clave': {...}}, submissions: [], saves: {}, plays: {'día|game': {...}} } */
@@ -48,6 +48,10 @@ export async function loadDb() {
     const raw = await readFile(DATA_FILE, 'utf8')
     const parsed = JSON.parse(raw)
     db = { scores: {}, submissions: [], saves: {}, plays: {}, ...parsed }
+    // Limpieza única del récord de prueba usado para validar la persistencia.
+    for (const [k, v] of Object.entries(db.scores)) {
+      if (v.name === 'PERSIST' && v.score === 4242) delete db.scores[k]
+    }
   } catch {
     db = { scores: {}, submissions: [], saves: {}, plays: {} }
   }

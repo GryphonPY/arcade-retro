@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
-import { loadDb, makeApi } from '../server/api.mjs'
+import { loadDb, makeApi, DATA_DIR } from '../server/api.mjs'
 
 const ROOT = new URL('../out/', import.meta.url).pathname
 const PORT = Number(process.env.PORT || 3000)
@@ -77,7 +77,7 @@ function readCatalog() {
 const { ids, names } = readCatalog()
 await loadDb()
 const api = makeApi({ gameIds: ids, gameNames: names })
-console.log(`API lista con ${ids.size} juegos · datos en ${process.env.DATA_DIR || './data'}`)
+console.log(`API lista con ${ids.size} juegos · datos en ${DATA_DIR}`)
 
 const server = createServer(async (req, res) => {
   const pathname = (req.url || '/').split('?')[0]
