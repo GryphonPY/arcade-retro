@@ -12,7 +12,8 @@
     "postbuild": "node scripts/precache.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "start": "node scripts/serve.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.525.0",
